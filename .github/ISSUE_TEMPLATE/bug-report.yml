@@ -1,0 +1,37 @@
+name: 报告问题
+description: 报告 iNod 中的错误、闪退或显示问题
+body:
+  - type: markdown
+    attributes:
+      value: 提交前请搜索已有 Issue。公开截图和日志前，请遮住账号、私信、Cookie 和密钥。
+  - type: input
+    id: environment
+    attributes:
+      label: App 版本、iOS 版本和设备
+      placeholder: 例如 iNod 0.1.0、iOS 26.2、iPhone 17
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 写出从哪个页面开始、依次点了什么。登录状态或版块会影响结果时，也请注明。
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际发生了什么
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 你期望看到什么
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: 截图、录屏或错误信息
+      description: 如果同一操作在 NodeSeek 官网上也出错，请一并说明。

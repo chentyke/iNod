@@ -1,0 +1,53 @@
+{
+  "category": "dev",
+  "categoryWord": "Dev",
+  "categoryLink": "/categories/dev",
+  "postId": 123,
+  "postPage": 1,
+  "rank": 0,
+  "title": "示例帖子：周末读书计划",
+  "views": "240",
+  "postPageCount": 3,
+  "collectionCount": 4,
+  "op": {
+    "uid": 101,
+    "name": "SampleAuthor"
+  },
+  "locked": 0,
+  "award": 0,
+  "comments": [
+    {
+      "commentId": 501,
+      "hot": false,
+      "pined": false,
+      "floorIndex": 0,
+      "poster": {
+        "name": "SampleAuthor",
+        "uid": 101,
+        "info": "楼主",
+        "avatar": "/avatar/101.png",
+        "profile": "/space/101",
+        "isOp": true,
+        "roles": [
+          {
+            "name": "admin",
+            "display_text": "管理"
+          }
+        ]
+      },
+      "time": {
+        "createdDate": "2025-01-04T12:00:00.000Z",
+        "createdDateFormated": "2025-01-04 20:00:00",
+        "editedDate": "2025-01-04T12:10:00.000Z",
+        "editedDateFormated": "2025-01-04 20:10:00",
+        "createdDateRel": "2 days ago",
+        "editedDateRel": "2 days ago"
+      },
+      "markdown": "## 读书计划\n\n周六读两章，周日整理笔记。谢谢 @SampleReader42 的建议 :ac2054:",
+      "likeCount": 5,
+      "dislikeCount": 0,
+      "upvoteCount": 2,
+      "blocked": false
+    }
+  ]
+}

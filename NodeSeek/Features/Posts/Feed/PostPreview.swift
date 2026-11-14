@@ -1,0 +1,89 @@
+import NodeSeekCore
+import NodeSeekClient
+import SwiftUI
+
+/// Long-press preview of a post: the opening floor, read from the same cache the thread uses.
+struct PostPreview: View {
+    @Environment(AccountSession.self) private var account
+    let post: PostSummary
+    @AppStorage("showsBlockedContent") private var showsBlocked = false
+    @State private var original: ForumComment?
+    @State private var replies: [ForumComment] = []
+    @State private var error: (any Error)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                AvatarView(name: post.author, url: post.avatarURL, size: 32)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(post.author).font(.subheadline.weight(.semibold)).foregroundStyle(Color.seekInk)
+                    if !post.category.isEmpty {
+                        Text(post.category).font(.caption).foregroundStyle(Color.categoryTint(post.categoryKey))
+                    }
+                }
+                .lineLimit(1)
+            }
+            Text(post.title).font(.title3.bold()).foregroundStyle(Color.seekInk)
+                .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+            Group {
+                if let original, showsBlocked || !original.blocked {
+                    let visibleReplies = showsBlocked ? replies : replies.filter { !$0.blocked }
+                    VStack(alignment: .leading, spacing: 16) {
+                        ForumMarkdown(markdown: original.markdown)
+                            .font(.callout).foregroundStyle(Color.seekInk)
+                        if !visibleReplies.isEmpty {
+                            Divider()
+                            ForEach(visibleReplies) { reply in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(reply.poster.name).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                    Text(ForumText.attributed(Self.snippet(reply.markdown), baseURL: post.url)).font(.subheadline).foregroundStyle(Color.seekInk).lineLimit(3)
+                                }
+                            }
+                        }
+                    }
+                } else if let error {
+                    Label(error.localizedDescription, systemImage: error is PostAccessError ? "lock" : "exclamationmark.triangle")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else {
+                    ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+            .clipped()
+            .mask {
+                LinearGradient(stops: [.init(color: .black, location: 0.8), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
+            }
+            PostMetadata(post: post)
+        }
+        .padding(20)
+        .frame(width: 360, height: 480, alignment: .topLeading)
+        .background(Color.seekCard)
+        .environment(\.forumDocumentURL, post.url)
+        .task(id: showsBlocked) {
+            let includeBlocked = showsBlocked
+            original = nil
+            replies = []
+            error = nil
+            do {
+                let detail = try await account.website.thread(id: post.id, page: 1, includeBlocked: includeBlocked)
+                try Task.checkCancellation()
+                guard showsBlocked == includeBlocked else { return }
+                original = detail.comments.first { $0.floorIndex == 0 }
+                replies = Array(detail.replies.filter { !Self.snippet($0.markdown).isEmpty }.prefix(3))
+                if original == nil { error = SiteError.message("没有找到正文") }
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled, showsBlocked == includeBlocked else { return }
+                self.error = error
+            }
+        }
+    }
+
+    /// A reply's own words: quoted floors and sticker codes are left out.
+    private static func snippet(_ markdown: String) -> String {
+        let lines = markdown.split(whereSeparator: \.isNewline).filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix(">") }
+        return InlineContent.parse(lines.joined(separator: " "))
+            .compactMap { if case .text(let text) = $0 { text } else { nil } }
+            .joined().trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}

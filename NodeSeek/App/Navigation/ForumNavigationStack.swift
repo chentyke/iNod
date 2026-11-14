@@ -1,0 +1,100 @@
+import NodeSeekCore
+import NodeSeekClient
+import SwiftUI
+
+struct ForumNavigationStack<Content: View>: View {
+    var restoresTabBarDuringZoom = false
+    @ViewBuilder let content: () -> Content
+    @Environment(AccountSession.self) private var account
+    @State private var path = NavigationPath()
+    @State private var website: ForumWebsiteAddress?
+    @Namespace private var postTransition
+
+    var body: some View {
+        NavigationStack(path:$path) {
+            content()
+                // Restore the root tab bar after a pop, while letting destinations set their own visibility.
+                .toolbarVisibility(path.isEmpty ? .visible : .automatic, for: .tabBar)
+                .background {
+                    if restoresTabBarDuringZoom {
+                        FeedTabBarTransition()
+                    }
+                }
+                .memberDestinations()
+                .navigationDestination(for: AppDestination.self, destination: destination)
+                .navigationDestination(for: AccountDestination.self, destination: accountDestination)
+                .navigationDestination(for: PostSummary.self) { post in
+                    ThreadView(post: post, usesZoomTransition: true)
+                        .navigationTransition(.zoom(sourceID: post.id, in: postTransition))
+                }
+                .navigationDestination(for:AccountPost.self) { ThreadView(post:$0.summary,initialPage:$0.page,initialFloor:$0.floor) }
+                .navigationDestination(for:ForumLinkDestination.self) { destination in
+                    switch destination {
+                    case .post(let address): ThreadView(post:address.summary,initialPage:address.page,initialFloor:address.floor)
+                    case .mention(let name): MemberMentionView(name: name)
+                    case .member(let id,let section):
+                        switch section {
+                        case "discussions", "topics": AccountPostsView(kind:.topics,userID:id)
+                        case "comments", "replies": AccountPostsView(kind:.replies,userID:id)
+                        case "collections" where account.user?.id == id: AccountPostsView(kind:.collections,userID:id)
+                        default: ProfileView(userID:id)
+                        }
+                    case .feed(let category,let sort): FeedView(initialCategory:category,initialSort:sort,isLinkedPage:true)
+                    case .search(let query,let category,let sort): FeedView(isSearch:true,initialCategory:category,initialSort:sort,initialQuery:query,isLinkedPage:true)
+                    case .recommended: FeedView(recommended:true,isLinkedPage:true)
+                    case .lucky(let draw): LuckyView(initial:draw)
+                    }
+                }
+        }
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .tint(Color.seekGreen)
+        .environment(\.openMemberDestination, MemberNavigationAction { path.append($0) })
+        .environment(\.openAccountPost, AccountPostNavigationAction { path.append($0) })
+        .environment(\.openPost, PostNavigationAction { path.append($0) })
+        .environment(\.postTransitionNamespace, postTransition)
+        .environment(\.openAccountDestination, AccountNavigationAction { path.append($0) })
+        .environment(\.openURL,OpenURLAction { url in
+            guard let link = ForumLink.parse(url.absoluteString) else { return .systemAction }
+            switch link {
+            case .native(let destination): path.append(destination)
+            case .website(let url): website = ForumWebsiteAddress(url:url)
+            }
+            return .handled
+        })
+        .sheet(item:$website) { address in WebsiteView(initialURL: address.url) }
+        .onChange(of: account.user?.id) { previous, current in
+            if previous != nil, previous != current { path = NavigationPath(); website = nil }
+        }
+    }
+
+    @ViewBuilder private func destination(_ value: AppDestination) -> some View {
+        switch value {
+        case .post(let post, let page, let floor): ThreadView(post: post, initialPage: page, initialFloor: floor)
+        case .memberSearch: MemberSearchView()
+        case .communityTools: CommunityToolsView()
+        case .recommended: FeedView(recommended: true, isLinkedPage: true)
+        case .luckyDraw: LuckyView()
+        case .rulings(let recordID): RulingsView(recordID: recordID) { path.append($0) }
+        case .directory(let providers): DirectoryView(providers: providers)
+        case .siteArticle(let path, let title): SiteArticleView(path: path, title: title)
+        case .connections(let follows, let userID): ConnectionsView(follows: follows, userID: userID)
+        case .invitations(let userID): InvitationsView(userID: userID)
+        case .imageLibrary(let userID): NodeImageLibraryView(userID: userID)
+        case .stardustTransfer(let userID, let recipient): StardustTransferView(userID: userID, recipient: recipient)
+        }
+    }
+
+    @ViewBuilder private func accountDestination(_ value: AccountDestination) -> some View {
+        if let user = account.user {
+            switch value {
+            case .content(let kind): AccountPostsView(kind: kind, userID: user.id)
+            case .ledger(let kind): LedgerView(kind: kind, userID: user.id)
+            case .stardustHistory: StardustHistoryView(memberID: user.id)
+            case .attendance: AttendanceView(userID: user.id)
+            case .progress: AccountProgressView(userID: user.id)
+            case .profile: ProfileView(userID: user.id)
+            case .settings: AccountSettingsView(userID: user.id)
+            }
+        } else { ContentUnavailableView("请先登录", systemImage: "person.crop.circle") }
+    }
+}

@@ -1,0 +1,374 @@
+import NodeSeekCore
+import NodeSeekClient
+import SwiftUI
+
+struct FeedView: View {
+    var isSearch = false
+    var recommended = false
+    var isLinkedPage = false
+    @Environment(\.openPost) private var openPost
+    @Environment(AccountSession.self) private var account
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("showsBlockedContent") private var showsBlocked = false
+    private var categories: CategoryStore { account.categories }
+    @State private var posts: [PostSummary] = []
+    @State private var pinnedPosts: [PostSummary] = []
+    @State private var category = ""
+    @State private var sort = FeedSort.replyTime
+    @State private var query = ""
+    @State private var submittedQuery = ""
+    @State private var page = 1
+    @State private var hasNextPage = false
+    @State private var isLoading = true
+    @State private var isLoadingMore = false
+    @State private var error: String?
+    @State private var nextPageError: String?
+    @State private var showsWebsite = false
+    @State private var showsSignIn = false
+    @State private var collectionError: (postID: Int, collected: Bool, revision: Int, message: String)?
+    @State private var showsCollectionError = false
+    @State private var refreshID = UUID()
+    @State private var loadID = UUID()
+    @State private var loadedKey: SiteRequestKey?
+    @State private var loadedRefreshID: UUID?
+    @State private var showsCategories = false
+    @State private var isSearchExpanded = false
+    @FocusState private var isSearchFocused: Bool
+    @ScaledMetric(relativeTo: .body) private var actionSymbolSize = 20.0
+    @State private var showsEditor = false
+    @State private var openingNewPost = false
+    @State private var newPostError: String?
+    @State private var showsNewPostError = false
+
+    init(isSearch: Bool = false,recommended: Bool = false,initialCategory: String = "",initialSort: FeedSort = .replyTime,initialQuery: String = "",isLinkedPage: Bool = false) {
+        self.isSearch = isSearch; self.recommended = recommended; self.isLinkedPage = isLinkedPage
+        _category = State(initialValue:initialCategory); _sort = State(initialValue:initialSort)
+        _query = State(initialValue:initialQuery); _submittedQuery = State(initialValue:initialQuery)
+    }
+
+    private var requestKey: String { "\(showsBlocked)|\(category)|\(sort.rawValue)|\(submittedQuery)|\(refreshID)|\(account.revision)" }
+    private var feedKind: String { showsBlocked ? "feed-including-blocked" : "feed" }
+    private var firstPageKey: SiteRequestKey {
+        account.website.feedKey(route(page: 1), includeBlocked: showsBlocked, viewerID: account.user?.id)
+    }
+    private var showsSortInCategoryPicker: Bool { !isSearch && !isLinkedPage }
+
+    var body: some View {
+        Group {
+            if isSearch {
+                postList
+                    .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索帖子")
+                    .navigationTitle("搜索")
+                    .toolbar(.visible,for:.navigationBar)
+                    .toolbar(.hidden,for:.tabBar)
+            } else if isLinkedPage {
+                postList.navigationTitle(recommended ? "推荐阅读" : (categories.items.first { $0.id == category }?.title ?? "社区"))
+                    .toolbar(.visible,for:.navigationBar).toolbar(.hidden,for:.tabBar)
+            } else {
+                postList
+                    .navigationTitle("社区")
+                    .toolbar(.hidden, for: .navigationBar)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if isSearch { ToolbarItem(placement:.topBarTrailing) {
+                Menu("搜索选项",systemImage:"ellipsis") {
+                    searchOptions
+                }
+            } }
+        }
+        .onSubmit(of: .search, submitSearch)
+        .onChange(of: query) { if query.isEmpty { submittedQuery = "" } }
+        .refreshable { await load(reset: true, force: true) }
+        .task(id: requestKey) { await load(reset: true) }
+        .task(id: account.revision) { await categories.refresh() }
+        .task(id: openingNewPost) {
+            if openingNewPost { await openNewPost() }
+        }
+        .onDisappear { openingNewPost = false }
+        .sheet(isPresented: $showsWebsite, onDismiss: { refreshID = UUID() }) { WebsiteView(initialURL: NodeSeekRoute.home.url) }
+        .sheet(isPresented: $showsSignIn) { SignInView() }
+        .alert("无法打开发帖编辑器", isPresented: $showsNewPostError) {
+            Button("重试") { openingNewPost = true }
+            Button("取消", role: .cancel) { }
+        } message: { Text(newPostError ?? "") }
+        .alert("收藏操作未完成", isPresented: $showsCollectionError, presenting: collectionError) { failure in
+            Button("重试") {
+                guard account.revision == failure.revision else { return }
+                Task { await setCollection(failure.collected, for: failure.postID) }
+            }
+            Button("取消", role: .cancel) { }
+        } message: { failure in
+            Text(failure.message)
+        }
+        .sheet(isPresented: $showsCategories) {
+            CategoryPicker(selection: $category, sort: showsSortInCategoryPicker ? $sort : nil)
+        }
+        .sheet(isPresented: $showsEditor) {
+            ForumEditorView(request: .init(mode: .newPost, seed: EditorDraft(category: category.isEmpty ? "daily" : category))) { result in
+                refreshID = UUID()
+                if let redirect = result.redirect, let address = PostAddress(redirect) { openPost(address.summary) }
+            }
+        }
+    }
+
+    @ViewBuilder private var searchOptions: some View {
+        NavigationLink(value: AppDestination.memberSearch) { Label("搜索用户", systemImage: "person.crop.circle.badge.magnifyingglass") }
+        if let url = googleURL { Link("在 Google 搜索", destination: url) }
+    }
+
+    private func submitSearch() {
+        submittedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        isSearchFocused = false
+    }
+
+    private var searchAnimation: Animation? {
+        reduceMotion ? nil : .smooth(duration: 0.25)
+    }
+
+    private func openSearch() {
+        withAnimation(searchAnimation) {
+            isSearchExpanded = true
+        } completion: {
+            if isSearchExpanded { isSearchFocused = true }
+        }
+    }
+
+    private func closeSearch() {
+        isSearchFocused = false
+        withAnimation(searchAnimation) { isSearchExpanded = false }
+        query = ""
+        submittedQuery = ""
+    }
+
+    private var googleURL: URL? {
+        guard !query.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else { return nil }
+        var c = URLComponents(string:"https://www.google.com/search")
+        c?.queryItems = [URLQueryItem(name:"q",value:"site:www.nodeseek.com " + query)]
+        return c?.url
+    }
+
+    private var postList: some View {
+        let matchesVisibility = loadedKey?.kind == feedKind
+        let isSwitchingVisibility = !matchesVisibility && (!isSearch || !submittedQuery.isEmpty)
+        return List {
+            if let error {
+                Section {
+                    Text(error).font(.subheadline).foregroundStyle(.secondary)
+                    if account.website.needsWebsite {
+                        Button("打开官网完成验证", systemImage: "globe") { showsWebsite = true }
+                    }
+                    Button("重试", systemImage: "arrow.clockwise") { refreshID = UUID() }
+                }
+                .listRowBackground(Color.clear)
+                .listSectionSeparator(.hidden)
+            }
+            Section {
+                if matchesVisibility {
+                    if pinnedPosts.count > 1 {
+                        PinnedPostCarousel(posts: pinnedPosts, card: postButton)
+                            .id(loadedKey)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets())
+                    } else if let post = pinnedPosts.first {
+                        postRow(post)
+                    }
+                }
+                ForEach(matchesVisibility ? posts : []) { post in
+                    postRow(post)
+                }
+                if (isLoading && !isLoadingMore) || isSwitchingVisibility {
+                    // Keep the current list visible while refreshing.
+                    if isSwitchingVisibility || (posts.isEmpty && pinnedPosts.isEmpty) {
+                        HStack { Spacer(); ProgressView("正在加载"); Spacer() }.listRowSeparator(.hidden)
+                    }
+                } else if isSearch && submittedQuery.isEmpty {
+                    ContentUnavailableView("搜索社区帖子", systemImage: "magnifyingglass", description: Text("输入标题或关键词。"))
+                        .listRowSeparator(.hidden)
+                } else if hasNextPage && error == nil && loadedKey == firstPageKey && loadedRefreshID == refreshID {
+                    LoadMoreRow(error: nextPageError) {
+                        await load(reset: false, force: nextPageError != nil)
+                    }
+                    .id(page)
+                } else if posts.isEmpty && pinnedPosts.isEmpty && error == nil {
+                    ContentUnavailableView("没有找到帖子", systemImage: "magnifyingglass", description: Text("换个关键词，或浏览其他版块。"))
+                        .listRowSeparator(.hidden)
+                }
+            }
+            .listRowBackground(Color.clear)
+            .listSectionSeparator(.hidden)
+        }
+        .listStyle(.plain)
+        .seekCanvas()
+        .contentMargins(.vertical, 6, for: .scrollContent)
+        .safeAreaBar(edge: .top, spacing: 0) { filterBar }
+    }
+
+    private func postRow(_ post: PostSummary) -> some View {
+        postButton(post)
+            .postCardRow()
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                collectionButton(for: post.id).tint(.seekGreen)
+            }
+    }
+
+    private func postButton(_ post: PostSummary) -> some View {
+        Button { openPost(post) } label: { PostRow(post: post) }
+            .buttonStyle(.seekCard)
+            .postTransitionSource(post)
+            .contextMenu {
+                Button("阅读全文", systemImage: "doc.text") { openPost(post) }
+                if let id = post.authorID {
+                    NavigationLink(value: MemberDestination.profile(id)) { Label("查看作者主页", systemImage: "person.crop.circle") }
+                }
+                collectionButton(for: post.id)
+                ShareLink(item: post.url)
+            } preview: {
+                PostPreview(post: post)
+                    .environment(account)
+            }
+    }
+
+    private func collectionButton(for postID: Int) -> some View {
+        let isCollected = account.collections.status(postID) == true
+        return Button(isCollected ? "取消收藏" : "收藏", systemImage: isCollected ? "bookmark.slash" : "bookmark") {
+            Task { await setCollection(!isCollected, for: postID) }
+        }
+        .disabled(account.collections.updating.contains(postID))
+    }
+
+    private func setCollection(_ collected: Bool, for postID: Int) async {
+        do {
+            if try await account.confirmSignedIn() {
+                try await account.collections.setCollected(collected, postID: postID)
+            } else {
+                showsSignIn = true
+            }
+        } catch is CancellationError {
+        } catch {
+            collectionError = (postID, collected, account.revision, SiteError.displayMessage(for: error))
+            showsCollectionError = true
+        }
+    }
+
+    private func openNewPost() async {
+        defer { if !Task.isCancelled { openingNewPost = false } }
+        do {
+            try await account.withConfirmedSignIn(onSignedOut: { showsSignIn = true }) { _ in
+                showsEditor = true
+            }
+        } catch is CancellationError {
+        } catch {
+            guard !Task.isCancelled else { return }
+            newPostError = SiteError.displayMessage(for: error)
+            showsNewPostError = true
+        }
+    }
+
+    private var filterBar: some View {
+        let categoryTitle = categories.items.first { $0.id == category }?.title ?? category
+        let sortSelection = showsSortInCategoryPicker ? nil : $sort
+        return FeedFilterBar(category: categoryTitle, sort: sortSelection, onCategories: { showsCategories = true },
+                             isSearchExpanded: isSearchExpanded) {
+            FeedSearchBar(query: $query, isExpanded: isSearchExpanded, focus: $isSearchFocused,
+                          onSubmit: submitSearch, onOpen: openSearch, onClose: closeSearch)
+        } actions: {
+            if !isSearch { newPostButton }
+        }
+    }
+
+    private var newPostButton: some View {
+        let size = min(actionSymbolSize, 32)
+        return Button {
+            openingNewPost = true
+        } label: {
+            FeedSearchSymbol(alternate: .add, progress: 1)
+                .stroke(style: StrokeStyle(lineWidth: size * 0.095, lineCap: .round, lineJoin: .round))
+                .frame(width: size, height: size)
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("发布帖子")
+        .disabled(openingNewPost)
+        .glassEffect(.clear.tint(.black).interactive(), in: .circle)
+    }
+
+    private func route(page: Int) -> NodeSeekRoute {
+        if recommended { return .recommended(page: page) }
+        if submittedQuery.isEmpty { return .feed(category: category, sort: sort, page: page) }
+        return .search(query: submittedQuery, category: category, sort: sort, page: page)
+    }
+
+    private func load(reset: Bool, force: Bool = false) async {
+        let key = firstPageKey
+        let request = requestKey
+        let force = force || (loadedRefreshID != nil && loadedRefreshID != refreshID)
+        if reset {
+            if !force, loadedKey == key, !posts.isEmpty || !pinnedPosts.isEmpty { return }
+        } else {
+            guard !isLoading, hasNextPage, error == nil, loadedKey == key, loadedRefreshID == refreshID else { return }
+        }
+        let operation = UUID()
+        loadID = operation
+        defer {
+            if loadID == operation {
+                isLoading = false
+                isLoadingMore = false
+            }
+        }
+        nextPageError = nil
+        if isSearch && submittedQuery.isEmpty {
+            posts = []
+            pinnedPosts = []
+            error = nil
+            hasNextPage = false
+            return
+        }
+        let requestedPage = reset ? 1 : page + 1
+        let route = route(page: requestedPage)
+        loadedRefreshID = refreshID
+        if reset {
+            if loadedKey != key { posts = []; pinnedPosts = []; hasNextPage = false; page = 1 }
+            if posts.isEmpty, pinnedPosts.isEmpty, let cached: FeedPage = account.website.cached(key: key) {
+                posts = cached.posts; pinnedPosts = cached.pinnedPosts; hasNextPage = cached.hasNextPage
+            }
+            loadedKey = key
+        }
+        isLoading = true
+        isLoadingMore = !reset
+        error = nil
+        let sessionRevision = account.revision
+        do {
+            let result = try await account.website.feed(route,includeBlocked:showsBlocked,force:force)
+            try Task.checkCancellation()
+            guard loadID == operation, requestKey == request else { return }
+            account.synchronizeAfterRequest(expectedRevision: sessionRevision)
+            guard account.revision == sessionRevision else { return }
+            if reset {
+                posts = result.posts
+                pinnedPosts = result.pinnedPosts
+            } else {
+                var pinnedIDs = Set(pinnedPosts.map(\.id))
+                let newPins = result.pinnedPosts.filter { pinnedIDs.insert($0.id).inserted }
+                if !newPins.isEmpty {
+                    pinnedPosts += newPins
+                    posts.removeAll { pinnedIDs.contains($0.id) }
+                }
+                var existingIDs = pinnedIDs
+                existingIDs.formUnion(posts.map(\.id))
+                posts += result.posts.filter { existingIDs.insert($0.id).inserted }
+            }
+            page = requestedPage
+            hasNextPage = result.hasNextPage
+        } catch is CancellationError { return }
+        catch {
+            guard !Task.isCancelled, loadID == operation, requestKey == request else { return }
+            account.synchronizeAfterRequest(expectedRevision: sessionRevision)
+            if reset { self.error = error.localizedDescription }
+            else { nextPageError = error.localizedDescription }
+        }
+    }
+}

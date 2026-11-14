@@ -1,0 +1,18 @@
+name: 建议功能
+description: 提议一项功能或改进现有操作
+body:
+  - type: markdown
+    attributes:
+      value: 提交前请搜索已有 Issue，看看是否已经有人提出类似建议。
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 你想完成什么
+      description: 描述使用场景，以及现在遇到的困难。
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 你希望怎么改
+      description: 如果有参考截图或已经试过的做法，也可以附上。

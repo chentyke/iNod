@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+
+jobs:
+  swift-and-website:
+    name: Swift and website checks
+    runs-on: xcode-27
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run Swift unit tests
+        run: xcrun swift test
+      - name: Check website scripts and WebKit parsing
+        run: sh scripts/verify-website.sh
+
+  ios-ui-tests:
+    name: iOS UI tests
+    runs-on: xcode-27
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test on iPhone 17
+        run: |
+          xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.2' \
+            -parallel-testing-enabled NO \
+            -resultBundlePath "$RUNNER_TEMP/NodeSeekUITests.xcresult" \
+            CODE_SIGN_IDENTITY=- test
+      - name: Upload failed test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NodeSeekUITests
+          path: ${{ runner.temp }}/NodeSeekUITests.xcresult
+          retention-days: 7
