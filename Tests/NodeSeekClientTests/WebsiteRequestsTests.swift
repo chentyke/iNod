@@ -24,3 +24,32 @@ import Testing
     #expect(entries.first?["showInIndex"] as? Bool == true)
     #expect(!WebsiteAction.prepareTransfer(recipientID: 5).request.changesData)
 }
+
+@Test func missingThreadUsesTheListedRankAndConfirmedAccount() throws {
+    let decoder = JSONDecoder()
+    var post = try decoder.decode(PostSummary.self, from: Data(#"""
+    {"id":123,"title":"有阅读限制的帖子","author":"楼主","authorID":1,"avatar":"",
+     "category":"日常","categoryKey":"daily","views":1,"replies":0,"activityDate":"","pinned":false,"rank":1}
+    """#.utf8))
+    func authentication(_ json: String) throws -> AuthenticationSnapshot {
+        try decoder.decode(AuthenticationSnapshot.self, from: Data(json.utf8))
+    }
+
+    let guest = try authentication(#"{"ready":true,"user":null}"#)
+    let lowLevel = try authentication(#"{"ready":true,"user":{"id":2,"name":"读者","coins":0}}"#)
+    let eligible = try authentication(#"{"ready":true,"user":{"id":2,"name":"读者","coins":100}}"#)
+    let author = try authentication(#"{"ready":true,"user":{"id":1,"name":"楼主","coins":0}}"#)
+    let unknownLevel = try authentication(#"{"ready":true,"user":{"id":2,"name":"读者"}}"#)
+    let unconfirmed = try authentication(#"{"ready":false,"user":null}"#)
+    #expect(PostAccessError.forMissingPost(post, authentication: guest) == .signInRequired)
+    #expect(PostAccessError.forMissingPost(post, authentication: lowLevel) == .levelRequired(1))
+    #expect(PostAccessError.forMissingPost(post, authentication: eligible) == nil)
+    #expect(PostAccessError.forMissingPost(post, authentication: author) == nil)
+    #expect(PostAccessError.forMissingPost(post, authentication: unknownLevel) == nil)
+    #expect(PostAccessError.forMissingPost(post, authentication: unconfirmed) == nil)
+
+    post.rank = 255
+    #expect(PostAccessError.forMissingPost(post, authentication: lowLevel) == nil)
+    post.rank = nil
+    #expect(PostAccessError.forMissingPost(post, authentication: guest) == nil)
+}

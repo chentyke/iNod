@@ -13,6 +13,7 @@ struct CommentView: View {
     var onReply: (Bool) -> Void = { _ in }
     var onEdit: () -> Void = { }
     var onPin: () -> Void = { }
+    let onOpenImages: (ImageGallery) -> Void
     let onConfirmReaction: (PendingReaction) -> Void
     let onReact: (CommentReaction) -> Void
 
@@ -42,7 +43,7 @@ struct CommentView: View {
                 } }
                 if comment.blocked { Label("来自已屏蔽的用户",systemImage:"eye").font(.caption).foregroundStyle(.secondary) }
                 // Measure the opening post as one card so image updates don't shift its beginning.
-                ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: showsHeader)
+                ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: showsHeader, onOpenImages: onOpenImages)
                     .environment(\.defersForumImagesUntilVisible, !showsHeader)
             }
             .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 12)

@@ -2,11 +2,13 @@ import Foundation
 
 public enum SiteError: LocalizedError {
     case invalidResponse
+    case httpStatus(Int)
     case message(String)
 
     public var errorDescription: String? {
         switch self {
         case .invalidResponse: "官网返回了无法读取的内容，请重试。"
+        case .httpStatus(let status): "官网请求失败 (\(status))"
         case .message(let message): message
         }
     }

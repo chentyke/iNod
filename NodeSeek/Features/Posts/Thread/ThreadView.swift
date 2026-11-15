@@ -41,6 +41,7 @@ struct ThreadView: View {
     @State private var showsReactionConfirmation = false
     @State private var actionError: String?
     @State private var showsActionError = false
+    @State private var gallery: ImageGallery?
 
     private var accessError: PostAccessError? { error as? PostAccessError }
     private var isCollected: Bool { account.collections.status(post.id) == true }
@@ -92,7 +93,7 @@ struct ThreadView: View {
                     if !isLoading, error == nil, firstLoadedPage > 1 {
                         commentsLoader(for: firstLoadedPage - 1, loadingEarlier: true)
                     }
-                    ForEach(showsBlocked ? detail.replies : detail.replies.filter { !$0.blocked }, id: \.floorIndex) { comment in
+                    ForEach(visibleReplies(in: detail), id: \.floorIndex) { comment in
                         commentView(comment)
                     }
                     if !isLoading && error == nil {
@@ -232,6 +233,7 @@ struct ThreadView: View {
         .sheet(item: $editorRequest) { request in
             ForumEditorView(request: request) { _ in refreshID = UUID() }
         }
+        .fullScreenCover(item: $gallery) { ImageViewer(gallery: $0) }
         .alert("操作未完成", isPresented: $showsActionError) {
             Button("知道了", role: .cancel) { actionError = nil }
         } message: { Text(actionError ?? "") }
@@ -291,10 +293,24 @@ struct ThreadView: View {
             requestReply(content: EditorDraft.replyReference(postID: post.id, floor: comment.floorIndex, name: comment.poster.name, quote: quote ? comment.markdown : nil))
         }, onEdit: { edit(comment) }, onPin: {
             Task { await pin(comment) }
+        }, onOpenImages: { images in
+            openImages(images, from: comment)
         }, onConfirmReaction: { pending in Task { await submit(pending) } }) { reaction in
             guard busyCommentID == nil, reactionToPrepare == nil, !comment.hasReacted(reaction) else { return }
             reactionToPrepare = (comment.id, reaction)
         }
+    }
+
+    private func visibleReplies(in detail: PostDetail) -> [ForumComment] {
+        detail.replies.filter { showsBlocked || !$0.blocked }
+    }
+
+    private func openImages(_ images: ImageGallery, from comment: ForumComment) {
+        guard comment.floorIndex > 0, let detail else { gallery = images; return }
+        let replies = visibleReplies(in: detail)
+        guard let index = replies.firstIndex(where: { $0.id == comment.id }) else { return }
+        gallery = images.adding(before: replies[..<index].flatMap { ImageGallery.images(in: $0.markdown) },
+                               after: replies[(index + 1)...].flatMap { ImageGallery.images(in: $0.markdown) })
     }
 
     private func requestReply(content: String = "") {
@@ -493,7 +509,8 @@ struct ThreadView: View {
         let sessionRevision = account.revision
         let collectionRevision = account.collections.revision
         do {
-            let result = try await account.website.thread(id:post.id,page:page,includeBlocked:showsBlocked,force:force)
+            let result = try await account.website.thread(id: post.id, page: page, includeBlocked: showsBlocked,
+                                                          force: force, summary: post)
             try Task.checkCancellation()
             guard loadID == operation, threadKind == key.kind else { return }
             account.synchronizeAfterRequest(expectedRevision: sessionRevision)

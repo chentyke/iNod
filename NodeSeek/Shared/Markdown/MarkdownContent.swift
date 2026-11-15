@@ -7,8 +7,11 @@ struct MarkdownContent<Embedded: View>: View {
     var expandsText = true
     var trailingLabel: Text?
     var loadsBlocksOnScroll = false
+    var onOpenImages: ((ImageGallery) -> Void)?
     @ViewBuilder var embedded: (MarkdownBlock) -> Embedded
     @Environment(\.forumDocumentURL) private var documentURL
+    @State private var gallery: ImageGallery?
+
     var body: some View {
         let blocks = MarkdownBlock.parse(markdown)
         VStack(alignment: .trailing, spacing: 3) {
@@ -24,16 +27,23 @@ struct MarkdownContent<Embedded: View>: View {
                 }
             }
         }
+        .fullScreenCover(item: $gallery) { ImageViewer(gallery: $0) }
     }
 
     private func blockViews(_ blocks: [MarkdownBlock]) -> some View {
         ForEach(blocks.indices, id: \.self) { index in
             let label = index == blocks.count - 1 ? trailingLabel : nil
-            blockView(blocks[index], label: label)
+            blockView(blocks[index], label: label) { opened in
+                let images = opened.adding(before: ImageGallery.images(in: blocks[..<index]),
+                                           after: ImageGallery.images(in: blocks[(index + 1)...]))
+                if let onOpenImages { onOpenImages(images) }
+                else { gallery = images }
+            }
         }
     }
 
-    @ViewBuilder private func blockView(_ block: MarkdownBlock, label: Text?) -> some View {
+    @ViewBuilder private func blockView(_ block: MarkdownBlock, label: Text?,
+                                        openImages: @escaping (ImageGallery) -> Void) -> some View {
         switch block {
         case .text(let text):
             InlineStickerText(markdown: text, expands: expandsText, trailingLabel: label)
@@ -42,7 +52,7 @@ struct MarkdownContent<Embedded: View>: View {
             TextWithTrailingLabel(text: Text(attributed).font(.title3.bold()), label: label,
                                   hasLinks: attributed.runs.contains { $0.link != nil })
         case .code(let text): MarkdownCodeBlock(text: text)
-        case .image(let alt, let url): ForumImageView(url: url, alt: alt)
+        case .image(let alt, let url): ForumImageView(url: url, alt: alt, onOpenImages: openImages)
         case .quote(let text):
             HStack(alignment: .top, spacing: 12) {
                 RoundedRectangle(cornerRadius: 2).fill(Color.seekGreen.opacity(0.5)).frame(width: 3)
@@ -63,7 +73,7 @@ struct MarkdownContent<Embedded: View>: View {
         case .table(let rows): MarkdownTable(rows: rows)
         case .vote, .stardust: embedded(block)
         case .tabs(let tabs):
-            MarkdownTabsView(tabs: tabs, loadsBlocksOnScroll: loadsBlocksOnScroll, embedded: embedded)
+            MarkdownTabsView(tabs: tabs, loadsBlocksOnScroll: loadsBlocksOnScroll, onOpenImages: openImages, embedded: embedded)
         }
     }
 }
