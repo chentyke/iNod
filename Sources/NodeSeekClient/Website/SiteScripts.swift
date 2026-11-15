@@ -128,11 +128,11 @@ enum SiteScripts {
                 return JSON.stringify({__error:'官网需要完成验证，请打开官网后重试。',__needsWebsite:true});
             }
             const checkingPostAccess = \#(checkingPostAccess);
-            if (!response.ok && !checkingPostAccess) return JSON.stringify({__error:'官网请求失败 ('+response.status+')',__needsWebsite:response.status===403});
+            if (!response.ok && !checkingPostAccess) return JSON.stringify({__status:response.status,__error:'官网请求失败 ('+response.status+')',__needsWebsite:response.status===403});
             const document = new DOMParser().parseFromString(await response.text(), 'text/html');
             \#(checkingPostAccess ? postAccess : "")
             const isForumPage = !!document.querySelector('#nsk-body');
-            if (!response.ok) return JSON.stringify({__error:'官网请求失败 ('+response.status+')',__needsWebsite:response.status===403 && !isForumPage});
+            if (!response.ok) return JSON.stringify({__status:response.status,__error:'官网请求失败 ('+response.status+')',__needsWebsite:response.status===403 && !isForumPage});
             const encoded = document.querySelector('script#temp-script[type="application/json"]')?.textContent.trim();
             if (!encoded && checkingPostAccess && isForumPage) {
                 throw new Error('官网没有返回可读取的帖子内容。');

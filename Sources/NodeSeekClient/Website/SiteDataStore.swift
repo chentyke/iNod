@@ -142,19 +142,28 @@ public final class SiteDataStore {
         }
     }
 
-    public func thread(id: Int, page: Int,includeBlocked: Bool = false, force: Bool = false) async throws -> PostDetail {
+    public func thread(id: Int, page: Int, includeBlocked: Bool = false, force: Bool = false,
+                       summary: PostSummary? = nil) async throws -> PostDetail {
         let auth = try await authenticationForRead()
         let key = threadKey(id: id, page: page, includeBlocked: includeBlocked, viewerID: auth.user?.id)
-        return try await value(key: key, lifetime: 60, force: force) {
-            do {
+        do {
+            return try await value(key: key, lifetime: 60, force: force) {
                 let data = try await self.reader.threadData(id: id, page: page, includeBlocked: includeBlocked)
                 try self.checkIdentity(auth)
                 return data
-            } catch let error as PostAccessError {
-                try Task.checkCancellation()
-                self.removeCachedThread(id: id, for: key)
-                throw error
             }
+        } catch let error as PostAccessError {
+            try Task.checkCancellation()
+            removeCachedThread(id: id, for: key)
+            throw error
+        } catch SiteError.httpStatus(404) {
+            try Task.checkCancellation()
+            // The site can return a generic 404 to viewers who cannot read a listed thread.
+            guard let summary, summary.id == id, let access = PostAccessError.forMissingPost(summary, authentication: auth) else {
+                throw SiteError.httpStatus(404)
+            }
+            removeCachedThread(id: id, for: key)
+            throw access
         }
     }
 

@@ -65,7 +65,7 @@ struct PostPreview: View {
             replies = []
             error = nil
             do {
-                let detail = try await account.website.thread(id: post.id, page: 1, includeBlocked: includeBlocked)
+                let detail = try await account.website.thread(id: post.id, page: 1, includeBlocked: includeBlocked, summary: post)
                 try Task.checkCancellation()
                 guard showsBlocked == includeBlocked else { return }
                 original = detail.comments.first { $0.floorIndex == 0 }

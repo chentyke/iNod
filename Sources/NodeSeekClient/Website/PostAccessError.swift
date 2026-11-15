@@ -1,4 +1,5 @@
 import Foundation
+import NodeSeekCore
 
 public enum PostAccessError: LocalizedError, Equatable {
     case levelRequired(Int?)
@@ -12,5 +13,12 @@ public enum PostAccessError: LocalizedError, Equatable {
         case .signInRequired: "请登录后查看此帖"
         case .privatePost: "此帖仅作者可见"
         }
+    }
+
+    static func forMissingPost(_ post: PostSummary, authentication: AuthenticationSnapshot) -> Self? {
+        guard authentication.ready, let rank = post.rank, (1...6).contains(rank) else { return nil }
+        guard let user = authentication.user else { return .signInRequired }
+        guard user.id != post.authorID, let level = user.level, level < rank else { return nil }
+        return .levelRequired(rank)
     }
 }

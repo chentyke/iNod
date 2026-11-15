@@ -509,7 +509,8 @@ struct ThreadView: View {
         let sessionRevision = account.revision
         let collectionRevision = account.collections.revision
         do {
-            let result = try await account.website.thread(id:post.id,page:page,includeBlocked:showsBlocked,force:force)
+            let result = try await account.website.thread(id: post.id, page: page, includeBlocked: showsBlocked,
+                                                          force: force, summary: post)
             try Task.checkCancellation()
             guard loadID == operation, threadKind == key.kind else { return }
             account.synchronizeAfterRequest(expectedRevision: sessionRevision)

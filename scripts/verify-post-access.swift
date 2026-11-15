@@ -49,6 +49,8 @@ import WebKit
         precondition(challenge["__needsWebsite"] as? Bool == true && challenge["__postAccess"] == nil)
         let missing = try await read(SiteScripts.thread, html: forumPage("帖子不存在"), status: 404)
         precondition(missing["__error"] as? String == "官网请求失败 (404)" && missing["__needsWebsite"] as? Bool == false)
+        let genericNotFound = try await read(SiteScripts.thread, html: forumPage("404 Not Found😭"), status: 404)
+        precondition(genericNotFound["__status"] as? Int == 404 && genericNotFound["__postAccess"] == nil)
 
         let config = Data(#"{"allCategory":[],"postData":{"postId":123,"rank":5,"views":42,"comments":[{"blocked":true},{"blocked":false}]}}"#.utf8)
         let bootstrap = "<script id=\"temp-script\" type=\"application/json\">\(config.base64EncodedString())</script>"
