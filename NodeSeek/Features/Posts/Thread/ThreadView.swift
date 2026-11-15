@@ -224,6 +224,7 @@ struct ThreadView: View {
             VStack(spacing: 0) {
                 zoomControls
                 threadScrollView
+                    .modifier(ThreadScrollEdgeFade())
             }
         } else {
             threadScrollView
