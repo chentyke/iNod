@@ -2,7 +2,8 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'image-stack/**']
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   push:
     branches: [main]
   workflow_dispatch:
@@ -39,10 +40,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Start the iPhone 17 simulator
+        id: simulator
+        run: |
+          simulator_id="$(xcrun simctl list devices available --json | node -e '
+            const { devices } = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+            const simulator = devices["com.apple.CoreSimulator.SimRuntime.iOS-27-2"]?.find(({ name }) => name === "iPhone 17");
+            if (!simulator) throw new Error("iPhone 17 with iOS 27.2 is unavailable");
+            console.log(simulator.udid);
+          ')"
+          xcrun simctl bootstatus "$simulator_id" -b
+          echo "id=$simulator_id" >> "$GITHUB_OUTPUT"
       - name: Build and test on iPhone 17
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
         run: |
           xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.2' \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -parallel-testing-enabled NO \
             -resultBundlePath "$RUNNER_TEMP/NodeSeekUITests.xcresult" \
             CODE_SIGN_IDENTITY=- test

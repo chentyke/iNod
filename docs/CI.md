@@ -2,12 +2,12 @@
 
 ## GitHub Actions
 
-[CI 工作流程](../.github/workflows/ci.yml)会在有人向 `main` 提交或更新 PR、向 `main` 推送时运行，也可以在 **Actions → CI → Run workflow** 手动启动。
+[CI 工作流程](../.github/workflows/ci.yml)会检查以 `main` 或 `image-stack/` 系列分支为目标的 PR。把一组有依赖的 PR 依次改为合入 `main` 时，CI 也会重新运行。向 `main` 推送后会自动检查，也可以在 **Actions → CI → Run workflow** 手动启动。
 
 | 检查名称 | 运行内容 |
 | --- | --- |
 | Swift and website checks | 运行 Swift 单元测试，再检查网页请求格式和 WebKit 解析。 |
-| iOS UI tests | 构建 App，在 iPhone 17 模拟器上跑界面测试。失败时，可在运行页面的 **Artifacts** 下载测试报告，用 Xcode 打开 `.xcresult`。 |
+| iOS UI tests | 等待 iPhone 17 模拟器启动完成，再构建 App 并跑界面测试。失败时，可在运行页面的 **Artifacts** 下载测试报告，用 Xcode 打开 `.xcresult`。 |
 
 公开仓库的检查使用 GitHub 提供的 `xcode-27` 环境，选用 Xcode 27.2 和 iOS 27.2 模拟器。测试使用本地样本和模拟响应，无需 Apple 签名、NodeSeek 账号或 GitHub Secrets。[GitHub 提供的 Xcode 和模拟器版本](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
 
