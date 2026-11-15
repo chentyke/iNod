@@ -4,10 +4,14 @@ import SwiftUI
 struct ForumImageView: View {
     let url: URL
     let alt: String
+    @Environment(\.defersForumImagesUntilVisible) private var defersLoading
+    @State private var hasBeenVisible = false
     @State private var image: CGImage?
     @State private var failed = false
     @State private var attempt = 0
     @State private var showsViewer = false
+
+    private var canLoad: Bool { !defersLoading || hasBeenVisible }
 
     var body: some View {
         Group {
@@ -25,7 +29,11 @@ struct ForumImageView: View {
             } else { ProgressView().frame(maxWidth: .infinity, minHeight: 120) }
         }
         .fullScreenCover(isPresented:$showsViewer) { if let image { ImageViewer(image:image,url:url,alt:alt) } }
-        .task(id: "\(url.absoluteString)|\(attempt)") {
+        .onScrollVisibilityChange(threshold: 0.01) { visible in
+            if defersLoading, visible { hasBeenVisible = true }
+        }
+        .task(id: "\(url.absoluteString)|\(attempt)|\(canLoad)") {
+            guard canLoad else { return }
             failed = false
             do {
                 let result = try await ForumImageLoader.shared.load(url)
@@ -34,4 +42,8 @@ struct ForumImageView: View {
             } catch { if !Task.isCancelled { failed = true } }
         }
     }
+}
+
+extension EnvironmentValues {
+    @Entry var defersForumImagesUntilVisible = false
 }
