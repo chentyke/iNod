@@ -64,6 +64,9 @@ struct CommentView: View {
                     .allowsHitTesting(false)
             }
         }
+        // Lets the design tests measure the card's edges; VoiceOver still reads each part on its own.
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("comment-\(comment.floorIndex)")
     }
 
     private var header: some View {
