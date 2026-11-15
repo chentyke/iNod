@@ -17,6 +17,11 @@ private final class RequestCounts: @unchecked Sendable {
 
 private final class AvatarProtocol: URLProtocol, @unchecked Sendable {
     static let counts = RequestCounts()
+    static let svg = Data("""
+        <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="512" viewBox="0 0 1024 512">
+          <rect width="1024" height="512" fill="red"/>
+        </svg>
+        """.utf8)
     static let png: Data = {
         let context = CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 8,
                                 space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
@@ -36,10 +41,12 @@ private final class AvatarProtocol: URLProtocol, @unchecked Sendable {
         precondition(request.value(forHTTPHeaderField: "Authorization") == nil)
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { [self] in
             let status = url.path.contains("failure") ? 404 : 200
+            let isSVG = url.lastPathComponent == "default.png"
             let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil,
-                                           headerFields: ["Content-Type": "image/png", "Cache-Control": "no-store"])!
+                                           headerFields: ["Content-Type": isSVG ? "image/svg+xml" : "image/png",
+                                                          "Cache-Control": "no-store"])!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: Self.png)
+            client?.urlProtocol(self, didLoad: isSVG ? Self.svg : Self.png)
             client?.urlProtocolDidFinishLoading(self)
         }
     }
@@ -92,5 +99,11 @@ private final class AvatarProtocol: URLProtocol, @unchecked Sendable {
         }
         precondition(loader.image(for: failure) == nil && AvatarProtocol.counts.count(failure) == 1)
         print("PASS: failed images stay placeholders and do not retry on every row reuse")
+
+        let defaultAvatar = URL(string: "https://avatar-cache.test/avatar/default.png")!
+        let thumbnail = try await loader.load(defaultAvatar)
+        precondition(thumbnail.width == 384 && thumbnail.height == 192)
+        precondition(loader.image(for: defaultAvatar) === thumbnail)
+        print("PASS: an SVG served at a .png avatar URL is rendered at the thumbnail size and cached")
     }
 }
