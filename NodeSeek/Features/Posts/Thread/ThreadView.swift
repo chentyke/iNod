@@ -149,14 +149,9 @@ struct ThreadView: View {
             if usesZoomTransition {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
-                        Button { dismiss() } label: {
-                            Image(systemName: "chevron.backward")
-                                .font(.headline.weight(.semibold))
-                                .frame(width: 44, height: 44)
-                        }
-                        .buttonStyle(.plain)
+                        ThreadBackButton { dismiss() }
+                        .frame(width: 44, height: 44)
                         .glassEffect(.regular.interactive(), in: .circle)
-                        .accessibilityLabel("返回")
                         ThreadAuthorBar(post: post, detail: detail)
                         Spacer(minLength: 0)
                         Menu {
