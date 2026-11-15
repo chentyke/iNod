@@ -1,10 +1,12 @@
 import NodeSeekCore
 import Foundation
 import ImageIO
+import WebKit
 
 @MainActor
 public final class AvatarImageLoader {
     public static let shared = AvatarImageLoader()
+    private nonisolated static let maxPixelSize = 384
 
     private final class Entry {
         let image: CGImage?
@@ -18,6 +20,11 @@ public final class AvatarImageLoader {
     private let cache = NSCache<NSURL, Entry>()
     private var pending: [URL: Task<CGImage, Error>] = [:]
     private let session: URLSession
+    private lazy var svgWebView: WKWebView = {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        return WKWebView(frame: .zero, configuration: configuration)
+    }()
 
     init(session: URLSession? = nil) {
         cache.countLimit = 256
@@ -46,13 +53,18 @@ public final class AvatarImageLoader {
             request.cachePolicy = .useProtocolCachePolicy
             request.timeoutInterval = 15
             let (data, response) = try await session.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200,
-                  data.count <= 4_000_000,
-                  let source = CGImageSourceCreateWithData(data as CFData, nil),
+            guard let response = response as? HTTPURLResponse, response.statusCode == 200,
+                  data.count <= 4_000_000 else { throw SiteError.message("头像暂时无法加载。") }
+
+            // NodeSeek serves SVG default avatars from .png URLs.
+            let imageData = response.mimeType == "image/svg+xml"
+                ? try await self.rasterizeSVG(data.base64EncodedString()) : data
+            guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
+                  CGImageSourceGetCount(source) > 0,
                   let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceCreateThumbnailWithTransform: true,
-                    kCGImageSourceThumbnailMaxPixelSize: 384,
+                    kCGImageSourceThumbnailMaxPixelSize: Self.maxPixelSize,
                     kCGImageSourceShouldCacheImmediately: true
                   ] as CFDictionary) else { throw SiteError.message("头像暂时无法加载。") }
             return image
@@ -67,6 +79,26 @@ public final class AvatarImageLoader {
             cache.setObject(Entry(image: nil, lifetime: 30), forKey: url as NSURL)
             throw error
         }
+    }
+
+    private func rasterizeSVG(_ base64: String) async throws -> Data {
+        // Loading SVG through an image element disables its scripts and external resources.
+        let result = try await svgWebView.callAsyncJavaScript("""
+            const image = new Image();
+            image.src = "data:image/svg+xml;base64," + svg;
+            await image.decode();
+
+            const scale = Math.min(1, maxPixelSize / Math.max(image.naturalWidth, image.naturalHeight));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+            canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL("image/png").split(",")[1];
+            """, arguments: ["svg": base64, "maxPixelSize": Self.maxPixelSize], in: nil, contentWorld: .defaultClient)
+        guard let base64PNG = result as? String, let png = Data(base64Encoded: base64PNG) else {
+            throw SiteError.message("头像暂时无法加载。")
+        }
+        return png
     }
 
     private func entry(for url: URL) -> Entry? {
