@@ -5,9 +5,7 @@ import PhotosUI
 
 struct NodeImageLibraryView: View {
     let userID: Int
-    var onInsert: ((URL) -> Void)?
     @Environment(AccountSession.self) private var account
-    @Environment(\.dismiss) private var dismiss
     @State private var client = NodeImageClient()
     @State private var key = ""
     @State private var savedKey = ""
@@ -75,7 +73,6 @@ struct NodeImageLibraryView: View {
         }
         .seekGroupedList().navigationTitle("图片上传与管理").navigationBarTitleDisplayMode(.inline)
         .interactiveDismissDisabled(updating)
-        .toolbar { if onInsert != nil { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() }.disabled(updating) } } }
         .task {
             guard !initialized else { return }; initialized = true
             do { savedKey = try NodeImageKeyStore.read(userID: userID); key = savedKey; if !savedKey.isEmpty { await load() } }
@@ -97,11 +94,8 @@ struct NodeImageLibraryView: View {
         } message: { Text("已发布帖子中的这张图片也会无法显示，删除后不能恢复。") }
     }
 
-    @ViewBuilder private func imageActions(_ image: HostedImage) -> some View {
-        HStack(spacing: 20) {
-            if let onInsert { Button("插入帖子", systemImage: "plus.circle") { onInsert(image.url); dismiss() }.disabled(updating) }
-            ShareLink("分享链接", item: image.url)
-        }.font(.subheadline).frame(minHeight: 44)
+    private func imageActions(_ image: HostedImage) -> some View {
+        ShareLink("分享链接", item: image.url).font(.subheadline).frame(minHeight: 44)
     }
 
     private func saveKey() async {

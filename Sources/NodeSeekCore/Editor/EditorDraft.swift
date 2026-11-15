@@ -8,6 +8,10 @@ public struct EditorDraft: Codable, Equatable, Sendable {
     public init(title: String = "", content: String = "", category: String = "daily", rank: Int = 0) {
         self.title = title; self.content = content; self.category = category; self.rank = rank
     }
+    public mutating func appendHostedImage(_ url: URL) {
+        content += "\n\(HostedImageLinkFormat.markdown.text(for: url))\n"
+    }
+
     public func validation(for mode: EditorMode) -> String? {
         if mode.editsTitle && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "请填写帖子标题。" }
         if content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "请填写正文。" }

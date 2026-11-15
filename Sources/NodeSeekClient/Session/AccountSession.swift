@@ -22,6 +22,7 @@ public final class AccountSession {
     public let inbox: InboxService
     public let collections: CollectionsService
     public let categories: CategoryStore
+    public let nodeImageHistory = NodeImageHistory()
     private let loadAuthentication: @MainActor (Bool) async throws -> AuthenticationSnapshot
     private var refreshTask: (revision: Int, task: Task<Void, Never>)?
 
@@ -73,6 +74,7 @@ public final class AccountSession {
             inbox.reset(userID: snapshot.user?.id, unreadCount: snapshot.user?.unreadCount ?? 0)
             collections.reset(userID: snapshot.user?.id)
             categories.reset()
+            nodeImageHistory.reset()
         }
         user = snapshot.user
         website.observe(snapshot)
@@ -182,6 +184,7 @@ public final class AccountSession {
         inbox.reset(userID: nil, unreadCount: 0)
         collections.reset(userID: nil)
         categories.reset()
+        nodeImageHistory.reset()
         website.resetAuthentication()
     }
 }

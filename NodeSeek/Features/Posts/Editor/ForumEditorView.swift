@@ -1,5 +1,6 @@
 import NodeSeekCore
 import NodeSeekClient
+import PhotosUI
 import SwiftUI
 
 struct ForumEditorView: View {
@@ -21,12 +22,12 @@ struct ForumEditorView: View {
     @State private var error: String?
     @State private var confirmsCost = false
     @State private var showsStickers = false
-    @State private var showsImage = false
-    @State private var showsImageLibrary = false
+    @State private var pickedPhotos: [PhotosPickerItem] = []
+    @State private var photoUploadTask: Task<Void, Never>?
     @State private var showsVote = false
     @State private var showsReceive = false
-    @State private var imageURL = ""
     @FocusState private var isFocused: Bool
+    private var insertingPhotos: Bool { photoUploadTask != nil || !pickedPhotos.isEmpty }
 
     var body: some View {
         ForumNavigationStack {
@@ -80,12 +81,16 @@ struct ForumEditorView: View {
                             }
                         }
                         Button("表情", systemImage: "face.smiling") { isFocused = false; showsStickers = true }
-                        Menu("插入图片", systemImage: "photo") {
-                            Button("上传或选择已有图片", systemImage: "photo.on.rectangle") { isFocused = false; showsImageLibrary = true }
-                            Button("插入图片链接", systemImage: "link") { isFocused = false; showsImage = true }
+                        PhotosPicker(selection: $pickedPhotos, maxSelectionCount: 10, selectionBehavior: .ordered, matching: .images) {
+                            Label("选择图片", systemImage: "photo")
                         }
+                        .disabled(insertingPhotos || ownerID == nil || ownerID != account.user?.id)
                         Spacer()
-                        Text("\(draft.content.count) 字").font(.caption).foregroundStyle(.secondary)
+                        if insertingPhotos {
+                            ProgressView("正在上传图片").controlSize(.small).font(.caption)
+                        } else {
+                            Text("\(draft.content.count) 字").font(.caption).foregroundStyle(.secondary)
+                        }
                     }.labelStyle(.iconOnly).frame(minHeight: 44).padding(.horizontal, 20).padding(.vertical, 6)
                 }
                 if let error { Text(error).font(.subheadline).foregroundStyle(.red).padding(.horizontal, 20).padding(.vertical, 8) }
@@ -95,20 +100,31 @@ struct ForumEditorView: View {
             .disabled(sending)
             .navigationTitle(request.mode.title).navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("稍后再写") { dismiss() }.disabled(sending) }
+                ToolbarItem(placement: .cancellationAction) { Button("稍后再写") { dismiss() }.disabled(sending || insertingPhotos) }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(sending ? "提交中…" : (request.mode.rawValue.hasPrefix("edit") ? "保存" : "发布")) { submitOrConfirm() }
-                        .disabled(sending || draft.validation(for: request.mode) != nil || ownerID != account.user?.id)
+                        .disabled(sending || insertingPhotos || draft.validation(for: request.mode) != nil || ownerID != account.user?.id)
                 }
             }
-            .interactiveDismissDisabled(sending)
+            .interactiveDismissDisabled(sending || insertingPhotos)
             .task(id:account.user?.id) { initialize() }
             .task { await categories.refresh() }
+            .onChange(of: pickedPhotos) { _, photos in
+                guard !photos.isEmpty, photoUploadTask == nil else { return }
+                pickedPhotos = []
+                photoUploadTask = Task {
+                    await attachPhotos(photos)
+                    photoUploadTask = nil
+                }
+            }
             .task(id:draft) {
                 guard initialized,!published,let ownerID else { return }
                 do { try await Task.sleep(for:.milliseconds(300)); EditorDraftStore.save(draft,ownerID:ownerID,mode:request.mode) } catch { }
             }
-            .onDisappear { if initialized,!published,let ownerID { EditorDraftStore.save(draft,ownerID:ownerID,mode:request.mode) } }
+            .onDisappear {
+                photoUploadTask?.cancel()
+                if initialized,!published,let ownerID { EditorDraftStore.save(draft,ownerID:ownerID,mode:request.mode) }
+            }
             .onChange(of:account.revision) { if initialized,ownerID != account.user?.id { dismiss() } }
             .onChange(of: preview) { if preview { isFocused = false } }
             .confirmationDialog("确认发布？", isPresented: $confirmsCost, titleVisibility: .visible) {
@@ -120,21 +136,6 @@ struct ForumEditorView: View {
             }
             .sheet(isPresented:$showsReceive) { StardustRequestCreator { link in selection = nil; insert(prefix:"\n",suffix:"\n",placeholder:link) } }
             .sheet(isPresented: $showsVote) { VoteCreatorView { id in selection = nil; insert(prefix: "\n", suffix: "\n", placeholder: "nsapp://vote?id=\(id)") } }
-            .sheet(isPresented: $showsImageLibrary) {
-                if let ownerID {
-                    NavigationStack {
-                        NodeImageLibraryView(userID: ownerID) { url in
-                            selection = nil
-                            insert(prefix: "\n![图片](", suffix: ")\n", placeholder: url.absoluteString)
-                        }
-                    }
-                }
-            }
-            .alert("插入图片", isPresented: $showsImage) {
-                TextField("https://图片地址", text: $imageURL).textInputAutocapitalization(.never)
-                Button("插入") { insertImage() }
-                Button("取消", role: .cancel) { imageURL = "" }
-            } message: { Text("填写可以在网页中显示的图片链接。") }
             .alert("导入旧版草稿？",isPresented:$showsLegacyImport) {
                 Button("导入") {
                     if let legacyDraftKey,let text = UserDefaults.standard.string(forKey:legacyDraftKey) {
@@ -165,19 +166,51 @@ struct ForumEditorView: View {
         draft.content.replaceSubrange(range, with: prefix + chosen + suffix)
         selection = TextSelection(insertionPoint: draft.content.index(draft.content.startIndex, offsetBy: position + prefix.count + chosen.count + suffix.count))
     }
-    private func insertImage() {
-        guard let url = URL(string: imageURL), ["http", "https"].contains(url.scheme ?? ""), url.host() != nil else { error = "请输入有效的图片链接。"; return }
-        selection = nil
-        insert(prefix: "\n![图片](", suffix: ")\n", placeholder: url.absoluteString)
-        imageURL = ""
+    private func attachPhotos(_ photos: [PhotosPickerItem]) async {
+        guard let user = account.user, user.id == ownerID else { return }
+        let revision = account.revision
+        let preferences = NodeImageUploadPreferences(userID: user.id)
+        let options = preferences.imageOptions(username: user.name)
+        let expiration = preferences.deleteAfterDays
+        var links: [URL] = []
+        error = nil
+        defer {
+            if !Task.isCancelled, preferences.copyAfterUpload, !links.isEmpty, account.revision == revision {
+                UIPasteboard.general.string = links.map { preferences.linkFormat.text(for: $0) }.joined(separator: "\n")
+            }
+        }
+
+        do {
+            let key = try NodeImageKeyStore.read(userID: user.id)
+            guard NodeImageAPI.validKey(key) else {
+                throw SiteError.message("请到「我的」中的「图片上传与管理」连接 NodeImage 后再选图。")
+            }
+            let history = account.nodeImageHistory
+            for photo in photos {
+                let prepared = try await NodeImageInput.photo(photo).prepare()
+                let payload = try await Task.detached(priority: .userInitiated) {
+                    try UploadImageProcessor.render(prepared, options: options)
+                }.value
+                guard !Task.isCancelled, account.revision == revision else { return }
+                let image = try await history.client.upload(
+                    image: payload.data, format: payload.format, key: key, deleteAfterDays: expiration
+                )
+                guard !Task.isCancelled, account.revision == revision else { return }
+                history.recordUpload(image, userID: user.id, key: key)
+                draft.appendHostedImage(image.url)
+                links.append(image.url)
+            }
+        } catch {
+            if !Task.isCancelled, account.revision == revision { self.error = error.localizedDescription }
+        }
     }
     private func submitOrConfirm() {
-        guard draft.validation(for: request.mode) == nil else { return }
+        guard !insertingPhotos, draft.validation(for: request.mode) == nil else { return }
         if request.mode.cost(for: draft) > 0 { confirmsCost = true }
         else { Task { await publish() } }
     }
     private func publish() async {
-        guard !sending, let ownerID, account.user?.id == ownerID else { return }
+        guard !sending, !insertingPhotos, let ownerID, account.user?.id == ownerID else { return }
         sending = true; error = nil
         defer { sending = false }
         do {
