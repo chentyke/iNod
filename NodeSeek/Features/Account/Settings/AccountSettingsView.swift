@@ -19,7 +19,6 @@ struct AccountSettingsView: View {
                 NavigationLink { BlockedMembersView(userID: userID) } label: { Label("屏蔽用户", systemImage: "person.slash") }
                 Toggle(isOn: $showsBlocked) { Label("显示被屏蔽的内容", systemImage: "eye") }
                 NavigationLink { AccountSecurityView(userID: userID) } label: { Label("登录与安全", systemImage: "lock.shield") }
-                NavigationLink(value: AppDestination.imageLibrary(userID: userID)) { Label("图片上传与管理", systemImage: "photo.on.rectangle") }
             }
             Section("外观") {
                 Picker("显示模式", selection: $appearance) { ForEach(AppAppearance.allCases) { Text($0.title).tag($0) } }

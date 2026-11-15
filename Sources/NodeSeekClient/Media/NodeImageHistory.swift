@@ -29,5 +29,12 @@ public final class NodeImageHistory {
         store(images, userID: userID, key: key)
     }
 
+    public func finishRefresh(_ images: [HostedImage], recentUploads: [HostedImage], userID: Int, key: String) -> [HostedImage] {
+        let uploadedIDs = Set(recentUploads.map(\.id))
+        let merged = Array(recentUploads.reversed()) + images.filter { !uploadedIDs.contains($0.id) }
+        store(merged, userID: userID, key: key)
+        return merged
+    }
+
     public func reset() { entry = nil }
 }

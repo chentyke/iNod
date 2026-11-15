@@ -31,6 +31,9 @@ struct AccountView: View {
                 } header: { SeekSectionTitle(title: "鸡腿与星尘") }
                 .listRowBackground(Color.seekCard)
                 Section {
+                    NavigationLink(value: AppDestination.imageLibrary(userID: user.id)) {
+                        SeekRowLabel(title: "图片上传与管理", symbol: "photo.on.rectangle")
+                    }
                     AccountNavigationRow(title: "账号设置", symbol: "gearshape", destination: .settings)
                     NavigationLink(value: AppDestination.invitations(userID: user.id)) { SeekRowLabel(title: "邀请朋友", symbol: "ticket") }
                 }
