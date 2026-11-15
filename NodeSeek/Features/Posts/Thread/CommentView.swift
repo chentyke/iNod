@@ -4,10 +4,13 @@ import SwiftUI
 struct CommentView: View {
     let comment: ForumComment
     var showsHeader = true
+    var isAuthor = false
     var isBusy = false
     var actionsDisabled = false
     var canEdit = false
     var canPin = false
+    /// Owned by the thread, so a scroll or a tap anywhere else can fold it.
+    @Binding var actionsExpanded: Bool
     @Binding var pendingReaction: PendingReaction?
     @Binding var showsReactionConfirmation: Bool
     var onReply: (Bool) -> Void = { _ in }
@@ -17,54 +20,70 @@ struct CommentView: View {
     let onConfirmReaction: (PendingReaction) -> Void
     let onReact: (CommentReaction) -> Void
 
-    private var highlightTint: Color {
-        guard showsHeader else { return .clear }
-        if comment.pined == true { return .seekGreen }
-        return comment.hot == true ? .red : .clear
+    private static let radius: CGFloat = 20
+    private var horizontalPadding: CGFloat { showsHeader ? 16 : 20 }
+
+    /// The pinned reply gets a quiet outline; hot replies arrive in runs, so their badge is enough.
+    private var highlightTint: Color? {
+        showsHeader && comment.pined == true ? .seekGreen : nil
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
-                if showsHeader { HStack(spacing: 10) {
-                    NavigationLink(value: MemberDestination.profile(comment.poster.uid)) {
-                        HStack(spacing: 10) {
-                            AvatarView(name: comment.poster.name, url: comment.poster.avatarURL)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(comment.poster.name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-                                if let date = comment.time.date {
-                                    PostTimestamp(date: date)
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                        }.frame(minHeight: 44).contentShape(.rect)
-                    }.buttonStyle(.plain).accessibilityLabel("查看 \(comment.poster.name) 的主页")
-                    Spacer()
-                } }
-                if comment.blocked { Label("来自已屏蔽的用户",systemImage:"eye").font(.caption).foregroundStyle(.secondary) }
-                // Measure the opening post as one card so image updates don't shift its beginning.
-                ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: showsHeader, onOpenImages: onOpenImages)
-                    .environment(\.defersForumImagesUntilVisible, !showsHeader)
+        VStack(alignment: .leading, spacing: 8) {
+            if showsHeader { header }
+            if comment.blocked {
+                Label("来自已屏蔽的用户", systemImage: "eye.slash").font(.caption).foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 12)
-            .background(highlightTint.opacity(0.06), in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
-            CommentActionBar(comment: comment, isBusy: isBusy, actionsDisabled: actionsDisabled,
-                             canEdit: canEdit, canPin: canPin, pendingReaction: $pendingReaction,
-                             showsReactionConfirmation: $showsReactionConfirmation, onReply: onReply,
-                             onEdit: onEdit, onPin: onPin, onConfirmReaction: onConfirmReaction, onReact: onReact)
+            // Measure the opening post as one card so image updates don't shift its beginning.
+            ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: showsHeader, onOpenImages: onOpenImages)
+                .environment(\.defersForumImagesUntilVisible, !showsHeader)
+            CommentActionBar(comment: comment, date: showsHeader ? comment.time.date : nil,
+                             isBusy: isBusy, actionsDisabled: actionsDisabled,
+                             canEdit: canEdit, canPin: canPin, isExpanded: $actionsExpanded,
+                             pendingReaction: $pendingReaction, showsReactionConfirmation: $showsReactionConfirmation,
+                             onReply: onReply, onEdit: onEdit, onPin: onPin,
+                             onConfirmReaction: onConfirmReaction, onReact: onReact,
+                             trailingInset: horizontalPadding)
+                .padding(.top, DockMetrics.bodyGap - 8)
         }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.top, showsHeader ? 15 : 20)
+        .padding(.bottom, DockMetrics.cardInset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             if showsHeader {
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.seekCard)
+                let shape = RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
+                shape.fill(Color.seekCard)
+                    .overlay { if let highlightTint { shape.fill(highlightTint.opacity(0.04)) } }
             }
         }
-        .overlay(alignment: .topTrailing) {
-            if showsHeader {
-                CommentFloorMark(floor: comment.floorIndex, isPinned: comment.pined == true, isHot: comment.hot == true)
-                    .offset(x: 4, y: -18)
+        .overlay {
+            if let highlightTint {
+                RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
+                    .strokeBorder(highlightTint.opacity(0.28), lineWidth: 1)
+                    .allowsHitTesting(false)
             }
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            NavigationLink(value: MemberDestination.profile(comment.poster.uid)) {
+                HStack(spacing: 8) {
+                    AvatarView(name: comment.poster.name, url: comment.poster.avatarURL, size: 26)
+                    Text(comment.poster.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.seekInk)
+                        .lineLimit(1)
+                    if isAuthor { CommentBadge(title: "楼主", tint: .seekGreen) }
+                }
+                .frame(minHeight: 30)
+                .contentShape(Rectangle().inset(by: -7))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isAuthor ? "查看楼主 \(comment.poster.name) 的主页" : "查看 \(comment.poster.name) 的主页")
+            CommentFloorMark(floor: comment.floorIndex, isPinned: comment.pined == true, isHot: comment.hot == true)
+            Spacer(minLength: 0)
         }
     }
 }
