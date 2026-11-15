@@ -5,11 +5,12 @@ struct ForumImageView: View {
     let url: URL
     let alt: String
     var onOpenImages: ((ImageGallery) -> Void)?
+    @Environment(\.defersForumImagesUntilVisible) private var defersLoading
     @State private var gallery: ImageGallery?
 
     var body: some View {
         let item = ImageGallery.Item(url: url, alt: alt)
-        ForumImageContent(url: url) { image in
+        ForumImageContent(url: url, defersLoading: defersLoading) { image in
             Button {
                 let opened = ImageGallery(items: [item], startIndex: 0, initialImage: image)
                 if let onOpenImages { onOpenImages(opened) }
@@ -29,10 +30,14 @@ struct ForumImageView: View {
 struct ForumImageContent<Content: View>: View {
     let url: URL
     var initialImage: CGImage?
+    var defersLoading = false
     @ViewBuilder var content: (CGImage) -> Content
+    @State private var hasBeenVisible = false
     @State private var image: CGImage?
     @State private var failed = false
     @State private var attempt = 0
+
+    private var canLoad: Bool { !defersLoading || hasBeenVisible }
 
     var body: some View {
         Group {
@@ -45,8 +50,11 @@ struct ForumImageContent<Content: View>: View {
                 }.frame(maxWidth: .infinity).padding(24).background(Color.seekSurface, in: .rect(cornerRadius: 12))
             } else { ProgressView().frame(maxWidth: .infinity, minHeight: 120) }
         }
-        .task(id: attempt) {
-            guard initialImage == nil, image == nil else { return }
+        .onScrollVisibilityChange(threshold: 0.01) { visible in
+            if defersLoading, visible { hasBeenVisible = true }
+        }
+        .task(id: canLoad ? attempt : nil) {
+            guard canLoad, initialImage == nil, image == nil else { return }
             failed = false
             do {
                 let result = try await ForumImageLoader.shared.load(url)
@@ -55,4 +63,8 @@ struct ForumImageContent<Content: View>: View {
             } catch { if !Task.isCancelled { failed = true } }
         }
     }
+}
+
+extension EnvironmentValues {
+    @Entry var defersForumImagesUntilVisible = false
 }
