@@ -1,28 +1,48 @@
 import SwiftUI
 
+/// The floor number, followed by a pinned or hot badge when the reply has one.
 struct CommentFloorMark: View {
     let floor: Int
     let isPinned: Bool
     let isHot: Bool
-    @ScaledMetric(relativeTo: .largeTitle) private var fontSize = 64.0
-    @Environment(\.colorSchemeContrast) private var colorContrast
 
-    private var prefix: String { isPinned ? "📌" : isHot ? "🔥" : "" }
-    private var tint: Color { isPinned ? .seekGreen : isHot ? .red : .seekInk }
     private var spokenLabel: String {
         let kind = isPinned ? "楼主置顶，" : isHot ? "热门评论，" : ""
         return "\(kind)第 \(floor) 楼"
     }
 
     var body: some View {
-        Text("\(prefix)#\(floor)")
-            .font(.system(size: min(fontSize, 88), weight: .bold, design: .rounded))
-            .monospacedDigit()
-            .foregroundStyle(tint)
-            .opacity(colorContrast == .increased ? 0.35 : 0.08)
-            .lineLimit(1).minimumScaleFactor(0.5)
-            .frame(maxWidth: 240, alignment: .trailing)
-            .accessibilityLabel(spokenLabel)
-            .allowsHitTesting(false)
+        HStack(spacing: 6) {
+            Text("#\(floor)")
+                .font(.footnote.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(.tertiary)
+            if isPinned { CommentBadge(title: "置顶", symbol: "pin.fill", tint: .seekGreen) }
+            else if isHot { CommentBadge(title: "热门", symbol: "flame.fill", tint: .red) }
+        }
+        .lineLimit(1)
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenLabel)
+    }
+}
+
+/// A small tinted tag, such as 楼主 or 置顶.
+struct CommentBadge: View {
+    let title: String
+    var symbol: String?
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 2) {
+            if let symbol { Image(systemName: symbol).imageScale(.small) }
+            Text(title)
+        }
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(tint)
+        .padding(.horizontal, 6).padding(.vertical, 2)
+        .background(tint.opacity(0.12), in: .capsule)
+        .lineLimit(1)
+        .fixedSize()
     }
 }

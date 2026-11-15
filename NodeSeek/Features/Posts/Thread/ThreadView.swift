@@ -9,6 +9,7 @@ struct ThreadView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.openMemberDestination) private var openMember
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("showsBlockedContent") private var showsBlocked = false
     @ScaledMetric(relativeTo: .body) private var bottomContentMargin = 96.0
     @State private var detail: PostDetail?
@@ -36,6 +37,7 @@ struct ThreadView: View {
     @State private var loadedRefreshID: UUID?
     @State private var loadID = UUID()
     @State private var busyCommentID: Int?
+    @State private var expandedActionsCommentID: Int?
     @State private var reactionToPrepare: (commentID: Int, reaction: CommentReaction)?
     @State private var pendingReaction: PendingReaction?
     @State private var showsReactionConfirmation = false
@@ -56,7 +58,7 @@ struct ThreadView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 0) {
                     ThreadHeader(post: post, detail: detail, createdDate: createdDate, showsRank: accessError == nil || accessError == .signInRequired)
                     if let accessError {
@@ -112,6 +114,13 @@ struct ThreadView: View {
             .background(TopOverscrollLock())
         }
         .scrollPosition($scrollPosition)
+        // An open reaction dock folds away once the reader scrolls or taps anywhere outside it.
+        // Touch tracking is left out so a tap on the dock's own buttons isn't cancelled.
+        .onScrollPhaseChange { _, phase in
+            if phase == .interacting || phase == .decelerating || phase == .animating { foldActionDock() }
+        }
+        .gesture(TapGesture().onEnded { foldActionDock() },
+                 including: expandedActionsCommentID == nil ? .subviews : .all)
         .seekCanvas()
         .environment(\.forumDocumentURL,NodeSeekRoute.thread(id:post.id,page:page).url)
         .environment(\.openURL, OpenURLAction { url in
@@ -284,7 +293,7 @@ struct ThreadView: View {
     }
 
     private func commentView(_ comment: ForumComment, showsHeader: Bool = true) -> some View {
-        CommentView(comment: comment, showsHeader: showsHeader, isBusy: busyCommentID == comment.id || reactionToPrepare?.commentID == comment.id, actionsDisabled: busyCommentID != nil || reactionToPrepare != nil || isLoading, canEdit: comment.poster.uid == account.user?.id && detail?.locked != true, canPin: comment.floorIndex > 0 && detail?.op.uid == account.user?.id, pendingReaction: $pendingReaction, showsReactionConfirmation: $showsReactionConfirmation, onReply: { quote in
+        CommentView(comment: comment, showsHeader: showsHeader, isAuthor: comment.poster.uid == detail?.op.uid, isBusy: busyCommentID == comment.id || reactionToPrepare?.commentID == comment.id, actionsDisabled: busyCommentID != nil || reactionToPrepare != nil || isLoading, canEdit: comment.poster.uid == account.user?.id && detail?.locked != true, canPin: comment.floorIndex > 0 && detail?.op.uid == account.user?.id, actionsExpanded: actionsExpanded(for: comment), pendingReaction: $pendingReaction, showsReactionConfirmation: $showsReactionConfirmation, onReply: { quote in
             requestReply(content: EditorDraft.replyReference(postID: post.id, floor: comment.floorIndex, name: comment.poster.name, quote: quote ? comment.markdown : nil))
         }, onEdit: { edit(comment) }, onPin: {
             Task { await pin(comment) }
@@ -294,6 +303,20 @@ struct ThreadView: View {
             guard busyCommentID == nil, reactionToPrepare == nil, !comment.hasReacted(reaction) else { return }
             reactionToPrepare = (comment.id, reaction)
         }
+    }
+
+    private func actionsExpanded(for comment: ForumComment) -> Binding<Bool> {
+        Binding {
+            expandedActionsCommentID == comment.id
+        } set: { expanded in
+            if expanded { expandedActionsCommentID = comment.id }
+            else if expandedActionsCommentID == comment.id { expandedActionsCommentID = nil }
+        }
+    }
+
+    private func foldActionDock() {
+        guard expandedActionsCommentID != nil else { return }
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.32, bounce: 0.2)) { expandedActionsCommentID = nil }
     }
 
     private func visibleReplies(in detail: PostDetail) -> [ForumComment] {
