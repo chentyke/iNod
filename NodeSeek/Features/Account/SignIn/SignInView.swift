@@ -24,7 +24,8 @@ struct SignInView: View {
                         SecureField("密码", text: $password).textContentType(.password)
                     }
                     Section("人机验证") {
-                        WebView(session.page).webViewContentBackground(.hidden).webViewBackForwardNavigationGestures(.disabled).frame(height: 90)
+                        // The page centres the 65-point widget, so the row's padding stays even above and below it.
+                        WebView(session.page).webViewContentBackground(.hidden).webViewBackForwardNavigationGestures(.disabled).frame(height: 72)
                             .overlay { if session.verification == "loading" { ProgressView("正在加载验证").font(.footnote) } }
                         if session.verification == "ready" { Label("验证完成", systemImage: "checkmark.circle").foregroundStyle(Color.seekGreen) }
                         if ["error", "expired"].contains(session.verification) {
@@ -40,8 +41,12 @@ struct SignInView: View {
                     Button("重新输入账号") { otpSession = nil; code = ""; error = nil }
                 }
                 Section {
-                    Button(busy ? "登录中…" : "登录") { Task { await submit() } }.disabled(!canSubmit || busy)
+                    Button(busy ? "登录中…" : "登录") { Task { await submit() } }
+                        .buttonStyle(.seekPill)
+                        .disabled(!canSubmit || busy)
                 }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 Section {
                     Button("使用官网登录、注册或找回密码", systemImage: "globe") { showsWebsite = true }

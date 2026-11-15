@@ -44,7 +44,7 @@ struct AccountView: View {
                     } else {
                         Text("暂时无法确认登录状态").font(.headline)
                     }
-                    Button("打开官网", systemImage: "globe") { open(NodeSeekRoute.home.url) }
+                    Button { open(NodeSeekRoute.home.url) } label: { SeekRowLabel(title: "打开官网", symbol: "globe", opensExternally: true) }
                 }
             } else {
                 Section {
@@ -55,7 +55,9 @@ struct AccountView: View {
                             .font(.subheadline).foregroundStyle(.secondary)
                         Button("登录", systemImage: "person.crop.circle") { showsSignIn = true }
                             .buttonStyle(.seekPill)
-                    }.padding(.vertical, 12)
+                    }
+                    // The symbol's frame carries a few points of air above its glyph; trim the top to match the button below.
+                    .padding(.top, 8).padding(.bottom, 12)
                 }
             }
             if let error = account.error {
@@ -65,12 +67,15 @@ struct AccountView: View {
                         .disabled(account.isRefreshing)
                 }
             }
-            Section("关于") {
+            Section {
                 NavigationLink(value: AppDestination.communityTools) { SeekRowLabel(title: "社区工具", symbol: "square.grid.2x2") }
-                LabeledContent("iNod", value: "0.1.0")
-                Text("非官方 NodeSeek iOS 客户端").foregroundStyle(.secondary)
-                Button("NodeSeek 官网", systemImage: "globe") { open(NodeSeekRoute.home.url) }
             }
+            Section {
+                AccountAboutRow(version: "0.1.0")
+                Button { open(NodeSeekRoute.home.url) } label: {
+                    SeekRowLabel(title: "NodeSeek 官网", symbol: "globe", opensExternally: true)
+                }
+            } header: { SeekSectionTitle(title: "关于") }
         }
         .seekGroupedList()
         .navigationTitle("我的")
@@ -82,4 +87,23 @@ struct AccountView: View {
     }
 
     private func open(_ url: URL) { websiteURL = url; showsWebsite = true }
+}
+
+/// The app's name, what it is, and its version, laid out like the other rows.
+private struct AccountAboutRow: View {
+    let version: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            SeekIconTile(symbol: "info.circle")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("iNod").foregroundStyle(Color.seekInk)
+                Text("非官方 NodeSeek iOS 客户端").font(.footnote).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Text(version).monospacedDigit().foregroundStyle(.secondary)
+        }
+        .frame(minHeight: 44)
+        .accessibilityElement(children: .combine)
+    }
 }
