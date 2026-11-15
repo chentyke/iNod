@@ -42,7 +42,9 @@ struct CommentView: View {
                     Spacer()
                 } }
                 if comment.blocked { Label("来自已屏蔽的用户",systemImage:"eye").font(.caption).foregroundStyle(.secondary) }
-                ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: true, onOpenImages: onOpenImages)
+                // Measure the opening post as one card so image updates don't shift its beginning.
+                ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: showsHeader, onOpenImages: onOpenImages)
+                    .environment(\.defersForumImagesUntilVisible, !showsHeader)
             }
             .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 12)
             .background(highlightTint.opacity(0.06), in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
