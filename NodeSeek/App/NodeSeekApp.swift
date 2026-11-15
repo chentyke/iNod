@@ -9,6 +9,10 @@ struct NodeSeekApp: App {
 
     private static func makeAccount() -> AccountSession {
         #if DEBUG
+        if let fixture = ProcessInfo.processInfo.environment["NODESEEK_UI_TEST_WEBSITE"] {
+            do { return try AccountSession.fixtureForUITests(fixture) }
+            catch { preconditionFailure("Invalid UI test website fixture: \(error)") }
+        }
         if ProcessInfo.processInfo.arguments.contains("--ui-test-offline") {
             return AccountSession.offlineForUITests()
         }

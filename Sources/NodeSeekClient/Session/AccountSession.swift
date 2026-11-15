@@ -1,3 +1,4 @@
+import Foundation
 import NodeSeekCore
 import Observation
 import WebKit
@@ -29,6 +30,18 @@ public final class AccountSession {
     }
 
     #if DEBUG
+    private struct UITestWebsite: Decodable {
+        let authentication: AuthenticationSnapshot
+        let responses: [String: Data]
+    }
+
+    public static func fixtureForUITests(_ json: String) throws -> AccountSession {
+        let fixture = try JSONDecoder().decode(UITestWebsite.self, from: Data(json.utf8))
+        let website = SiteDataStore(persistsResponses: false) { fixture.authentication }
+        website.responsesForUITests = fixture.responses
+        return AccountSession(website: website, loadAuthentication: { try await website.bootstrap(force: $0) })
+    }
+
     public static func offlineForUITests() -> AccountSession {
         let website = SiteDataStore(persistsResponses: false) { throw URLError(.notConnectedToInternet) }
         return AccountSession(website: website, loadAuthentication: { try await website.bootstrap(force: $0) })
