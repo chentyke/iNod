@@ -79,6 +79,16 @@ final class SiteReader {
         _ = try await scriptData(AccountScripts.uploadAvatar,arguments:["encoded":data.base64EncodedString()])
     }
 
+    func nodeImageGrant(userID: Int) async throws -> Data {
+        try await prepareAccount(userID: userID)
+        guard let url = page.url, url.scheme == "https", url.host() == NodeSeekRoute.origin.host() else {
+            throw SiteError.invalidResponse
+        }
+        return try await scriptData(AccountScripts.request, arguments: [
+            "path": "/api/cAuth?target=NodeImage", "method": "GET", "body": "", "headers": [String: String]()
+        ])
+    }
+
     private func prepareAccount(userID: Int) async throws {
         if page.url == nil || authentication?.user?.id != userID { _ = try await account() }
         try await requireLogin()

@@ -17,6 +17,7 @@ public final class AccountSession {
     public private(set) var error: String?
     public private(set) var isSigningOut = false
     public private(set) var avatarRevision = 0
+    @ObservationIgnored var isSyncingNodeImageKey = false
     public let website: SiteDataStore
     public let inbox: InboxService
     public let collections: CollectionsService
