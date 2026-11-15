@@ -6,6 +6,35 @@ final class ThreadHistoryTests: XCTestCase {
     private let openingText = "周六下午两点开始读书。"
     private let timestamp = "2025-01-04T12:00:00.000Z"
 
+    func testScrollingPinnedPostKeepsContentBelowTopControls() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture()
+        app.launch()
+
+        let post = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "置顶", title)).firstMatch
+        XCTAssertTrue(post.waitForExistence(timeout: 10))
+        post.tap()
+
+        let back = app.buttons["返回"]
+        let heading = app.staticTexts[title]
+        XCTAssertTrue(heading.waitForExistence(timeout: 5))
+        XCTAssertTrue(back.exists)
+        let barBottom = back.frame.maxY
+        let startingTitleY = heading.frame.minY
+        XCTAssertGreaterThanOrEqual(startingTitleY, barBottom)
+
+        let scrollView = app.scrollViews.firstMatch
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -90)),
+                    withVelocity: .slow, thenHoldForDuration: 0.2)
+
+        XCTAssertLessThan(heading.frame.minY, startingTitleY, "The title should move when the post scrolls.")
+        XCTAssertEqual(back.frame.maxY, barBottom, accuracy: 1, "The top controls should stay in place.")
+        XCTAssertGreaterThanOrEqual(scrollView.frame.minY, barBottom - 1,
+                                    "The scrolling viewport must start below the top controls.")
+    }
+
     func testReplyNotificationCanScrollBackToEarlierPagesAndPostBody() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -43,8 +72,11 @@ final class ThreadHistoryTests: XCTestCase {
     private func replyText(_ floor: Int) -> String { "第 \(floor) 楼的回复" }
 
     private func websiteFixture() throws -> String {
+        let pinnedPost: [String: Any] = ["id": 123, "title": title, "author": "楼主", "authorID": 101,
+            "avatar": "", "category": "日常", "categoryKey": "daily", "views": 100, "replies": 30,
+            "activityDate": timestamp, "pinned": true]
         let responses: [String: [String: Any]] = [
-            "https://www.nodeseek.com/?sortBy=replyTime": ["posts": [], "pinnedPosts": [], "hasNextPage": false],
+            "https://www.nodeseek.com/?sortBy=replyTime": ["posts": [], "pinnedPosts": [pinnedPost], "hasNextPage": false],
             "/api/content/list-categories": ["success": true, "data": []],
             "/api/notification/unread-count": ["unreadCount": ["all": 0]],
             "/api/notification/at-me/list": ["items": [], "hasNext": false],
