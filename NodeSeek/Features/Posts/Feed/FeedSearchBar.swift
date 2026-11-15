@@ -30,6 +30,8 @@ struct FeedSearchBar: View {
                 .onSubmit(onSubmit)
                 .frame(minHeight: 48)
                 .allowsHitTesting(isExpanded)
+                // A folded field can't take focus, so returning to the feed never brings the keyboard back.
+                .disabled(!isExpanded)
                 .accessibilityHidden(!isExpanded)
         }
         .font(.subheadline)

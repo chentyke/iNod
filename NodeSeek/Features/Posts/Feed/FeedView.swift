@@ -203,6 +203,25 @@ struct FeedView: View {
         .seekCanvas()
         .contentMargins(.vertical, 6, for: .scrollContent)
         .safeAreaBar(edge: .top, spacing: 0) { filterBar }
+        // An open search folds away once the reader scrolls, taps outside it or leaves the page;
+        // a search with results only drops the keyboard.
+        .scrollDismissesKeyboard(.immediately)
+        .onScrollPhaseChange { _, phase in
+            if phase == .interacting { foldSearchIfEmpty() }
+        }
+        .gesture(TapGesture().onEnded { foldSearchIfEmpty() },
+                 including: isSearchExpanded && !isSearch ? .all : .subviews)
+        .onAppear { isSearchFocused = false }
+        .onDisappear {
+            isSearchFocused = false
+            foldSearchIfEmpty()
+        }
+    }
+
+    private func foldSearchIfEmpty() {
+        guard isSearchExpanded else { return }
+        isSearchFocused = false
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { closeSearch() }
     }
 
     private func postRow(_ post: PostSummary) -> some View {
