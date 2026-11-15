@@ -68,9 +68,12 @@ struct PinnedPostCarousel<Card: View>: View {
                             .environment(\.postTransitionNamespace, page.id.isCopy ? nil : postTransitionNamespace)
                             .accessibilityHidden(page.id.isCopy)
                             .containerRelativeFrame(.horizontal)
+                            .frame(maxHeight: .infinity)
                             .id(page.id)
                     }
                 }
+                // Every card takes the tallest card's height, so swiping never changes the carousel's height.
+                .fixedSize(horizontal: false, vertical: true)
                 .scrollTargetLayout()
             }
             .safeAreaPadding(.horizontal, 16)
