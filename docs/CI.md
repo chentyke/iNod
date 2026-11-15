@@ -39,7 +39,7 @@ xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
 
 - 数据解码、链接、Markdown 和草稿规则放在 [Tests/NodeSeekCoreTests](../Tests/NodeSeekCoreTests/)。
 - 登录状态、收藏、私信和请求格式放在 [Tests/NodeSeekClientTests](../Tests/NodeSeekClientTests/)。
-- App 启动、版块选择和页面跳转等需要实际点界面的检查放在 [NodeSeekUITests](../NodeSeekUITests/)。现有用例启动 App 时传入 `--ui-test-offline`，模拟官网连不上，避免依赖官网或模拟器里已有的登录状态。这个参数只在 Debug 构建中生效。
+- App 启动、相册入口和页面跳转等界面检查放在 [NodeSeekUITests](../NodeSeekUITests/)。测试在 Debug 构建中注入离线状态或模拟账号和响应，避免依赖官网或模拟器里已有的登录状态。
 - 网页请求脚本和 HTML 解析的检查由 [verify-website.sh](../scripts/verify-website.sh) 运行。
 
 如果改动涉及真实登录、验证码或向官网提交数据，请在 PR 写明手动检查的步骤和结果。
