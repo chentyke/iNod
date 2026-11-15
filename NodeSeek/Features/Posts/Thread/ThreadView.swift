@@ -14,11 +14,11 @@ struct ThreadView: View {
     @State private var detail: PostDetail?
     @State private var createdDate: Date?
     @State private var page = 1
+    @State private var firstLoadedPage = 1
     @State private var lastLoadedPage = 1
     @State private var totalPages = 1
-    @State private var nextPageRequest: UUID?
-    @State private var nextPageLoadID: UUID?
-    @State private var nextPageError: String?
+    @State private var requestedCommentPage: Int?
+    @State private var commentPageErrors: [Int: String] = [:]
     @State private var error: (any Error)?
     @State private var isLoading = true
     @State private var showsWebsite = false
@@ -89,14 +89,15 @@ struct ThreadView: View {
                 if let detail {
                     SeekSectionTitle(title: "讨论")
                         .padding(.horizontal, 4).padding(.top, 8)
+                    if !isLoading, error == nil, firstLoadedPage > 1 {
+                        commentsLoader(for: firstLoadedPage - 1, loadingEarlier: true)
+                    }
                     ForEach(showsBlocked ? detail.replies : detail.replies.filter { !$0.blocked }, id: \.floorIndex) { comment in
                         commentView(comment)
                     }
                     if !isLoading && error == nil {
                         if lastLoadedPage < totalPages {
-                            ThreadCommentsLoader(page: lastLoadedPage + 1, error: nextPageError) {
-                                requestNextPage()
-                            }
+                            commentsLoader(for: lastLoadedPage + 1, loadingEarlier: false)
                         } else if totalPages > 1 {
                             Text("没有更多评论了").font(.footnote).foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity).padding(.vertical, 8)
@@ -205,8 +206,8 @@ struct ThreadView: View {
             }
         }
         .task(id: "\(showsBlocked)|\(page)|\(refreshID)|\(account.revision)") { await load() }
-        .task(id: nextPageRequest) {
-            if nextPageRequest != nil { await loadNextPage() }
+        .task(id: requestedCommentPage) {
+            if let requestedCommentPage { await loadCommentPage(requestedCommentPage) }
         }
         .task(id: pendingReply) {
             if let pendingReply { await openReply(pendingReply) }
@@ -215,8 +216,7 @@ struct ThreadView: View {
             if let reactionToPrepare { await prepare(reactionToPrepare.reaction, commentID: reactionToPrepare.commentID) }
         }
         .onDisappear {
-            nextPageLoadID = nil
-            nextPageRequest = nil
+            requestedCommentPage = nil
             pendingReply = nil
             reactionToPrepare = nil
         }
@@ -258,7 +258,7 @@ struct ThreadView: View {
             return
         }
         let targetPage = PostAddress.page(forFloor: floor)
-        if targetPage > totalPages || (page...max(page, lastLoadedPage)).contains(targetPage) {
+        if targetPage > totalPages || (firstLoadedPage...lastLoadedPage).contains(targetPage) {
             showMissingFloor()
         } else {
             requestedFloor = floor
@@ -415,46 +415,53 @@ struct ThreadView: View {
         }
     }
 
-    private func requestNextPage() {
-        guard detail != nil, !isLoading, nextPageLoadID == nil, nextPageRequest == nil, lastLoadedPage < totalPages else { return }
-        nextPageRequest = UUID()
+    private func commentsLoader(for page: Int, loadingEarlier: Bool) -> some View {
+        ThreadCommentsLoader(page: page, loadingEarlier: loadingEarlier, error: commentPageErrors[page],
+                             canLoad: requestedFloor == nil && requestedCommentPage == nil) {
+            guard requestedCommentPage == nil else { return }
+            requestedCommentPage = page
+        }
     }
 
-    private func loadNextPage() async {
-        let kind = threadKind
-        guard loadedKey?.kind == kind, detail != nil, !isLoading, nextPageLoadID == nil, lastLoadedPage < totalPages else { return }
-        let operation = UUID()
+    private func loadCommentPage(_ requestedPage: Int) async {
         let generation = loadID
-        let requestedPage = lastLoadedPage + 1
-        let sessionRevision = account.revision
-        let force = nextPageError != nil
-        nextPageLoadID = operation
-        nextPageError = nil
         defer {
-            if nextPageLoadID == operation {
-                nextPageLoadID = nil
-                nextPageRequest = nil
+            if !Task.isCancelled, loadID == generation, requestedCommentPage == requestedPage {
+                requestedCommentPage = nil
             }
         }
+        let kind = threadKind
+        let loadingEarlier = requestedPage == firstLoadedPage - 1
+        guard loadedKey?.kind == kind, detail != nil, !isLoading, requestedPage > 0,
+              loadingEarlier || (requestedPage == lastLoadedPage + 1 && requestedPage <= totalPages) else { return }
+        let sessionRevision = account.revision
+        let force = commentPageErrors.removeValue(forKey: requestedPage) != nil
         do {
             let result = try await account.website.thread(id: post.id, page: requestedPage, includeBlocked: showsBlocked, force: force)
             try Task.checkCancellation()
-            guard loadID == generation, nextPageLoadID == operation, threadKind == kind, account.revision == sessionRevision else { return }
+            guard loadID == generation, requestedCommentPage == requestedPage, threadKind == kind,
+                  account.revision == sessionRevision else { return }
             account.synchronizeAfterRequest(expectedRevision: sessionRevision)
             guard account.revision == sessionRevision else { return }
             guard result.postId == post.id, result.postPage == requestedPage else { throw SiteError.invalidResponse }
             var existingIDs = Set(detail?.comments.map(\.id) ?? [])
             let comments = result.comments.filter { existingIDs.insert($0.id).inserted }
-            detail?.comments.append(contentsOf: comments)
-            lastLoadedPage = result.postPage
-            totalPages = max(result.postPageCount, result.postPage)
+            if loadingEarlier {
+                detail?.comments.insert(contentsOf: comments, at: 0)
+                firstLoadedPage = requestedPage
+                if let date = comments.first(where: { $0.floorIndex == 0 })?.time.date { createdDate = date }
+            } else {
+                detail?.comments.append(contentsOf: comments)
+                lastLoadedPage = requestedPage
+            }
+            totalPages = max(result.postPageCount, lastLoadedPage)
         } catch is CancellationError { }
         catch {
-            guard !Task.isCancelled, loadID == generation, nextPageLoadID == operation, threadKind == kind else { return }
+            guard !Task.isCancelled, loadID == generation, requestedCommentPage == requestedPage, threadKind == kind else { return }
             account.synchronizeAfterRequest(expectedRevision: sessionRevision)
             guard account.revision == sessionRevision else { return }
             if let accessError = error as? PostAccessError { showAccessError(accessError) }
-            else { nextPageError = error.localizedDescription }
+            else { commentPageErrors[requestedPage] = error.localizedDescription }
         }
     }
 
@@ -470,14 +477,14 @@ struct ThreadView: View {
         if !force, loadedKey == key, loadedRefreshID == refreshID, detail != nil, error == nil { return }
         let operation = UUID()
         loadID = operation
-        nextPageRequest = nil
-        nextPageLoadID = nil
-        nextPageError = nil
+        requestedCommentPage = nil
+        commentPageErrors.removeAll()
         if loadedKey != key { detail = nil }
         loadedKey = key
         if detail == nil { detail = account.website.cached(key: key) }
         if let date = detail?.comments.first(where: { $0.floorIndex == 0 })?.time.date { createdDate = date }
-        lastLoadedPage = detail?.postPage ?? page
+        firstLoadedPage = detail?.postPage ?? page
+        lastLoadedPage = firstLoadedPage
         totalPages = detail?.postPageCount ?? page
         loadedRefreshID = refreshID
         isLoading = true
@@ -494,6 +501,7 @@ struct ThreadView: View {
             detail = result
             account.collections.observe([post.id], collected: result.collected == true, expectedRevision: collectionRevision)
             if let date = result.comments.first(where: { $0.floorIndex == 0 })?.time.date { createdDate = date }
+            firstLoadedPage = result.postPage
             lastLoadedPage = result.postPage
             totalPages = result.postPageCount
         } catch is CancellationError { }

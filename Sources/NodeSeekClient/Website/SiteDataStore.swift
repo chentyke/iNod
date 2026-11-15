@@ -4,6 +4,9 @@ import Foundation
 @MainActor
 public final class SiteDataStore {
     let reader: SiteReader
+    #if DEBUG
+    var responsesForUITests: [String: Data]?
+    #endif
     private let loadAuthentication: @MainActor () async throws -> AuthenticationSnapshot
     private var cache = ResponseCache<SiteRequestKey>()
     /// Feed and thread pages from earlier launches, shown while fresh ones load.
@@ -255,6 +258,14 @@ public final class SiteDataStore {
     }
 
     private func value<Value: Decodable>(key: SiteRequestKey, lifetime: TimeInterval, force: Bool, fetch: @escaping @MainActor () async throws -> Data) async throws -> Value {
+        #if DEBUG
+        if let responsesForUITests {
+            guard let data = responsesForUITests[key.path] else {
+                throw SiteError.message("Missing UI test response for \(key.path)")
+            }
+            return try JSONDecoder().decode(Value.self, from: data)
+        }
+        #endif
         if !force, let data = cache.value(for: key) { return try JSONDecoder().decode(Value.self, from: data) }
         let epoch = generation
         let request: (id: UUID, task: Task<DecodedResponse, Error>)
