@@ -21,7 +21,9 @@ struct PostRow: View {
             PostMetadata(post: post, placement: .card(date))
         }
         .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // In the pinned carousel every card takes the tallest card's height; centring keeps the
+        // spare height split evenly above and below instead of opening a gap under a short title.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Color.seekCard, in: .rect(cornerRadius: Self.cornerRadius))
         .contentShape(.rect(cornerRadius: Self.cornerRadius))
         .contentShape(.contextMenuPreview, .rect(cornerRadius: Self.cornerRadius))
@@ -31,7 +33,7 @@ struct PostRow: View {
 
     @ViewBuilder private var title: some View {
         if post.pinned {
-            Text(post.title).lineLimit(2, reservesSpace: true)
+            Text(post.title).lineLimit(2)
         } else {
             Text(post.title).lineLimit(typeSize.isAccessibilitySize ? nil : 3)
         }
@@ -41,10 +43,11 @@ struct PostRow: View {
         HStack(spacing: 8) {
             AvatarView(name: post.author, url: post.avatarURL, size: min(avatarSize, 32))
             Text(post.author).font(.subheadline.weight(.semibold)).foregroundStyle(Color.seekInk).lineLimit(1)
-            Spacer(minLength: 0)
+            // Read the pin together with the author, not alone in the corner.
             if post.pinned {
                 PostPinLabel()
             }
+            Spacer(minLength: 0)
         }
     }
 
