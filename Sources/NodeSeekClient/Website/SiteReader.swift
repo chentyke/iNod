@@ -127,6 +127,7 @@ final class SiteReader {
             }
             if let message = object["__error"] as? String {
                 if object["__needsWebsite"] as? Bool == true { needsWebsite = true }
+                if let status = object["__status"] as? Int { throw SiteError.httpStatus(status) }
                 throw SiteError.message(message)
             }
         }
