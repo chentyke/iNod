@@ -13,6 +13,7 @@ struct CommentView: View {
     var onReply: (Bool) -> Void = { _ in }
     var onEdit: () -> Void = { }
     var onPin: () -> Void = { }
+    let onOpenImages: (ImageGallery) -> Void
     let onConfirmReaction: (PendingReaction) -> Void
     let onReact: (CommentReaction) -> Void
 
@@ -41,7 +42,7 @@ struct CommentView: View {
                     Spacer()
                 } }
                 if comment.blocked { Label("来自已屏蔽的用户",systemImage:"eye").font(.caption).foregroundStyle(.secondary) }
-                ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: true)
+                ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: true, onOpenImages: onOpenImages)
             }
             .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 12)
             .background(highlightTint.opacity(0.06), in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))

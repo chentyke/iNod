@@ -4,6 +4,7 @@ import SwiftUI
 struct MarkdownTabsView<Embedded: View>: View {
     let tabs: [MarkdownTab]
     var loadsBlocksOnScroll = false
+    let onOpenImages: (ImageGallery) -> Void
     @ViewBuilder var embedded: (MarkdownBlock) -> Embedded
     @State private var selection = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -16,8 +17,15 @@ struct MarkdownTabsView<Embedded: View>: View {
                 picker.pickerStyle(.segmented)
             }
             if tabs.indices.contains(selection) {
-                MarkdownContent(markdown: tabs[selection].markdown, loadsBlocksOnScroll: loadsBlocksOnScroll, embedded: embedded)
-                    .id(selection)
+                let index = selection
+                MarkdownContent(markdown: tabs[index].markdown, loadsBlocksOnScroll: loadsBlocksOnScroll,
+                                onOpenImages: { gallery in
+                    onOpenImages(gallery.adding(
+                        before: tabs[..<index].flatMap { ImageGallery.images(in: $0.markdown) },
+                        after: tabs[(index + 1)...].flatMap { ImageGallery.images(in: $0.markdown) }
+                    ))
+                }, embedded: embedded)
+                .id(index)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

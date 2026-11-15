@@ -4,19 +4,40 @@ import SwiftUI
 struct ForumImageView: View {
     let url: URL
     let alt: String
+    var onOpenImages: ((ImageGallery) -> Void)?
+    @State private var gallery: ImageGallery?
+
+    var body: some View {
+        let item = ImageGallery.Item(url: url, alt: alt)
+        ForumImageContent(url: url) { image in
+            Button {
+                let opened = ImageGallery(items: [item], startIndex: 0, initialImage: image)
+                if let onOpenImages { onOpenImages(opened) }
+                else { gallery = opened }
+            } label: {
+                Image(image, scale: 1, label: item.label).resizable().scaledToFit()
+                    .clipShape(.rect(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("打开全屏图片")
+        }
+        .id(url)
+        .fullScreenCover(item: $gallery) { ImageViewer(gallery: $0) }
+    }
+}
+
+struct ForumImageContent<Content: View>: View {
+    let url: URL
+    var initialImage: CGImage?
+    @ViewBuilder var content: (CGImage) -> Content
     @State private var image: CGImage?
     @State private var failed = false
     @State private var attempt = 0
-    @State private var showsViewer = false
 
     var body: some View {
         Group {
-            if let image {
-                Image(image, scale: 1, label: Text(alt.isEmpty ? "帖子图片" : alt)).resizable().scaledToFit()
-                    .clipShape(.rect(cornerRadius: 12))
-                    .onTapGesture { showsViewer = true }
-                    .accessibilityAddTraits(.isButton).accessibilityHint("点按放大图片")
-                    .accessibilityAction { showsViewer = true }
+            if let image = initialImage ?? image {
+                content(image)
             } else if failed {
                 VStack(spacing: 12) {
                     Label("图片暂时无法加载", systemImage: "photo").foregroundStyle(.secondary)
@@ -24,8 +45,8 @@ struct ForumImageView: View {
                 }.frame(maxWidth: .infinity).padding(24).background(Color.seekSurface, in: .rect(cornerRadius: 12))
             } else { ProgressView().frame(maxWidth: .infinity, minHeight: 120) }
         }
-        .fullScreenCover(isPresented:$showsViewer) { if let image { ImageViewer(image:image,url:url,alt:alt) } }
-        .task(id: "\(url.absoluteString)|\(attempt)") {
+        .task(id: attempt) {
+            guard initialImage == nil, image == nil else { return }
             failed = false
             do {
                 let result = try await ForumImageLoader.shared.load(url)
