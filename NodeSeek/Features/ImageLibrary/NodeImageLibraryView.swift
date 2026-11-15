@@ -18,6 +18,7 @@ struct NodeImageLibraryView: View {
     @State private var lastUpload: HostedImage?
     @State private var deleting: HostedImage?
     @State private var confirmsDelete = false
+    @State private var confirmsKeyRotation = false
     @State private var loading = false
     @State private var preparing = false
     @State private var updating = false
@@ -29,9 +30,16 @@ struct NodeImageLibraryView: View {
             Section {
                 SecureField("NodeImage API Key", text: $key).textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive()
                 Button("保存密钥") { Task { await saveKey() } }.disabled(updating || loading || !NodeImageAPI.validKey(key.trimmingCharacters(in: .whitespacesAndNewlines)))
-                Link("打开 NodeImage 获取密钥", destination: URL(string: "https://www.nodeimage.com")!)
+                Button(savedKey.isEmpty ? "连接 NodeImage" : "同步密钥") {
+                    Task { await syncKey(regenerating: false) }
+                }.disabled(updating || loading || preparing)
+                Button("更新密钥") { confirmsKeyRotation = true }.disabled(updating || loading || preparing)
                 if !savedKey.isEmpty { Button("移除本机密钥", role: .destructive) { removeKey() }.disabled(loading || updating) }
             } header: { Text("图床账号") } footer: { Text("密钥只保存在这台设备，并按论坛账号分别保存。上传的图片通过公开链接访问。") }
+            .alert("更新 NodeImage 密钥？", isPresented: $confirmsKeyRotation) {
+                Button("更新密钥", role: .destructive) { Task { await syncKey(regenerating: true) } }
+                Button("取消", role: .cancel) {}
+            } message: { Text("更新后旧密钥会失效，使用旧密钥的工具也需要换成新密钥。") }
 
             if !savedKey.isEmpty {
                 Section {
@@ -102,6 +110,29 @@ struct NodeImageLibraryView: View {
         guard NodeImageAPI.validKey(value) else { return }
         do { try NodeImageKeyStore.save(value, userID: userID); savedKey = value; key = value; images = []; message = "密钥已保存。"; await load() }
         catch { self.error = error.localizedDescription }
+    }
+
+    private func syncKey(regenerating: Bool) async {
+        guard !loading, !updating, !preparing, account.user?.id == userID else { return }
+        updating = true
+        error = nil
+        message = nil
+        defer { updating = false }
+        do {
+            let updated = try await account.syncNodeImageKey(userID: userID, regenerating: regenerating)
+            guard !Task.isCancelled, account.user?.id == userID else { return }
+            if updated != savedKey {
+                images = []
+                lastUpload = nil
+            }
+            savedKey = updated
+            key = updated
+            message = regenerating ? "密钥已更新。" : "密钥已同步。"
+            updating = false
+            await load()
+        } catch {
+            if !Task.isCancelled, account.user?.id == userID { self.error = error.localizedDescription }
+        }
     }
 
     private func removeKey() {
