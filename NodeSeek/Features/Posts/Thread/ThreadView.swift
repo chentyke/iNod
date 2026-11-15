@@ -53,7 +53,7 @@ struct ThreadView: View {
         _requestedFloor = State(initialValue: initialFloor)
     }
 
-    private var threadScrollView: some View {
+    var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -111,12 +111,6 @@ struct ThreadView: View {
             .background(TopOverscrollLock())
         }
         .scrollPosition($scrollPosition)
-        .contentMargins(.bottom, bottomContentMargin, for: .scrollContent)
-        .id(page)
-    }
-
-    var body: some View {
-        threadLayout
         .seekCanvas()
         .environment(\.forumDocumentURL,NodeSeekRoute.thread(id:post.id,page:page).url)
         .environment(\.openURL, OpenURLAction { url in
@@ -144,10 +138,43 @@ struct ThreadView: View {
                 requestedFloor = nil
             }
         }
+        .contentMargins(.bottom, bottomContentMargin, for: .scrollContent)
+        .id(page)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarVisibility(usesZoomTransition ? .hidden : .visible, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
+        .safeAreaBar(edge: .top, spacing: 0) {
+            if usesZoomTransition {
+                GlassEffectContainer(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "chevron.backward")
+                                .font(.headline.weight(.semibold))
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                        .accessibilityLabel("返回")
+                        ThreadAuthorBar(post: post, detail: detail)
+                        Spacer(minLength: 0)
+                        Menu {
+                            postMenuItems
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.headline.weight(.semibold))
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.seekGreen)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                        .accessibilityLabel("更多")
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+                }
+            }
+        }
         .overlay(alignment: .bottom) {
             ThreadActionBar(
                 post: post,
@@ -216,48 +243,6 @@ struct ThreadView: View {
             Button("取消", role: .cancel) { }
         } message: { failure in
             Text(failure.message)
-        }
-    }
-
-    @ViewBuilder private var threadLayout: some View {
-        if usesZoomTransition {
-            VStack(spacing: 0) {
-                zoomControls
-                threadScrollView
-                    .modifier(ThreadScrollEdgeFade())
-            }
-        } else {
-            threadScrollView
-        }
-    }
-
-    private var zoomControls: some View {
-        GlassEffectContainer(spacing: 8) {
-            HStack(spacing: 8) {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.backward")
-                        .font(.headline.weight(.semibold))
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .accessibilityLabel("返回")
-                ThreadAuthorBar(post: post, detail: detail)
-                Spacer(minLength: 0)
-                Menu {
-                    postMenuItems
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.headline.weight(.semibold))
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.seekGreen)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .accessibilityLabel("更多")
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 4)
         }
     }
 

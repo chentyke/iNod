@@ -64,60 +64,6 @@ final class ThreadHistoryTests: XCTestCase {
         return server
     }
 
-    func testScrollingPinnedPostFadesAtTheTopEdge() throws {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments += ["-appearance", "light"]
-        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture()
-        app.launch()
-
-        let post = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "置顶", title)).firstMatch
-        XCTAssertTrue(post.waitForExistence(timeout: 10))
-        post.tap()
-
-        let back = app.buttons["返回"]
-        let heading = app.staticTexts[title]
-        XCTAssertTrue(heading.waitForExistence(timeout: 5))
-        XCTAssertTrue(back.exists)
-        let barBottom = back.frame.maxY
-        let startingTitleY = heading.frame.minY
-        XCTAssertGreaterThanOrEqual(startingTitleY, barBottom)
-
-        let scrollView = app.scrollViews.firstMatch
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -90)),
-                    withVelocity: .slow, thenHoldForDuration: 0.2)
-
-        XCTAssertLessThan(heading.frame.minY, startingTitleY, "The title should move when the post scrolls.")
-        XCTAssertEqual(back.frame.maxY, barBottom, accuracy: 1, "The top controls should stay in place.")
-        XCTAssertGreaterThanOrEqual(scrollView.frame.minY, barBottom - 1,
-                                    "The scrolling viewport must start below the top controls.")
-
-        let screenshot = try XCTUnwrap(app.screenshot().image.cgImage)
-        let screen = app.frame
-        let edge = scrollView.frame.minY - screen.minY
-        let x = 28 * CGFloat(screenshot.width) / screen.width
-        let scaleY = CGFloat(screenshot.height) / screen.height
-        // Sample the white card's left padding, where text cannot change the pixel values.
-        let near = try brightness(in: screenshot, x: x, y: (edge + 2) * scaleY)
-        let middle = try brightness(in: screenshot, x: x, y: (edge + 14) * scaleY)
-        let far = try brightness(in: screenshot, x: x, y: (edge + 34) * scaleY)
-        XCTAssertLessThan(near, middle, "The card should fade into the canvas at the top edge.")
-        XCTAssertLessThan(middle, far, "The fade should gradually give way to the solid card.")
-    }
-
-    private func brightness(in screenshot: CGImage, x: CGFloat, y: CGFloat) throws -> Int {
-        let pixel = try XCTUnwrap(screenshot.cropping(to: CGRect(x: floor(x), y: floor(y), width: 1, height: 1)))
-        var channels = [UInt8](repeating: 0, count: 4)
-        return try channels.withUnsafeMutableBytes { bytes in
-            let context = try XCTUnwrap(CGContext(data: bytes.baseAddress, width: 1, height: 1,
-                                                  bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
-                                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
-            context.draw(pixel, in: CGRect(x: 0, y: 0, width: 1, height: 1))
-            return Int(bytes[0]) + Int(bytes[1]) + Int(bytes[2])
-        }
-    }
-
     func testReplyNotificationCanScrollBackToEarlierPagesAndPostBody() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
