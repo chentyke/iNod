@@ -25,6 +25,7 @@ final class EditorImageNavigationTests: XCTestCase {
         let close = app.buttons.matching(NSPredicate(format: "label IN %@", ["关闭", "取消", "Close", "Cancel"])).firstMatch
         XCTAssertTrue(close.waitForExistence(timeout: 12))
         close.tap()
-        XCTAssertTrue(photos.isHittable)
+        XCTAssertTrue(close.waitForNonExistence(timeout: 20), "The system photo picker should dismiss after cancellation.")
+        XCTAssertTrue(photos.wait(for: \.isHittable, toEqual: true, timeout: 12), "The editor should be ready after the picker closes.")
     }
 }
