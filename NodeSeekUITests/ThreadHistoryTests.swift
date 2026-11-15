@@ -1,3 +1,5 @@
+import Network
+import UIKit
 import XCTest
 
 @MainActor
@@ -5,6 +7,62 @@ final class ThreadHistoryTests: XCTestCase {
     private let title = "周末的读书计划"
     private let openingText = "周六下午两点开始读书。"
     private let timestamp = "2025-01-04T12:00:00.000Z"
+
+    func testOpeningLongPinnedPostShowsTheWholeBeginning() throws {
+        continueAfterFailure = false
+        let server = try startImageServer()
+        defer { server.cancel() }
+        let port = try XCTUnwrap(server.port).rawValue
+        let pictures = (1...14).map { "![插图 \($0)](http://127.0.0.1:\(port)/\($0))" }
+        let sections = (1...15).map { "## 第 \($0) 段\n\n这是段落的内容。" }
+        let paragraph = String(repeating: "这周会和大家分享读书笔记，欢迎在评论里一起讨论。", count: 5)
+        let markdown = (["# \(openingText)", paragraph] + pictures + sections).joined(separator: "\n\n")
+        let app = XCUIApplication()
+        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture(openingMarkdown: markdown, showsCarousel: true)
+        app.launch()
+
+        let post = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "置顶，\(title)")).firstMatch
+        XCTAssertTrue(post.waitForExistence(timeout: 10))
+        post.tap()
+
+        let heading = app.staticTexts[title]
+        let opening = app.staticTexts[openingText]
+        let back = app.buttons["返回"]
+        let firstImage = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "插图 1")).firstMatch
+        XCTAssertTrue(firstImage.waitForExistence(timeout: 8), "The first thumbnail should finish loading.")
+        XCTAssertTrue(heading.exists)
+        XCTAssertGreaterThanOrEqual(heading.frame.minY, back.frame.maxY, "The full post title should be visible on entry.")
+        XCTAssertGreaterThan(opening.frame.minY, heading.frame.maxY, "The opening heading should follow the full title.")
+    }
+
+    private func startImageServer() throws -> NWListener {
+        let size = CGSize(width: 360, height: 610)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).pngData {
+            UIColor.systemBlue.setFill()
+            $0.fill(CGRect(origin: .zero, size: size))
+        }
+        let header = "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: \(image.count)\r\nConnection: close\r\n\r\n"
+        let response = Data(header.utf8) + image
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        let server = try NWListener(using: parameters)
+        let queue = DispatchQueue(label: "long-post-test-images")
+        server.newConnectionHandler = { connection in
+            connection.start(queue: queue)
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { _, _, _, _ in
+                queue.asyncAfter(deadline: .now() + .milliseconds(350)) {
+                    connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
+                }
+            }
+        }
+        let ready = XCTestExpectation(description: "Image server ready")
+        server.stateUpdateHandler = { if case .ready = $0 { ready.fulfill() } }
+        server.start(queue: queue)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 4), .completed)
+        return server
+    }
 
     func testScrollingPinnedPostKeepsContentBelowTopControls() throws {
         continueAfterFailure = false
@@ -71,12 +129,16 @@ final class ThreadHistoryTests: XCTestCase {
 
     private func replyText(_ floor: Int) -> String { "第 \(floor) 楼的回复" }
 
-    private func websiteFixture() throws -> String {
+    private func websiteFixture(openingMarkdown: String? = nil, showsCarousel: Bool = false) throws -> String {
         let pinnedPost: [String: Any] = ["id": 123, "title": title, "author": "楼主", "authorID": 101,
             "avatar": "", "category": "日常", "categoryKey": "daily", "views": 100, "replies": 30,
             "activityDate": timestamp, "pinned": true]
+        var otherPost = pinnedPost
+        otherPost["id"] = 124
+        otherPost["title"] = "本月读书会公告"
         let responses: [String: [String: Any]] = [
-            "https://www.nodeseek.com/?sortBy=replyTime": ["posts": [], "pinnedPosts": [pinnedPost], "hasNextPage": false],
+            "https://www.nodeseek.com/?sortBy=replyTime": ["posts": [], "pinnedPosts": showsCarousel ? [pinnedPost, otherPost] : [pinnedPost],
+                "hasNextPage": false],
             "/api/content/list-categories": ["success": true, "data": []],
             "/api/notification/unread-count": ["unreadCount": ["all": 0]],
             "/api/notification/at-me/list": ["items": [], "hasNext": false],
@@ -85,7 +147,7 @@ final class ThreadHistoryTests: XCTestCase {
                            "authorID": 102, "author": "读者", "createdAt": timestamp]],
                 "hasNext": false
             ],
-            "https://www.nodeseek.com/post-123-1": threadPage(1, floors: 0...10),
+            "https://www.nodeseek.com/post-123-1": threadPage(1, floors: 0...10, openingMarkdown: openingMarkdown),
             "https://www.nodeseek.com/post-123-2": threadPage(2, floors: 11...20),
             "https://www.nodeseek.com/post-123-3": threadPage(3, floors: 21...30)
         ]
@@ -96,12 +158,12 @@ final class ThreadHistoryTests: XCTestCase {
         return String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
     }
 
-    private func threadPage(_ page: Int, floors: ClosedRange<Int>) -> [String: Any] {
+    private func threadPage(_ page: Int, floors: ClosedRange<Int>, openingMarkdown: String? = nil) -> [String: Any] {
         let author: [String: Any] = ["uid": 101, "name": "楼主"]
         let reader: [String: Any] = ["uid": 102, "name": "读者"]
         let comments: [[String: Any]] = floors.map { floor in
             ["commentId": 500 + floor, "floorIndex": floor, "poster": floor == 0 ? author : reader,
-             "time": ["createdDate": timestamp], "markdown": floor == 0 ? openingText : replyText(floor),
+             "time": ["createdDate": timestamp], "markdown": floor == 0 ? openingMarkdown ?? openingText : replyText(floor),
              "likeCount": 0, "upvoteCount": 0, "blocked": false]
         }
         return ["postId": 123, "title": title, "categoryWord": "日常", "views": "100",
