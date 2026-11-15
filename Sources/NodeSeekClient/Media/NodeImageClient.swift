@@ -18,8 +18,12 @@ public actor NodeImageClient {
         return images
     }
 
-    public func upload(png: Data, key: String) async throws -> HostedImage {
-        let data = try await send(NodeImageAPI.upload(png: png, key: key, boundary: UUID().uuidString))
+    public func upload(png: Data, key: String, deleteAfterDays: Int? = nil) async throws -> HostedImage {
+        try await upload(image: png, format: .png, key: key, deleteAfterDays: deleteAfterDays)
+    }
+
+    public func upload(image: Data, format: NodeImageAPI.ImageFormat, key: String, deleteAfterDays: Int? = nil) async throws -> HostedImage {
+        let data = try await send(NodeImageAPI.upload(image: image, format: format, key: key, boundary: UUID().uuidString, deleteAfterDays: deleteAfterDays))
         do { return try JSONDecoder().decode(HostedImage.self, from: data) }
         catch { throw SiteError.message("图床没有返回可用的图片地址。图片可能已经上传，请刷新已上传列表检查，避免重复上传。") }
     }
