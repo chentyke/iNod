@@ -2,6 +2,16 @@ import Foundation
 import Testing
 @testable import NodeSeekCore
 
+@Test func editorAppendsUploadedImagesWithoutReplacingDraftText() throws {
+    let first = try #require(URL(string: "https://cdn.nodeimage.com/test-first.png"))
+    let second = try #require(URL(string: "https://cdn.nodeimage.com/test-second.png"))
+    var draft = EditorDraft(title: "标题", content: "原有正文")
+    draft.appendHostedImage(first)
+    draft.appendHostedImage(second)
+    #expect(draft.title == "标题")
+    #expect(MarkdownBlock.parse(draft.content) == [.text("原有正文"), .image(alt: "图片", url: first), .image(alt: "图片", url: second)])
+}
+
 @Test func editorKeepsWebsiteModesAndAccountDraftsSeparate() {
     let draft = EditorDraft(title:"标题",content:"正文",category:"tech",rank:2)
     let new = draft.body(for:.newPost)
