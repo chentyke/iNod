@@ -23,7 +23,9 @@
 
 在 Xcode 选择 `NodeSeek` App target，在 **General → Identity → Version** 更新版本。合并版本改动前，确认 PR 的 CI 通过。
 
-在 **Actions → Package iOS Release → Run workflow** 选择 `main`。[打包流程](../.github/workflows/release.yml)读取 App 版本，生成未签名的 IPA 和 SHA-256 校验文件，并创建对应的 Release 草稿。检查附件和发布说明后，在 **Releases** 点 **Publish release**。IPA 安装前需要自行签名。
+在 **Actions → Package Release → Run workflow** 选择 `main`。[打包流程](../.github/workflows/release.yml)读取 App 版本，生成 iPhone 和 iPad 用的未签名 IPA、Mac 用的 DMG，各带一个 SHA-256 校验文件，并创建对应的 Release 草稿。检查附件和发布说明后，在 **Releases** 点 **Publish release**。
+
+IPA 安装前需要自行签名。Mac 版只有临时签名（ad-hoc），没有经过 Apple 公证，第一次打开时要在 **系统设置 → 隐私与安全性** 点 **仍要打开**；发布说明里已写明这一步。
 
 只想打包时，取消勾选 **Create a GitHub Release draft**，在这次运行的 **Artifacts** 下载文件。即使这个版本已有标签，也可以用这种方式重新打包。
 
