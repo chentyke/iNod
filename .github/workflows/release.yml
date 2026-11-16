@@ -1,4 +1,4 @@
-name: Package iOS Release
+name: Package Release
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
   package:
     if: github.ref == 'refs/heads/main'
     runs-on: xcode-27
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -33,6 +33,13 @@ jobs:
             -configuration Release -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/iNod.xcarchive" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO archive
+      - name: Archive for Mac
+        # Apple silicon only launches signed code, so the Mac app gets an ad-hoc signature instead of none.
+        run: |
+          xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
+            -configuration Release -destination 'generic/platform=macOS,variant=Mac Catalyst' \
+            -archivePath "$RUNNER_TEMP/iNod-mac.xcarchive" \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= archive
       - name: Package and verify unsigned IPA
         id: package
         run: |
@@ -55,11 +62,38 @@ jobs:
           unzip -tq "$package"
           shasum -a 256 "$package" > "$package.sha256"
           printf 'tag=%s\npackage=%s\n' "$tag" "$package" >> "$GITHUB_OUTPUT"
+      - name: Package and verify Mac disk image
+        id: mac
+        env:
+          TAG: ${{ steps.package.outputs.tag }}
+        run: |
+          app="$RUNNER_TEMP/iNod-mac.xcarchive/Products/Applications/NodeSeek.app"
+          version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist")
+          if [[ "v$version" != "$TAG" ]]; then
+            echo "::error::The Mac app is $version but the iOS app is ${TAG#v}"
+            exit 1
+          fi
+          codesign --verify --strict "$app"
+          for arch in arm64 x86_64; do
+            if ! lipo "$app/Contents/MacOS/NodeSeek" -verify_arch "$arch"; then
+              echo "::error::The Mac app is missing $arch"
+              exit 1
+            fi
+          done
+          package="iNod-$TAG-mac.dmg"
+          mkdir -p "$RUNNER_TEMP/dmg"
+          ditto --noqtn --norsrc "$app" "$RUNNER_TEMP/dmg/iNod.app"
+          ln -s /Applications "$RUNNER_TEMP/dmg/Applications"
+          cd "$RUNNER_TEMP/release"
+          hdiutil create -volname "iNod ${TAG#v}" -srcfolder "$RUNNER_TEMP/dmg" -fs HFS+ -format UDZO "$package"
+          hdiutil verify "$package"
+          shasum -a 256 "$package" > "$package.sha256"
+          printf 'package=%s\n' "$package" >> "$GITHUB_OUTPUT"
       - name: Upload package to this run
         if: ${{ !inputs.create_draft }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: iNod-${{ steps.package.outputs.tag }}-unsigned
+          name: iNod-${{ steps.package.outputs.tag }}
           path: ${{ runner.temp }}/release/
           if-no-files-found: error
           retention-days: 7
@@ -69,6 +103,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.package.outputs.tag }}
           PACKAGE: ${{ steps.package.outputs.package }}
+          MAC_PACKAGE: ${{ steps.mac.outputs.package }}
         run: |
           tag_ref=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" \
             --jq ".[] | select(.ref == \"refs/tags/$TAG\") | .ref")
@@ -82,8 +117,14 @@ jobs:
             echo "::error::A release or draft already exists for $TAG."
             exit 1
           fi
-          gh release create "$TAG" "$PACKAGE" "$PACKAGE.sha256" \
+          gh release create "$TAG" "$PACKAGE" "$PACKAGE.sha256" "$MAC_PACKAGE" "$MAC_PACKAGE.sha256" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft \
-            --title "iNod $TAG" --generate-notes \
-            --notes "附件为 iOS 真机用的未签名 IPA，安装前需要自行签名。"
+            --title "iNod $TAG" --generate-notes --notes-file - <<'NOTES'
+          ## 安装
+
+          - **iPhone 和 iPad**：下载 `.ipa`。它没有签名，安装前需要自行签名。
+          - **Mac**（macOS 26 或更新）：打开 `.dmg`，把 iNod 拖进「应用程序」。它没有经过 Apple 公证，第一次打开时 macOS 会拦下，请在 **系统设置 → 隐私与安全性** 底部点 **仍要打开**。
+
+          `.sha256` 文件用于校验下载是否完整。
+          NOTES
         working-directory: ${{ runner.temp }}/release

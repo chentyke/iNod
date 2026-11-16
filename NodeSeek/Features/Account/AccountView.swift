@@ -71,7 +71,7 @@ struct AccountView: View {
                 NavigationLink(value: AppDestination.communityTools) { SeekRowLabel(title: "社区工具", symbol: "square.grid.2x2") }
             }
             Section {
-                AccountAboutRow(version: "0.1.0")
+                AccountAboutRow(version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
                 Button { open(NodeSeekRoute.home.url) } label: {
                     SeekRowLabel(title: "NodeSeek 官网", symbol: "globe", opensExternally: true)
                 }
