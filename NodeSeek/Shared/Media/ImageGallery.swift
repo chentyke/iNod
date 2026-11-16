@@ -23,6 +23,7 @@ struct ImageGallery: Identifiable {
             switch block {
             case .image(let alt, let url): [Item(url: url, alt: alt)]
             case .tabs(let tabs): tabs.flatMap { images(in: $0.markdown) }
+            case .callout(let callout): images(in: callout.markdown)
             default: []
             }
         }
