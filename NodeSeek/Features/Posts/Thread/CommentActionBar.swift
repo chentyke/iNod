@@ -46,8 +46,8 @@ struct CommentActionBar: View {
                 }
                 .frame(height: DockMetrics.foldedHeight)
                 // Overlaid on the row so opening the dock never changes the card's height. Folded, it sits
-                // `cardInset` from the side and bottom; open, it keeps `openMargin` from the side, the
-                // bottom and the text above.
+                // `cardInset` from the side and bottom; open, it keeps `openMargin` from the side and the
+                // bottom and floats over the end of the text above.
                 .overlay(alignment: .trailing) {
                     dock.offset(x: trailingInset - (isExpanded ? DockMetrics.openMargin : DockMetrics.cardInset),
                                 y: isExpanded ? DockMetrics.openDrop : 0)
@@ -133,7 +133,7 @@ struct CommentActionBar: View {
                            count: comment.dislikeCount, tint: .red, isSelected: comment.disliked == true)
                 .accessibilityLabel(comment.dislikeCount.map { "反对，\($0) 次" } ?? "反对")
                 .modifier(DockItemReveal(isShown: revealsItems, order: 2))
-            Divider().frame(height: 14).padding(.horizontal, 2)
+            Divider().frame(height: 20).padding(.horizontal, 2)
                 .modifier(DockItemReveal(isShown: revealsItems, order: 2))
             Button { setExpanded(false); onReply(false) } label: { CommentToolButtonLabel(symbol: "arrowshape.turn.up.left") }
                 .accessibilityLabel("回复")

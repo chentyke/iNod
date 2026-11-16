@@ -45,6 +45,8 @@ struct CommentView: View {
                              onConfirmReaction: onConfirmReaction, onReact: onReact,
                              trailingInset: horizontalPadding)
                 .padding(.top, DockMetrics.bodyGap - 8)
+                // The opened dock floats over the text above it.
+                .zIndex(1)
         }
         .padding(.horizontal, horizontalPadding)
         .padding(.top, showsHeader ? 15 : 20)
