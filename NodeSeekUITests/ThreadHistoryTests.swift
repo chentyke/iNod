@@ -19,6 +19,9 @@ final class ThreadHistoryTests: XCTestCase {
         let markdown = (["# \(openingText)", paragraph] + pictures + sections).joined(separator: "\n\n")
         let app = XCUIApplication()
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture(openingMarkdown: markdown, showsCarousel: true)
+        // The carousel turns every 6 seconds. On a busy CI runner the tap below took about 9 seconds
+        // from locating this card to touching the screen, so it opened the next pinned post instead.
+        app.launchArguments.append("--ui-test-no-carousel-autoplay")
         app.launch()
 
         let post = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "置顶，\(title)")).firstMatch
@@ -29,8 +32,8 @@ final class ThreadHistoryTests: XCTestCase {
         let opening = app.staticTexts[openingText]
         let back = app.buttons["返回"]
         let firstImage = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "插图 1")).firstMatch
+        XCTAssertTrue(heading.waitForExistence(timeout: 10), "Tapping the pinned card should open that post.")
         XCTAssertTrue(firstImage.waitForExistence(timeout: 8), "The first thumbnail should finish loading.")
-        XCTAssertTrue(heading.exists)
         XCTAssertGreaterThanOrEqual(heading.frame.minY, back.frame.maxY, "The full post title should be visible on entry.")
         XCTAssertGreaterThan(opening.frame.minY, heading.frame.maxY, "The opening heading should follow the full title.")
     }
