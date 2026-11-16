@@ -55,6 +55,7 @@ struct MarkdownContent<Embedded: View>: View {
         case .image(let alt, let url): ForumImageView(url: url, alt: alt, onOpenImages: openImages)
         case .quote(let text):
             HStack(alignment: .top, spacing: 12) {
+                // design-check: allow 引用块左侧 3 点宽的竖线
                 RoundedRectangle(cornerRadius: 2).fill(Color.seekGreen.opacity(0.5)).frame(width: 3)
                 InlineStickerText(markdown: text, expands: expandsText, trailingLabel: label)
                     .foregroundStyle(.secondary).padding(.vertical, 4)

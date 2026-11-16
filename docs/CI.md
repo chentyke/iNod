@@ -6,12 +6,13 @@
 
 | 检查名称 | 运行内容 |
 | --- | --- |
+| Design checks | 按[界面设计检查](DESIGN.md)扫描 SwiftUI 代码里的渐变、大面积状态色和醒目的彩色描边；PR 改了界面代码时，检查描述里有没有上传截图或录屏。 |
 | Swift and website checks | 运行 Swift 单元测试，再检查网页请求格式和 WebKit 解析。 |
 | iOS UI tests | 等待 iPhone 17 模拟器启动完成，再构建 App 并跑界面测试。失败时，可在运行页面的 **Artifacts** 下载测试报告，用 Xcode 打开 `.xcresult`。 |
 
 公开仓库的检查使用 GitHub 提供的 `xcode-27` 环境，选用 Xcode 27.2 和 iOS 27.2 模拟器。测试使用本地样本和模拟响应，无需 Apple 签名、NodeSeek 账号或 GitHub Secrets。[GitHub 提供的 Xcode 和模拟器版本](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
 
-`main` 的改动必须通过 PR 合并，合并前需要通过上面两项检查。如果 `main` 有新提交，请先更新 PR 分支，再等 CI 跑完。来自 Fork 的首次 PR 可能需要维护者在 PR 页面点 **Approve workflows to run**。[GitHub 对外部贡献者工作流程的说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
+`main` 的改动必须通过 PR 合并，合并前需要通过上面的检查。如果 `main` 有新提交，请先更新 PR 分支，再等 CI 跑完。来自 Fork 的首次 PR 可能需要维护者在 PR 页面点 **Approve workflows to run**。[GitHub 对外部贡献者工作流程的说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
 
 ## 打包 Release
 
@@ -26,6 +27,7 @@
 在仓库根目录执行。网页检查需要 Node.js。
 
 ```sh
+node scripts/check-design.mjs
 xcrun swift test
 sh scripts/verify-website.sh
 xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
@@ -39,7 +41,7 @@ xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
 
 - 数据解码、链接、Markdown 和草稿规则放在 [Tests/NodeSeekCoreTests](../Tests/NodeSeekCoreTests/)。
 - 登录状态、收藏、私信和请求格式放在 [Tests/NodeSeekClientTests](../Tests/NodeSeekClientTests/)。
-- App 启动、相册入口和页面跳转等界面检查放在 [NodeSeekUITests](../NodeSeekUITests/)。测试在 Debug 构建中注入离线状态或模拟账号和响应，避免依赖官网或模拟器里已有的登录状态。
+- App 启动、相册入口和页面跳转等界面检查放在 [NodeSeekUITests](../NodeSeekUITests/)。[界面设计检查](DESIGN.md)里能在运行中量出来的间距和收起行为放在 `DesignChecklistTests`。测试在 Debug 构建中注入离线状态或模拟账号和响应，避免依赖官网或模拟器里已有的登录状态。
 - 网页请求脚本和 HTML 解析的检查由 [verify-website.sh](../scripts/verify-website.sh) 运行。
 
 如果改动涉及真实登录、验证码或向官网提交数据，请在 PR 写明手动检查的步骤和结果。

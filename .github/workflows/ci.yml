@@ -19,6 +19,24 @@ env:
   DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
 
 jobs:
+  design-checks:
+    name: Design checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check SwiftUI code against docs/DESIGN.md
+        run: node scripts/check-design.mjs
+      - name: Require screenshots for interface changes
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-pr-screenshots.mjs "$BASE_SHA" HEAD
+
   swift-and-website:
     name: Swift and website checks
     runs-on: xcode-27
