@@ -13,7 +13,7 @@
 | Swift and website checks | 运行 Swift 单元测试，再检查网页请求格式和 WebKit 解析。 |
 | iOS UI tests | 等待 iPhone 17 模拟器启动完成，再构建 App 并跑界面测试。失败时，可在运行页面的 **Artifacts** 下载测试报告，用 Xcode 打开 `.xcresult`。 |
 | iPad UI tests | 在 iPad Pro 13 英寸 (M5) 模拟器跑同一套界面测试，并检查宽屏和横屏的排版。GitHub 的 iPad 模拟器很慢，偶尔在两个测试之间关不掉 App，所以失败的测试会重跑一次，两次都失败才算不通过。失败时同样可下载测试报告。 |
-| Mac UI tests | 构建 Mac Catalyst 版 App，检查启动后侧边栏列出全部标签页、首页卡片在侧边栏旁居中成一栏。GitHub 的 Mac 环境里，界面测试发出的点击和按键到不了 App 的内容，所以需要操作的测试只在 iPhone 和 iPad 上跑；Mac 上的点击、切换标签页和快捷键要手动检查。 |
+| Mac UI tests | 构建 Mac Catalyst 版 App，检查启动后侧边栏列出全部标签页、深色模式下选中的标签页看得清，首页和帖子页卡片在侧边栏旁居中成一栏。帖子页由 App 在测试时自己打开（`NODESEEK_UI_TEST_OPEN_POST`，只在 Debug 构建生效），不用点击。GitHub 的 Mac 环境里，界面测试发出的点击和按键到不了 App 的内容，所以需要操作的测试只在 iPhone 和 iPad 上跑；Mac 上的点击、切换标签页和快捷键要手动检查。本机跑 Mac 界面测试时，指针悬停能送到 App，点击同样送不到。 |
 
 公开仓库的检查使用 GitHub 提供的 `xcode-27` 环境，选用 Xcode 27.2 和 iOS 27.2 模拟器。测试使用本地样本和模拟响应，无需 Apple 签名、NodeSeek 账号或 GitHub Secrets。[GitHub 提供的 Xcode 和模拟器版本](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
 
@@ -47,10 +47,12 @@ xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
   -destination 'platform=macOS,variant=Mac Catalyst' \
   -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testAllTabsAreOnScreen \
   -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testFeedKeepsAReadableCentredColumn \
-  -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- test
+  -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testThreadCardsAndReplyBarShareOneColumn \
+  -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testSidebarSelectionIsReadableInDarkMode \
+  -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- ENABLE_HARDENED_RUNTIME=NO test
 ```
 
-Mac 的界面测试会接管鼠标和键盘，跑的时候别动电脑。本机模拟器不同的话，把 `name` 和 `OS` 改成已安装的型号和版本。也可以在 Xcode 里选择模拟器，按 `⌘U` 跑界面测试。只想跑账号状态的 Swift 单元测试时，可以执行 `xcrun swift test --filter AccountSessionTests`。
+本机用临时签名跑 Mac 界面测试时加上 `ENABLE_HARDENED_RUNTIME=NO`，否则测试包会因签名不一致载入失败。Mac 的界面测试会接管鼠标和键盘，跑的时候别动电脑。本机模拟器不同的话，把 `name` 和 `OS` 改成已安装的型号和版本。也可以在 Xcode 里选择模拟器，按 `⌘U` 跑界面测试。只想跑账号状态的 Swift 单元测试时，可以执行 `xcrun swift test --filter AccountSessionTests`。
 
 ## 测试写在哪里
 

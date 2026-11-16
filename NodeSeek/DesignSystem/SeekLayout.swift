@@ -32,13 +32,22 @@ enum ReadableMargin {
     case keepsGutter
 }
 
+/// The kind of scroll view that gets the readable-width margins. A sidebar beside the page (iPad, Mac) sits in
+/// the scroll view's safe area, and the two kinds treat that safe area differently.
+enum ReadableScroller {
+    /// A `List` or `Form`. Its margins replace the safe-area inset, so they add the sidebar's inset back in.
+    case list
+    /// A `ScrollView`. It keeps its safe-area inset and adds the margins inside it, so they leave the sidebar out.
+    case scrollView
+}
+
 extension View {
     /// Centres a list or scroll view's content in a readable column once the window is wider than one.
     ///
     /// Content margins also reach scroll views nested inside the content, so a horizontal scroll view
     /// inside a card sets its horizontal margins back with `contentMargins(.horizontal, 0, for: .scrollContent)`.
-    func readableContentMargins(_ style: ReadableMargin = .replacesInset) -> some View {
-        modifier(ReadableContentMargins(style: style))
+    func readableContentMargins(_ style: ReadableMargin = .replacesInset, in scroller: ReadableScroller = .list) -> some View {
+        modifier(ReadableContentMargins(style: style, scroller: scroller))
     }
 
     /// Keeps a bar that floats over a scroll view as wide as the column of cards under it.
@@ -49,6 +58,7 @@ extension View {
 
 private struct ReadableContentMargins: ViewModifier {
     let style: ReadableMargin
+    let scroller: ReadableScroller
     @State private var margins = SideMargins()
 
     func body(content: Content) -> some View {
@@ -57,8 +67,10 @@ private struct ReadableContentMargins: ViewModifier {
             .contentMargins(.trailing, margins.trailing, for: .scrollContent)
             .onGeometryChange(for: SideMargins.self) { proxy in
                 // A sidebar beside the page (iPad, Mac) sits in the safe area, and the scroll view runs on under it.
-                // Setting margins replaces that safe-area inset, so add it back on its side.
+                // A list's margins replace that safe-area inset, so add it back on its side. A `ScrollView` keeps
+                // the inset and adds the margins to it; adding it again pushed the cards off centre by a sidebar's width.
                 let margin = SeekLayout.sideMargin(forWidth: proxy.size.width, style)
+                guard scroller == .list else { return SideMargins(leading: margin, trailing: margin) }
                 return SideMargins(leading: margin + proxy.safeAreaInsets.leading,
                                    trailing: margin + proxy.safeAreaInsets.trailing)
             } action: { margins = $0 }
