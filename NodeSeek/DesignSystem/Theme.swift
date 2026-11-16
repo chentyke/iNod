@@ -24,9 +24,10 @@ extension Color {
 }
 
 extension View {
-    func seekCanvas() -> some View {
+    func seekCanvas(margins: ReadableMargin = .replacesInset) -> some View {
         scrollEdgeEffectStyle(.soft, for: .top)
             .scrollContentBackground(.hidden).background(SeekCanvas())
+            .readableContentMargins(margins)
     }
 
     func seekCard(padding: CGFloat = 20, radius: CGFloat = 24) -> some View {

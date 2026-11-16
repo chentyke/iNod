@@ -98,6 +98,8 @@ private struct MarkdownTable: View {
                     }
                 }
             }
-        }.clipShape(.rect(cornerRadius: 10))
+        }
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+        .clipShape(.rect(cornerRadius: 10))
     }
 }

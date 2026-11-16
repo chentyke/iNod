@@ -73,11 +73,12 @@ final class ThreadHistoryTests: XCTestCase {
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture()
         app.launch()
 
-        let notifications = app.tabBars.buttons["通知"]
+        let notifications = ForumFixture.tab("通知", in: app)
         XCTAssertTrue(notifications.waitForExistence(timeout: 10))
         notifications.tap()
 
-        let notice = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
+        // iPad keeps the other tabs in the accessibility tree, so match the notice, not the feed's card for the same post.
+        let notice = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", title, "回复了你")).firstMatch
         XCTAssertTrue(notice.waitForExistence(timeout: 5))
         notice.tap()
 

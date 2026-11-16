@@ -1,12 +1,12 @@
 # iNod
 
-非官方 NodeSeek iOS 客户端
+非官方 NodeSeek 客户端，支持 iPhone、iPad 和 Mac
 
-使用 SwiftUI，最低支持 iOS 26。直接读取官网页面和官网使用的 JSON 接口，无第三方依赖。
+使用 SwiftUI，最低支持 iOS 26 / iPadOS 26，Mac 版通过 Mac Catalyst 运行（macOS 26 或更新）。直接读取官网页面和官网使用的 JSON 接口，无第三方依赖。
 
 ## 打开项目
 
-用 Xcode 26.2 或更新版本打开 `NodeSeek.xcodeproj`，选择 `NodeSeek` scheme 和 iOS 模拟器后运行。真机运行需要在 Signing & Capabilities 中选择自己的开发者团队。
+用 Xcode 26.2 或更新版本打开 `NodeSeek.xcodeproj`，选择 `NodeSeek` scheme 和 iPhone、iPad 模拟器或 **My Mac (Mac Catalyst)** 后运行。真机运行需要在 Signing & Capabilities 中选择自己的开发者团队。
 
 ```sh
 xcrun swift test
@@ -33,6 +33,7 @@ sh scripts/verify-website.sh
 - 原生头像选择、修改密码、双因素验证设置、星尘转账与记录筛选；邮箱、手机号和 Telegram 授权仍使用官网验证流程。
 - Telegram 绑定状态与解绑、私信全部已读；NodeImage 图片上传、选择已有图片和删除图片，图床密钥按账号保存在本机 Keychain。
 - 支持深色模式、系统字体大小与 VoiceOver。
+- iPad 和 Mac 的宽窗口里，首页、帖子、通知和设置保持一栏可读宽度并居中，支持横屏和调整窗口大小；实体键盘可用 ⌘N 发帖、⌘R 回复。
 
 官网的列表是 HTML，详情数据来自页面 `temp-script` 中的 Base64 JSON。启动时使用系统 WebKit 建立官网会话，之后在同一个网页环境里请求页面或 JSON 接口；解析页面时不执行其中的脚本，也不加载广告和图片。原生图片单独按需读取。短期缓存和相同请求合并减少重复等待，有缓存的页面先显示内容再更新，下拉刷新会重新请求；账号变化和退出登录会清空缓存，回复、标为已读、送鸡腿等常见操作只清理相关数据。接口记录见 [docs/API.md](docs/API.md)，速度检查见 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)。
 

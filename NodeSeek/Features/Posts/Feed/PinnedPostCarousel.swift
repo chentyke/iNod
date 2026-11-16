@@ -83,6 +83,8 @@ struct PinnedPostCarousel<Card: View>: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .scrollTargetLayout()
             }
+            // The feed's readable-width margins would otherwise reach this nested scroll view too.
+            .contentMargins(.horizontal, 0, for: .scrollContent)
             .safeAreaPadding(.horizontal, 16)
             .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByOne, anchor: .center))
             .scrollPosition($position, anchor: .center)

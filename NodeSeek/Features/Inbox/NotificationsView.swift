@@ -62,6 +62,7 @@ struct NotificationsView: View {
         }
         .frame(minHeight: 44)
         .padding(.horizontal, 20)
+        .readableColumn()
         .padding(.bottom, 4)
     }
 

@@ -24,7 +24,7 @@ final class OfflineNavigationTests: XCTestCase {
 
     func testNotificationsOfferRetryWhenOffline() {
         let app = launchOffline()
-        let notifications = app.tabBars.buttons["通知"]
+        let notifications = ForumFixture.tab("通知", in: app)
         XCTAssertTrue(notifications.waitForExistence(timeout: 10))
         notifications.tap()
 
@@ -34,7 +34,7 @@ final class OfflineNavigationTests: XCTestCase {
 
     func testOpenCommunityToolsFromAccount() {
         let app = launchOffline()
-        let account = app.tabBars.buttons["我的"]
+        let account = ForumFixture.tab("我的", in: app)
         XCTAssertTrue(account.waitForExistence(timeout: 10))
         account.tap()
 

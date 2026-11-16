@@ -43,37 +43,77 @@ jobs:
         run: sh scripts/verify-website.sh
 
   ios-ui-tests:
-    name: iOS UI tests
+    # The iPhone run keeps its original check name, which branch protection requires.
+    name: ${{ matrix.check }}
     runs-on: xcode-27
-    timeout-minutes: 25
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: iOS UI tests
+            device: iPhone 17
+            results: NodeSeekUITests
+          - check: iPad UI tests
+            device: iPad Pro 13-inch (M5)
+            results: NodeSeekUITests-iPad
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Start the iPhone 17 simulator
+      - name: Start the ${{ matrix.device }} simulator
         id: simulator
+        env:
+          DEVICE: ${{ matrix.device }}
         run: |
           simulator_id="$(xcrun simctl list devices available --json | node -e '
             const { devices } = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
-            const simulator = devices["com.apple.CoreSimulator.SimRuntime.iOS-27-2"]?.find(({ name }) => name === "iPhone 17");
-            if (!simulator) throw new Error("iPhone 17 with iOS 27.2 is unavailable");
+            const name = process.env.DEVICE;
+            const simulator = devices["com.apple.CoreSimulator.SimRuntime.iOS-27-2"]?.find((device) => device.name === name);
+            if (!simulator) throw new Error(`${name} with iOS 27.2 is unavailable`);
             console.log(simulator.udid);
           ')"
           xcrun simctl bootstatus "$simulator_id" -b
           echo "id=$simulator_id" >> "$GITHUB_OUTPUT"
-      - name: Build and test on iPhone 17
+      - name: Build and test on ${{ matrix.device }}
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
         run: |
           xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -parallel-testing-enabled NO \
-            -resultBundlePath "$RUNNER_TEMP/NodeSeekUITests.xcresult" \
+            -resultBundlePath "$RUNNER_TEMP/${{ matrix.results }}.xcresult" \
             CODE_SIGN_IDENTITY=- test
       - name: Upload failed test results
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: NodeSeekUITests
-          path: ${{ runner.temp }}/NodeSeekUITests.xcresult
+          name: ${{ matrix.results }}
+          path: ${{ runner.temp }}/${{ matrix.results }}.xcresult
+          retention-days: 7
+
+  mac-ui-tests:
+    name: Mac UI tests
+    runs-on: xcode-27
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test the Mac Catalyst app
+        # Swipes and simulator-only gestures stay on iPhone and iPad; the Mac runs the checks a window can do.
+        run: |
+          xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
+            -parallel-testing-enabled NO \
+            -only-testing:NodeSeekUITests/AdaptiveLayoutTests \
+            -only-testing:NodeSeekUITests/OfflineNavigationTests \
+            -resultBundlePath "$RUNNER_TEMP/NodeSeekUITests-Mac.xcresult" \
+            CODE_SIGN_IDENTITY=- test
+      - name: Upload failed test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NodeSeekUITests-Mac
+          path: ${{ runner.temp }}/NodeSeekUITests-Mac.xcresult
           retention-days: 7

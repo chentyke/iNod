@@ -45,6 +45,13 @@ struct NodeSeekApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { Task { await account.refresh() } }
                 }
+                #if targetEnvironment(macCatalyst)
+                // Narrower than this, the feed's filter bar and the thread's reply bar start to crowd.
+                .frame(minWidth: 400, minHeight: 560)
+                #endif
         }
+        #if targetEnvironment(macCatalyst)
+        .windowResizability(.contentMinSize)
+        #endif
     }
 }
