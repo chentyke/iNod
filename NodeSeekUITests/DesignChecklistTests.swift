@@ -65,7 +65,8 @@ final class DesignChecklistTests: XCTestCase {
 
         open.tap()
         XCTAssertTrue(close.waitForExistence(timeout: 3))
-        drag(app, from: 0.7, to: 0.45)
+        // Drag in the top half: the software keyboard covers the bottom, and dragging on it scrolls nothing.
+        drag(app, from: 0.5, to: 0.2)
         XCTAssertTrue(open.waitForExistence(timeout: 3), "Scrolling should fold an empty search.")
 
         drag(app, from: 0.3, to: 0.8)
