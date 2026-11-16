@@ -54,9 +54,13 @@ jobs:
           - check: iOS UI tests
             device: iPhone 17
             results: NodeSeekUITests
+            retries: ''
           - check: iPad UI tests
             device: iPad Pro 13-inch (M5)
             results: NodeSeekUITests-iPad
+            # The hosted iPad simulator is slow and now and then fails to stop the app between tests.
+            # A test that fails both times still fails the check.
+            retries: -retry-tests-on-failure -test-iterations 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,10 +82,12 @@ jobs:
       - name: Build and test on ${{ matrix.device }}
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+          RETRIES: ${{ matrix.retries }}
         run: |
+          # RETRIES holds separate flags, so it is left unquoted on purpose.
           xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -parallel-testing-enabled NO \
+            -parallel-testing-enabled NO $RETRIES \
             -resultBundlePath "$RUNNER_TEMP/${{ matrix.results }}.xcresult" \
             CODE_SIGN_IDENTITY=- test
       - name: Upload failed test results
