@@ -42,7 +42,7 @@ struct PostPreview: View {
                         }
                     }
                 } else if let error {
-                    Label(error.localizedDescription, systemImage: error is PostAccessError ? "lock" : "exclamationmark.triangle")
+                    Label(LoadFailure(error).message, systemImage: error is PostAccessError ? "lock" : LoadFailure(error).systemImage)
                         .font(.callout).foregroundStyle(.secondary)
                 } else {
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 40)

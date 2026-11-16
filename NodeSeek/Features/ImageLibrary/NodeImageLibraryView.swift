@@ -89,7 +89,7 @@ struct NodeImageLibraryView: View {
         .fileImporter(isPresented: $importsFiles, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
             switch result {
             case .success(let urls): add(urls.map(NodeImageInput.file))
-            case .failure(let error): self.error = error.localizedDescription
+            case .failure(let error): self.error = SiteError.displayMessage(for: error)
             }
         }
         .task { await initialize() }
@@ -322,7 +322,7 @@ struct NodeImageLibraryView: View {
             key = savedKey
             images = account.nodeImageHistory.cachedImages(userID: userID, key: savedKey) ?? []
             await load()
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
     }
 
     private func saveKey() async {
@@ -344,7 +344,7 @@ struct NodeImageLibraryView: View {
             uploaded = []
             message = "密钥已保存。"
         } catch {
-            if !Task.isCancelled, ownsLibrary { self.error = error.localizedDescription }
+            if !Task.isCancelled, ownsLibrary { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
         }
     }
 
@@ -369,7 +369,7 @@ struct NodeImageLibraryView: View {
             await load()
         } catch {
             mutation = nil
-            if !Task.isCancelled, ownsLibrary { self.error = error.localizedDescription }
+            if !Task.isCancelled, ownsLibrary { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
         }
     }
 
@@ -386,7 +386,7 @@ struct NodeImageLibraryView: View {
             selectedIDs = nil
             error = nil
             message = "本机密钥已移除。"
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
     }
 
     private func load() async {
@@ -405,7 +405,7 @@ struct NodeImageLibraryView: View {
             )
             selectedIDs?.formIntersection(images.map(\.id))
         } catch {
-            if !Task.isCancelled, ownsLibrary, !working, self.error == nil { self.error = error.localizedDescription }
+            if !Task.isCancelled, ownsLibrary, !working, self.error == nil { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
         }
     }
 
@@ -427,7 +427,7 @@ struct NodeImageLibraryView: View {
                     pendingUploads.append(PendingUpload(image: image))
                 } catch {
                     failures += 1
-                    latestError = error.localizedDescription
+                    latestError = SiteError.displayMessage(for: error, service: "NodeImage")
                 }
             }
             guard ownsLibrary else { return }
@@ -456,7 +456,7 @@ struct NodeImageLibraryView: View {
                     try UploadImageProcessor.render(item.image, options: options)
                 }.value
             } catch {
-                if ownsLibrary { self.error = error.localizedDescription }
+                if ownsLibrary { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
                 break
             }
             guard !Task.isCancelled, ownsLibrary else { return }
@@ -476,7 +476,7 @@ struct NodeImageLibraryView: View {
                 }
             } catch {
                 guard ownsLibrary else { return }
-                self.error = error.localizedDescription + " 上传结果不确定时，请先刷新列表检查。"
+                self.error = SiteError.displayMessage(for: error, service: "NodeImage") + " 上传结果不确定时，请先刷新列表检查。"
                 break
             }
         }
@@ -514,7 +514,7 @@ struct NodeImageLibraryView: View {
                 updateCachedHistory()
                 deleted += 1
             } catch {
-                if ownsLibrary { self.error = error.localizedDescription }
+                if ownsLibrary { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
                 break
             }
         }

@@ -9,8 +9,8 @@ struct NoticesListView: View {
     @Environment(\.openMemberDestination) private var openMember
     @State private var isLoading = false
     @State private var isUpdating = false
-    @State private var loadErrors: [NoticeKind: String] = [:]
-    @State private var updateError: String?
+    @State private var loadErrors: [NoticeKind: LoadFailure] = [:]
+    @State private var updateError: LoadFailure?
 
     var body: some View {
         let items = activity
@@ -70,7 +70,7 @@ struct NoticesListView: View {
     private func load(_ kind: NoticeKind, force: Bool) async {
         do { try await account.inbox.loadNotices(kind, userID: userID, force: force) }
         catch is CancellationError { }
-        catch { if !Task.isCancelled { loadErrors[kind] = SiteError.displayMessage(for: error) } }
+        catch { if !Task.isCancelled { loadErrors[kind] = LoadFailure(error) } }
     }
 
     private func mark(_ id: Int, kind: NoticeKind) async {
@@ -80,6 +80,6 @@ struct NoticesListView: View {
         updateError = nil
         do { try await account.inbox.markNoticesRead(kind, ids: [id], userID: userID) }
         catch is CancellationError { }
-        catch { updateError = SiteError.displayMessage(for: error) }
+        catch { updateError = LoadFailure(error) }
     }
 }

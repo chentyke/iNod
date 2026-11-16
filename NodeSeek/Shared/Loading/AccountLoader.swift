@@ -10,7 +10,7 @@ final class AccountLoader<Value: Decodable> {
     var isLoading = false
     private(set) var isLoadingFirstPage = false
     var isUpdating = false
-    var error: String?
+    var error: LoadFailure?
     private(set) var nextPageError: String?
     private var operationID = UUID()
     private var viewerID: Int?
@@ -63,7 +63,7 @@ final class AccountLoader<Value: Decodable> {
         } catch is CancellationError { }
         catch {
             if operationID == operation, !Task.isCancelled {
-                if merge == nil { self.error = SiteError.displayMessage(for: error) }
+                if merge == nil { self.error = LoadFailure(error) }
                 else { nextPageError = SiteError.displayMessage(for: error) }
             }
         }
@@ -76,6 +76,6 @@ final class AccountLoader<Value: Decodable> {
         error = nil
         defer { isUpdating = false }
         do { return try await website.update(action, userID: userID) }
-        catch { self.error = error.localizedDescription; return nil }
+        catch { self.error = LoadFailure(error); return nil }
     }
 }

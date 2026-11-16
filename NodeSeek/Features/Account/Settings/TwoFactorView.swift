@@ -48,7 +48,7 @@ struct TwoFactorView: View {
                 let _: ReactionResponse = try await account.website.perform(.otp(enable: false, password: password), userID: userID); setup = nil
             } else { setup = try await account.website.perform(.otp(enable: true, password: password), userID: userID) }
             password = ""; await load(force:true)
-        } catch { loader.error = error.localizedDescription }
+        } catch { loader.error = LoadFailure(error) }
     }
     private func qr(_ value: String) -> CGImage? {
         let filter = CIFilter.qrCodeGenerator(); filter.message = Data(value.utf8)

@@ -6,7 +6,7 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
     let items: [Item]?
     let emptyTitle: String
     let emptySymbol: String
-    let error: String?
+    let error: LoadFailure?
     let isBusy: Bool
     let reload: () async -> Void
     let leadingContent: LeadingContent
@@ -19,11 +19,12 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
             leadingContent
             if let items, !items.isEmpty {
                 if let error {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(error).font(.subheadline).foregroundStyle(.secondary)
-                        retryActions
+                    // Keep what's already listed and note the failure above it.
+                    Section {
+                        LoadFailureBanner(failure: error, isRetrying: isBusy) { Task { await reload() } }
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
                     }
-                    .padding(.vertical, 8)
                 }
                 ForEach(items, content: row)
                     .listRowInsets(EdgeInsets(top: 11, leading: 14, bottom: 11, trailing: 14))
@@ -37,13 +38,9 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
         .overlay {
             if items?.isEmpty != false {
                 if let error {
-                    ContentUnavailableView {
-                        Label("暂时无法加载", systemImage: "exclamationmark.circle")
-                    } description: {
-                        Text(error)
-                    } actions: {
-                        retryActions
-                    }
+                    LoadFailureView(failure: error, isRetrying: isBusy,
+                                    offersWebsite: account.website.needsWebsite || account.signInStatus == .signedOut,
+                                    retry: { Task { await reload() } }, openWebsite: { showsWebsite = true })
                 } else if items == nil || isBusy {
                     ProgressView().accessibilityLabel("正在加载")
                 } else {
@@ -55,16 +52,5 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
         .sheet(isPresented: $showsWebsite, onDismiss: { Task { await reload() } }) {
             WebsiteView(initialURL: NodeSeekRoute.home.url)
         }
-    }
-
-    private var retryActions: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button("重试") { Task { await reload() } }
-                .disabled(isBusy)
-            if account.website.needsWebsite || account.signInStatus == .signedOut {
-                Button("打开官网") { showsWebsite = true }
-            }
-        }
-        .buttonStyle(.borderless)
     }
 }

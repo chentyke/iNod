@@ -45,13 +45,13 @@ struct StardustTransferView: View {
             }
             recipientName = try await account.website.prepareTransfer(recipientID: id, userID: userID)
             confirmedID = id; confirmedAmount = amount; confirmedReference = reference; confirmsTransfer = true
-        } catch { success = false; message = error.localizedDescription }
+        } catch { success = false; message = SiteError.displayMessage(for: error) }
     }
     private func send() async {
         guard !busy,let id = confirmedID,let amount = confirmedAmount,let reference = confirmedReference,recipientName != nil else { return }; busy = true; defer { busy = false }; message = nil
         do {
             let _: ReactionResponse = try await account.website.perform(.transfer(recipientID: id, amount: amount, reference: reference), userID: userID)
             self.amount = ""; recipientName = nil; confirmedID = nil; success = true; message = "转账成功。"; await account.refresh(force:true)
-        } catch { success = false; message = error.localizedDescription }
+        } catch { success = false; message = SiteError.displayMessage(for: error) }
     }
 }

@@ -102,10 +102,10 @@ final class SiteReader {
     private func scriptData(_ script: String, arguments: [String: Any] = [:]) async throws -> Data {
         let boundedScript = #"""
         const fetch = async (url, options = {}) => {
-            try { return await globalThis.fetch(url, {...options,signal:AbortSignal.timeout(15000)}); }
+            try { return await globalThis.fetch(url, {...options,signal:AbortSignal.timeout(\#(Int(Self.requestTimeout * 1000)))}); }
             catch(e) {
-                if (e.name === 'TimeoutError' || e.name === 'AbortError') throw new Error('连接超时，请检查网络后重试。');
-                if (e instanceof TypeError) throw new Error('无法连接 NodeSeek，请检查网络后重试。');
+                if (e.name === 'TimeoutError' || e.name === 'AbortError') throw new Error('\#(ScriptNetworkError.timedOut)');
+                if (e instanceof TypeError) throw new Error(navigator.onLine === false ? '\#(ScriptNetworkError.offline)' : '\#(ScriptNetworkError.unreachable)');
                 throw e;
             }
         };
@@ -126,7 +126,14 @@ final class SiteReader {
             default: break
             }
             if let message = object["__error"] as? String {
-                if object["__needsWebsite"] as? Bool == true { needsWebsite = true }
+                if let networkError = ScriptNetworkError.urlError(for: message) { throw networkError }
+                if object["__needsWebsite"] as? Bool == true {
+                    needsWebsite = true
+                    // A challenge page or a bare 403. A 403 that carries the site's own words keeps them.
+                    if object["__status"] != nil || message.hasSuffix("(403)") || message.contains("需要完成验证") {
+                        throw SiteError.verificationRequired
+                    }
+                }
                 if let status = object["__status"] as? Int { throw SiteError.httpStatus(status) }
                 throw SiteError.message(message)
             }
@@ -244,12 +251,16 @@ final class SiteReader {
         loadedDocument = nil
         try Task.checkCancellation()
         var request = URLRequest(url: url)
-        request.timeoutInterval = 25
+        request.timeoutInterval = Self.requestTimeout
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        for try await event in page.load(request) {
-            try Task.checkCancellation()
-            guard operationID == operation else { throw CancellationError() }
-            if event == .committed { break }
+        do {
+            for try await event in page.load(request) {
+                try Task.checkCancellation()
+                guard operationID == operation else { throw CancellationError() }
+                if event == .committed { break }
+            }
+        } catch WebPage.NavigationError.failedProvisionalNavigation(let underlying) {
+            throw underlying
         }
         // Read as soon as the document is parsed; advertisements and images must not hold up the native feed.
         for _ in 0..<60 {
@@ -265,7 +276,26 @@ final class SiteReader {
             try await Task.sleep(for: .milliseconds(250))
         }
         needsWebsite = true
-        throw SiteError.message("暂时无法读取官网内容。打开官网完成验证或登录后，再重试。")
+        throw SiteError.verificationRequired
     }
 
+    /// How long a request may go without an answer before the reader is told. Long enough for a slow
+    /// mobile network, short enough that a dead one doesn't leave a spinner running.
+    static let requestTimeout: TimeInterval = 15
+}
+
+/// The page script's own words for a failed `fetch`, turned back into the URL errors they stand for.
+enum ScriptNetworkError {
+    static let timedOut = "连接超时，请检查网络后重试。"
+    static let offline = "网络未连接，请检查网络设置后重试。"
+    static let unreachable = "无法连接 NodeSeek，请检查网络后重试。"
+
+    static func urlError(for message: String) -> URLError? {
+        switch message {
+        case timedOut: URLError(.timedOut)
+        case offline: URLError(.notConnectedToInternet)
+        case unreachable: URLError(.cannotConnectToHost)
+        default: nil
+        }
+    }
 }

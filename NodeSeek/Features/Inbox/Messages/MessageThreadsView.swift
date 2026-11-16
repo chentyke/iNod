@@ -6,10 +6,10 @@ struct MessageThreadsView: View {
     let userID: Int
     @Environment(AccountSession.self) private var account
     @State private var isLoading = false
-    @State private var error: String?
+    @State private var error: LoadFailure?
     @State private var query = ""
     @FocusState private var searchFocused: Bool
-    @State private var memberSearch: (query: String, recipients: [MessageRecipient], error: String?)?
+    @State private var memberSearch: (query: String, recipients: [MessageRecipient], error: LoadFailure?)?
 
     var body: some View {
         let search = searchTerm
@@ -139,7 +139,7 @@ struct MessageThreadsView: View {
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled, searchTerm == search else { return }
-            memberSearch = (search, [], SiteError.displayMessage(for: error))
+            memberSearch = (search, [], LoadFailure(error))
         }
     }
 
@@ -158,7 +158,7 @@ struct MessageThreadsView: View {
         error = nil
         do { try await account.inbox.loadThreads(userID: userID, force: force) }
         catch is CancellationError { }
-        catch { if !Task.isCancelled { self.error = SiteError.displayMessage(for: error) } }
+        catch { if !Task.isCancelled { self.error = LoadFailure(error) } }
     }
 
 }
