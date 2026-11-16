@@ -50,11 +50,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # TEMP: sample the busiest processes to find what keeps the runner's CPUs busy. Remove before merging.
-      - name: Sample CPU usage in the background
-        run: |
-          nohup sh -c 'while :; do date -u +%T; ps -Aro pcpu,comm | head -8 | cut -c1-110; sleep 30; done' \
-            > "$RUNNER_TEMP/cpu.log" 2>&1 &
       - name: Start the iPhone 17 simulator
         id: simulator
         run: |
@@ -82,6 +77,3 @@ jobs:
           name: NodeSeekUITests
           path: ${{ runner.temp }}/NodeSeekUITests.xcresult
           retention-days: 7
-      - name: Show CPU samples
-        if: always()
-        run: cat "$RUNNER_TEMP/cpu.log"
