@@ -200,7 +200,7 @@ struct FeedView: View {
             .listSectionSeparator(.hidden)
         }
         .listStyle(.plain)
-        .seekCanvas()
+        .seekCanvas(margins: .keepsGutter)
         .contentMargins(.vertical, 6, for: .scrollContent)
         .safeAreaBar(edge: .top, spacing: 0) { filterBar }
         // An open search folds away once the reader scrolls, taps outside it or leaves the page;
@@ -235,6 +235,7 @@ struct FeedView: View {
     private func postButton(_ post: PostSummary) -> some View {
         Button { openPost(post) } label: { PostRow(post: post) }
             .buttonStyle(.seekCard)
+            .hoverEffect(.highlight)
             .postTransitionSource(post)
             .contextMenu {
                 Button("阅读全文", systemImage: "doc.text") { openPost(post) }
@@ -311,6 +312,7 @@ struct FeedView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("发布帖子")
+        .keyboardShortcut("n", modifiers: .command)
         .disabled(openingNewPost)
         .glassEffect(.clear.tint(.black).interactive(), in: .circle)
     }

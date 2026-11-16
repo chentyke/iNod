@@ -32,6 +32,7 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
         .listStyle(.insetGrouped)
         .scrollEdgeEffectStyle(.soft, for: .top)
         .contentMargins(.top, 4, for: .scrollContent)
+        .readableContentMargins()
         .refreshable { await reload() }
         .overlay {
             if items?.isEmpty != false {

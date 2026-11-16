@@ -27,6 +27,7 @@ struct PostRow: View {
         .background(Color.seekCard, in: .rect(cornerRadius: Self.cornerRadius))
         .contentShape(.rect(cornerRadius: Self.cornerRadius))
         .contentShape(.contextMenuPreview, .rect(cornerRadius: Self.cornerRadius))
+        .contentShape(.hoverEffect, .rect(cornerRadius: Self.cornerRadius))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }

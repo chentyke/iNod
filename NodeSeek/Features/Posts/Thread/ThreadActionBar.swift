@@ -31,6 +31,7 @@ struct ThreadActionBar: View {
                             .contentShape(.capsule)
                     }
                     .buttonStyle(.plain)
+                    .keyboardShortcut("r", modifiers: .command)
                     .disabled(!canReply || isOpeningReply)
                     .glassEffect(.regular.tint(Color.seekInk).interactive(), in: .capsule)
                     .opacity(canReply ? 1 : 0.55)

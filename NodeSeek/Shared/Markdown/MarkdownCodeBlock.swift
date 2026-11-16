@@ -30,6 +30,7 @@ struct MarkdownCodeBlock: View {
                 .fixedSize(horizontal: true, vertical: true)
                 .padding(14)
         }
+        .contentMargins(.horizontal, 0, for: .scrollContent)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(isTerminal ? Color(white: 0.1) : Color.seekTray.opacity(0.65), in: .rect(cornerRadius: 12))
     }

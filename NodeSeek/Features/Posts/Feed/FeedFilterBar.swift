@@ -41,7 +41,8 @@ struct FeedFilterBar<Search: View, Actions: View>: View {
                 }
             }
         }
-        .padding(.horizontal, 16).padding(.vertical, 8)
+        .padding(.horizontal, SeekLayout.gutter).padding(.vertical, 8)
+        .readableColumn()
     }
 
     private var categoryButton: some View {

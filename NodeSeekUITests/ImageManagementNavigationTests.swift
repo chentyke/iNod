@@ -15,7 +15,7 @@ final class ImageManagementNavigationTests: XCTestCase {
             String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
         app.launch()
 
-        let myTab = app.tabBars.buttons["我的"]
+        let myTab = ForumFixture.tab("我的", in: app)
         XCTAssertTrue(myTab.waitForExistence(timeout: 8))
         myTab.tap()
         let management = app.buttons["图片上传与管理"].firstMatch

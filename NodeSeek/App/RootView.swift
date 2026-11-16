@@ -13,25 +13,38 @@ struct RootView: View {
             Tab {
                 ForumNavigationStack(restoresTabBarDuringZoom: true) { FeedView() }
             } label: {
-                Image(systemName: "bubble.left.and.bubble.right")
+                tabLabel("社区", icon: Image(systemName: "bubble.left.and.bubble.right"))
             }
             .accessibilityLabel("社区")
             Tab {
                 ForumNavigationStack { NotificationsView().id(account.revision) }
             } label: {
-                Image(systemName: "bell")
+                tabLabel("通知", icon: Image(systemName: "bell"))
             }
             .accessibilityLabel("通知")
             .badge(account.inbox.unreadCount)
             Tab {
                 ForumNavigationStack { AccountView() }.id(account.revision)
             } label: {
-                tabIcon(for: avatarURL)
+                tabLabel("我的", icon: tabIcon(for: avatarURL))
             }
             .accessibilityLabel("我的")
         }
+        #if targetEnvironment(macCatalyst)
+        // A Mac window has no tab bar to show the tabs in, so list them in a sidebar.
+        .tabViewStyle(.sidebarAdaptable)
+        #endif
         .tint(Color.seekInk)
         .task(id: avatarURL) { await loadTabAvatar(from: avatarURL) }
+    }
+
+    /// iPhone and iPad show the tabs as icons; the Mac sidebar names them too.
+    @ViewBuilder private func tabLabel(_ title: String, icon: Image) -> some View {
+        #if targetEnvironment(macCatalyst)
+        Label { Text(title) } icon: { icon }
+        #else
+        icon
+        #endif
     }
 
     private func tabIcon(for url: URL?) -> Image {

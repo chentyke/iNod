@@ -31,6 +31,9 @@ struct ThreadView: View {
     @State private var showsCollectionError = false
     @State private var requestedFloor: Int?
     @State private var scrollPosition = ScrollPosition(idType: Int.self)
+    /// The floor a link or notification opened, held at the top until the reader scrolls. On a tall screen the
+    /// earlier-page loader is already visible above it, and the replies it inserts would push the floor away.
+    @State private var heldFloor: Int?
     @State private var openingEditor = false
     @State private var refreshID = UUID()
     @State private var loadedKey: SiteRequestKey?
@@ -109,8 +112,8 @@ struct ThreadView: View {
                 }
             }
             .scrollTargetLayout()
-            .frame(maxWidth: 760).frame(maxWidth: .infinity)
-            .padding(.horizontal, 16).padding(.vertical, 12)
+            .frame(maxWidth: SeekLayout.readableWidth).frame(maxWidth: .infinity)
+            .padding(.horizontal, SeekLayout.gutter).padding(.vertical, 12)
             .background(TopOverscrollLock())
         }
         .scrollPosition($scrollPosition)
@@ -118,10 +121,11 @@ struct ThreadView: View {
         // Touch tracking is left out so a tap on the dock's own buttons isn't cancelled.
         .onScrollPhaseChange { _, phase in
             if phase == .interacting || phase == .decelerating || phase == .animating { foldActionDock() }
+            if phase == .interacting { heldFloor = nil }
         }
         .gesture(TapGesture().onEnded { foldActionDock() },
                  including: expandedActionsCommentID == nil ? .subviews : .all)
-        .seekCanvas()
+        .seekCanvas(margins: .keepsGutter)
         .environment(\.forumDocumentURL,NodeSeekRoute.thread(id:post.id,page:page).url)
         .environment(\.openURL, OpenURLAction { url in
             switch ForumLink.parse(url.absoluteString) {
@@ -195,7 +199,9 @@ struct ThreadView: View {
             ) {
                 requestReply()
             }
-            .padding(.horizontal, 20).padding(.bottom, 12)
+            .padding(.horizontal, 20)
+            .readableColumn()
+            .padding(.bottom, 12)
         }
         .toolbar {
             if !usesZoomTransition {
@@ -276,6 +282,7 @@ struct ThreadView: View {
     private func scrollToFloor(_ floor: Int) -> Bool {
         guard detail?.comments.contains(where: { $0.floorIndex == floor && (showsBlocked || !$0.blocked) }) == true else { return false }
         scrollPosition.scrollTo(id: floor, anchor: .top)
+        heldFloor = floor
         return true
     }
 
@@ -483,6 +490,12 @@ struct ThreadView: View {
             if loadingEarlier {
                 detail?.comments.insert(contentsOf: comments, at: 0)
                 firstLoadedPage = requestedPage
+                if let heldFloor {
+                    // The position still names the held floor, so scrolling to it again would change nothing.
+                    // Clear it, then scroll back once the inserted replies are laid out.
+                    scrollPosition = ScrollPosition(idType: Int.self)
+                    Task { scrollPosition.scrollTo(id: heldFloor, anchor: .top) }
+                }
                 if let date = comments.first(where: { $0.floorIndex == 0 })?.time.date { createdDate = date }
             } else {
                 detail?.comments.append(contentsOf: comments)

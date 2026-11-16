@@ -98,7 +98,7 @@ private struct AccountAboutRow: View {
             SeekIconTile(symbol: "info.circle")
             VStack(alignment: .leading, spacing: 2) {
                 Text("iNod").foregroundStyle(Color.seekInk)
-                Text("非官方 NodeSeek iOS 客户端").font(.footnote).foregroundStyle(.secondary)
+                Text("非官方 NodeSeek 客户端").font(.footnote).foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
             Text(version).monospacedDigit().foregroundStyle(.secondary)
