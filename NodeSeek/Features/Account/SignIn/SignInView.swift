@@ -13,7 +13,6 @@ struct SignInView: View {
     @State private var otpSession: String?
     @State private var busy = false
     @State private var error: String?
-    @State private var showsWebsite = false
 
     var body: some View {
         NavigationStack {
@@ -29,7 +28,7 @@ struct SignInView: View {
                             .overlay { if session.verification == "loading" { ProgressView("正在加载验证").font(.footnote) } }
                         if session.verification == "ready" { Label("验证完成", systemImage: "checkmark.circle").foregroundStyle(Color.seekGreen) }
                         if ["error", "expired"].contains(session.verification) {
-                            Text(session.verification == "expired" ? "验证已过期，请重新验证。" : "验证暂时不可用，可以重试或使用官网登录。").font(.footnote).foregroundStyle(.secondary)
+                            Text(session.verification == "expired" ? "验证已过期，请重新验证。" : "验证暂时不可用，请重新验证。").font(.footnote).foregroundStyle(.secondary)
                             Button("重新验证") { Task { await session.resetVerification() } }
                         }
                     }
@@ -49,14 +48,13 @@ struct SignInView: View {
                 .listRowBackground(Color.clear)
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 Section {
-                    Button("使用官网登录、注册或找回密码", systemImage: "globe") { showsWebsite = true }
+                    Button("在官网注册或找回密码", systemImage: "globe") { Browser.open(NodeSeekRoute.signIn.url) }
                 } footer: { Text("密码只用于本次登录，App 不会保存密码。") }
             }
             .seekCanvas().navigationTitle(otpSession == nil ? "登录 NodeSeek" : "双因素验证").navigationBarTitleDisplayMode(.inline)
             .disabled(busy).interactiveDismissDisabled(busy)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() }.disabled(busy) } }
             .task { await session.monitor() }
-            .sheet(isPresented: $showsWebsite) { WebsiteView(initialURL: NodeSeekRoute.origin.appending(path: "signIn.html")) }
             .onChange(of: account.isLoggedIn) { _, loggedIn in if loggedIn { dismiss() } }
             .onDisappear { password = ""; code = ""; otpSession = nil; session.clear() }
         }

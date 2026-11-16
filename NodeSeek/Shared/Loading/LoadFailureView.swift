@@ -1,4 +1,5 @@
 import NodeSeekClient
+import NodeSeekCore
 import SwiftUI
 
 /// Fills a page that has nothing to show because its request failed: what happened, what to do, and a way to do it.
@@ -11,8 +12,12 @@ struct LoadFailureView: View {
     var isRetrying = false
     /// Offers the website even when the failure itself doesn't call for it, for a page the site can also show.
     var offersWebsite = false
+    /// The site's page for what failed to load. "打开官网" opens it in the reader's browser.
+    var websiteURL = NodeSeekRoute.home.url
     let retry: () -> Void
-    var openWebsite: (() -> Void)?
+    /// Shows the site inside the app for its human check. Only there does finishing the check unblock
+    /// the app's own requests: the browser keeps its cookies to itself.
+    let verify: () -> Void
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -47,15 +52,14 @@ struct LoadFailureView: View {
         return failure.title
     }
 
-    private enum Action { case retry, website, settings }
+    private enum Action { case retry, verify, website, settings }
 
     private var actions: (primary: Action, secondary: Action?) {
-        let website: Action? = openWebsite == nil ? nil : .website
         switch failure.kind {
-        case .verificationRequired: return website.map { ($0, .retry) } ?? (.retry, nil)
-        case .offline: return (.retry, Self.settingsURL == nil ? nil : .settings)
-        case .unreachable: return (.retry, website)
-        default: return (.retry, offersWebsite ? website : nil)
+        case .verificationRequired: (.verify, .retry)
+        case .offline: (.retry, Self.settingsURL == nil ? nil : .settings)
+        case .unreachable: (.retry, .website)
+        default: (.retry, offersWebsite ? .website : nil)
         }
     }
 
@@ -71,13 +75,10 @@ struct LoadFailureView: View {
             } else {
                 Button("重试", action: retry).quietLink().disabled(isRetrying)
             }
+        case .verify:
+            Button("打开官网完成验证", action: verify).buttonStyle(.seekPill(fullWidth: false))
         case .website:
-            let label = failure.kind == .verificationRequired ? "打开官网完成验证" : "打开官网"
-            if primary {
-                Button(label) { openWebsite?() }.buttonStyle(.seekPill(fullWidth: false))
-            } else {
-                Button(label) { openWebsite?() }.quietLink()
-            }
+            Button("打开官网") { Browser.open(websiteURL) }.quietLink()
         case .settings:
             Button("打开设置") { if let url = Self.settingsURL { openURL(url) } }.quietLink()
         }

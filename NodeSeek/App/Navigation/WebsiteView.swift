@@ -2,6 +2,8 @@ import NodeSeekClient
 import SwiftUI
 import WebKit
 
+/// The website inside the app, for the site's human check only. It shares the app's cookies, so finishing
+/// the check here unblocks the app's own requests; every other page of the site opens in the reader's browser.
 struct WebsiteView: View {
     @State private var page = SitePage.make()
     var initialURL: URL?

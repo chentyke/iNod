@@ -22,7 +22,7 @@ struct ThreadView: View {
     @State private var commentPageErrors: [Int: String] = [:]
     @State private var error: (any Error)?
     @State private var isLoading = true
-    @State private var showsWebsite = false
+    @State private var showsVerification = false
     @State private var showsSignIn = false
     @State private var showsReply = false
     @State private var pendingReply: EditorDraft?
@@ -79,8 +79,8 @@ struct ThreadView: View {
                     } else if let error {
                         if detail == nil {
                             LoadFailureView(failure: LoadFailure(error), isRetrying: isLoading,
-                                            offersWebsite: account.website.needsWebsite,
-                                            retry: { refreshID = UUID() }, openWebsite: { showsWebsite = true })
+                                            offersWebsite: account.website.needsWebsite, websiteURL: post.url,
+                                            retry: { refreshID = UUID() }, verify: { showsVerification = true })
                                 .padding(.top, 12).padding(.bottom, 32)
                         } else {
                             LoadFailureBanner(failure: LoadFailure(error), isRetrying: isLoading) { refreshID = UUID() }
@@ -233,7 +233,7 @@ struct ThreadView: View {
             pendingReply = nil
             reactionToPrepare = nil
         }
-        .sheet(isPresented: $showsWebsite, onDismiss: { refreshID = UUID() }) {
+        .sheet(isPresented: $showsVerification, onDismiss: { refreshID = UUID() }) {
             WebsiteView(initialURL: post.url)
         }
         .sheet(isPresented: $showsSignIn, onDismiss: {
@@ -298,7 +298,7 @@ struct ThreadView: View {
             Button("编辑帖子", systemImage: "pencil") { Task { await openPostEditor() } }
                 .disabled(detail.locked == true || openingEditor)
         }
-        Button("在官网查看", systemImage: "globe") { showsWebsite = true }
+        Button("在官网查看", systemImage: "globe") { Browser.open(post.url) }
     }
 
     private func commentView(_ comment: ForumComment, showsHeader: Bool = true) -> some View {
