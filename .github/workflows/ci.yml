@@ -50,14 +50,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Build before booting the simulator: a freshly booted simulator keeps the runner's CPUs busy
-      # for minutes, which made the same build take about six times as long.
-      - name: Build for testing
-        run: |
-          xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.2' \
-            CODE_SIGN_IDENTITY=- build-for-testing
-      - name: Boot the iPhone 17 simulator
+      # A freshly booted simulator keeps the runner's CPUs busy for several minutes. Start booting it
+      # right away in the background so that work overlaps the build instead of slowing down the tests.
+      - name: Start booting the iPhone 17 simulator
         id: simulator
         run: |
           simulator_id="$(xcrun simctl list devices available --json | node -e '
@@ -66,8 +61,21 @@ jobs:
             if (!simulator) throw new Error("iPhone 17 with iOS 27.2 is unavailable");
             console.log(simulator.udid);
           ')"
-          xcrun simctl bootstatus "$simulator_id" -b
+          nohup xcrun simctl bootstatus "$simulator_id" -b > "$RUNNER_TEMP/simulator-boot.log" 2>&1 &
           echo "id=$simulator_id" >> "$GITHUB_OUTPUT"
+      - name: Build for testing
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            CODE_SIGN_IDENTITY=- build-for-testing
+      - name: Wait for the simulator to finish booting
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+          cat "$RUNNER_TEMP/simulator-boot.log"
       - name: Run UI tests on iPhone 17
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
