@@ -101,13 +101,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Build and test the Mac Catalyst app
-        # Swipes and simulator-only gestures stay on iPhone and iPad; the Mac runs the checks a window can do.
+        # On the hosted Mac runner, clicks and key presses that UI tests send never reach the Catalyst app's
+        # content, so the Mac runs only the checks that need no input. iPhone and iPad cover the rest.
         run: |
           xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
             -destination 'platform=macOS,variant=Mac Catalyst' \
             -parallel-testing-enabled NO \
-            -only-testing:NodeSeekUITests/AdaptiveLayoutTests \
-            -only-testing:NodeSeekUITests/OfflineNavigationTests \
+            -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testAllTabsAreOnScreen \
+            -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testFeedKeepsAReadableCentredColumn \
             -resultBundlePath "$RUNNER_TEMP/NodeSeekUITests-Mac.xcresult" \
             CODE_SIGN_IDENTITY=- test
       - name: Upload failed test results

@@ -42,13 +42,23 @@ extension View {
 
 private struct ReadableContentMargins: ViewModifier {
     let style: ReadableMargin
-    @State private var margin: CGFloat = 0
+    @State private var margins = SideMargins()
 
     func body(content: Content) -> some View {
         content
-            .contentMargins(.horizontal, margin, for: .scrollContent)
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                SeekLayout.sideMargin(forWidth: proxy.size.width, style)
-            } action: { margin = $0 }
+            .contentMargins(.leading, margins.leading, for: .scrollContent)
+            .contentMargins(.trailing, margins.trailing, for: .scrollContent)
+            .onGeometryChange(for: SideMargins.self) { proxy in
+                // A sidebar beside the page (iPad, Mac) sits in the safe area, and the scroll view runs on under it.
+                // Setting margins replaces that safe-area inset, so add it back on its side.
+                let margin = SeekLayout.sideMargin(forWidth: proxy.size.width, style)
+                return SideMargins(leading: margin + proxy.safeAreaInsets.leading,
+                                   trailing: margin + proxy.safeAreaInsets.trailing)
+            } action: { margins = $0 }
     }
+}
+
+private struct SideMargins: Equatable {
+    var leading: CGFloat = 0
+    var trailing: CGFloat = 0
 }

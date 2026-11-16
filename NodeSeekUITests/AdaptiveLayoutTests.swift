@@ -32,6 +32,14 @@ final class AdaptiveLayoutTests: XCTestCase {
         attachScreenshot(of: app, named: "Feed")
     }
 
+    /// Every tab stays on screen: in the tab bar on iPhone and iPad, in the sidebar on a Mac.
+    func testAllTabsAreOnScreen() throws {
+        let app = ForumFixture.launch()
+        for name in ["社区", "通知", "我的"] {
+            XCTAssertTrue(ForumFixture.tab(name, in: app).waitForExistence(timeout: 10), "The \(name) tab should be on screen.")
+        }
+    }
+
     func testFeedKeepsItsColumnInLandscape() throws {
         #if targetEnvironment(macCatalyst)
         throw XCTSkip("A Mac window has no orientation; the other tests cover its width.")
@@ -111,7 +119,8 @@ final class AdaptiveLayoutTests: XCTestCase {
         // A feed card's button reports its whole list row: the card plus a gutter on each side.
         let row = post.frame
         let card = row.insetBy(dx: gutter, dy: 0)
-        assertColumn(card, in: list, "Feed card", line: line)
+        // A sidebar overlaps the list, so the filter bar below shows where the page beside it is centred.
+        assertColumn(card, in: list, "Feed card", centred: !hasSidebar(app), line: line)
 
         // The filter bar above the cards lines up with them.
         let category = app.buttons["选择版块，当前全部"]
@@ -124,10 +133,19 @@ final class AdaptiveLayoutTests: XCTestCase {
 
     /// A card fills the width up to `readableWidth` and sits in the middle of the page that scrolls it,
     /// which is the whole window on iPhone and iPad and the area beside the sidebar on a Mac.
-    private func assertColumn(_ card: CGRect, in page: CGRect, _ name: String, line: UInt = #line) {
-        let expectedWidth = min(readableWidth, page.width - 2 * gutter)
-        assertClose(card.width, expectedWidth, "\(name) width in a \(page.width)-point page", line: line)
-        assertClose(card.minX - page.minX, page.maxX - card.maxX, "\(name) side gaps", line: line)
+    private func assertColumn(_ card: CGRect, in page: CGRect, _ name: String, centred: Bool = true, line: UInt = #line) {
+        if centred {
+            let expectedWidth = min(readableWidth, page.width - 2 * gutter)
+            assertClose(card.width, expectedWidth, "\(name) width in a \(page.width)-point page", line: line)
+            assertClose(card.minX - page.minX, page.maxX - card.maxX, "\(name) side gaps", line: line)
+        } else {
+            XCTAssertLessThanOrEqual(card.width, readableWidth + tolerance, "\(name) keeps to the readable width.", line: line)
+        }
+    }
+
+    /// The Mac lists the tabs in a sidebar beside the page instead of a tab bar.
+    private func hasSidebar(_ app: XCUIApplication) -> Bool {
+        app.cells.matching(NSPredicate(format: "label == %@", "社区")).firstMatch.exists
     }
 
     private func replyButton(in app: XCUIApplication) -> XCUIElement {
