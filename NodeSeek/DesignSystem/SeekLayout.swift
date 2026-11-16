@@ -12,16 +12,23 @@ enum SeekLayout {
 
     /// Space on each side of a scroll view's content so its cards keep to `readableWidth`.
     static func sideMargin(forWidth width: CGFloat, _ style: ReadableMargin) -> CGFloat {
-        let column = style == .keepsGutter ? columnWidth : readableWidth
-        return max(0, ((width - column) / 2).rounded(.down))
+        switch style {
+        case .keepsGutter:
+            max(0, ((width - columnWidth) / 2).rounded(.down))
+        case .replacesInset:
+            // The margin stands in for the list's own inset, so it never drops below one gutter.
+            max(gutter, ((width - readableWidth) / 2).rounded(.down))
+        }
     }
 }
 
 /// How a scroll view's content sits inside the readable-width margins.
 enum ReadableMargin {
-    /// A grouped list uses the margin in place of its own section inset.
+    /// A grouped list or form uses the margin in place of its own section inset, so the margin is at least
+    /// one `gutter` even on an iPhone.
     case replacesInset
-    /// A plain list's row insets or a scroll view's padding add the usual `gutter` inside the margin.
+    /// A plain list's row insets or a scroll view's padding add the usual `gutter` inside the margin,
+    /// so the margin is 0 until the window is wider than `columnWidth`.
     case keepsGutter
 }
 

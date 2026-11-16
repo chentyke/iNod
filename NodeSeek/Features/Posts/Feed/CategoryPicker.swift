@@ -51,7 +51,7 @@ struct CategoryPicker: View {
                         .background(SeekCanvas())
                 }
             }
-            .seekCanvas()
+            .seekCanvas(margins: .keepsGutter)
             .navigationTitle("选择版块").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
             .task { await categories.refresh() }
