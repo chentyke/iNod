@@ -142,9 +142,17 @@ struct CommentActionBar: View {
             Button { setExpanded(false); onReply(false) } label: { CommentToolButtonLabel(symbol: "arrowshape.turn.up.left") }
                 .accessibilityLabel("回复")
                 .modifier(DockItemReveal(isShown: revealsItems, order: 1))
-            Menu { replyMenuItems } label: { CommentToolButtonLabel(symbol: "ellipsis") }
-                .accessibilityLabel("更多回复操作")
-                .modifier(DockItemReveal(isShown: revealsItems, order: 0))
+            Group {
+                // With nothing beyond a quote, the quote sits beside reply; otherwise it joins the rest under ⋯.
+                if canEdit || canPin {
+                    Menu { moreMenuItems } label: { CommentToolButtonLabel(symbol: "ellipsis") }
+                        .accessibilityLabel("更多回复操作")
+                } else {
+                    Button { setExpanded(false); onReply(true) } label: { CommentToolButtonLabel(symbol: "quote.opening") }
+                        .accessibilityLabel("引用回复")
+                }
+            }
+            .modifier(DockItemReveal(isShown: revealsItems, order: 0))
         }
         .buttonStyle(.seekRow)
         .frame(height: DockMetrics.openHeight)
@@ -173,6 +181,11 @@ struct CommentActionBar: View {
 
     @ViewBuilder private var replyMenuItems: some View {
         Button("回复", systemImage: "arrowshape.turn.up.left") { setExpanded(false); onReply(false) }
+        moreMenuItems
+    }
+
+    /// Everything past a plain reply. The open dock already has its own reply button, so its menu shows only these.
+    @ViewBuilder private var moreMenuItems: some View {
         Button("引用回复", systemImage: "quote.opening") { setExpanded(false); onReply(true) }
         if canEdit { Button("编辑", systemImage: "pencil") { setExpanded(false); onEdit() } }
         if canPin {

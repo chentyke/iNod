@@ -1,17 +1,18 @@
 import XCTest
 import UIKit
 
-/// A signed-out forum with one feed page and one thread, served offline through `NODESEEK_UI_TEST_WEBSITE`.
+/// A forum, signed out unless a test asks otherwise, with one feed page and one thread, served offline through `NODESEEK_UI_TEST_WEBSITE`.
 enum ForumFixture {
     static let threadTitle = "周末的读书计划"
     static let threadID = 123
     static let announcementTitle = "本月读书会公告"
     private static let timestamp = "2025-01-04T12:00:00.000Z"
 
-    /// Launches the app on the fixture's feed, in dark mode when `dark` is set.
-    @MainActor static func launch(dark: Bool = false, opensThread: Bool = false) -> XCUIApplication {
+    /// Launches the app on the fixture's feed, in dark mode when `dark` is set,
+    /// signed in as the thread's author when `signedInAsAuthor` is set.
+    @MainActor static func launch(dark: Bool = false, opensThread: Bool = false, signedInAsAuthor: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json()
+        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor)
         if opensThread { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "\(threadID)" }
         // `appearance` is the in-app appearance setting; an argument sets it for this launch only.
         app.launchArguments += ["-appearance", dark ? "dark" : "light"]
@@ -22,11 +23,11 @@ enum ForumFixture {
     /// Launches the app and opens the fixture's thread from the feed.
     ///
     /// UI tests can't click into the Mac app, so there the app opens the thread itself once the feed loads.
-    @MainActor static func launchThread(dark: Bool = false) -> XCUIApplication {
+    @MainActor static func launchThread(dark: Bool = false, signedInAsAuthor: Bool = false) -> XCUIApplication {
         #if targetEnvironment(macCatalyst)
-        let app = launch(dark: dark, opensThread: true)
+        let app = launch(dark: dark, opensThread: true, signedInAsAuthor: signedInAsAuthor)
         #else
-        let app = launch(dark: dark)
+        let app = launch(dark: dark, signedInAsAuthor: signedInAsAuthor)
         let post = postCard(threadTitle, in: app)
         XCTAssertTrue(post.waitForExistence(timeout: 10))
         post.tap()
@@ -97,7 +98,7 @@ enum ForumFixture {
         return high - low
     }
 
-    private static func json() throws -> String {
+    private static func json(signedInAsAuthor: Bool) throws -> String {
         let author: [String: Any] = ["uid": 101, "name": "楼主"]
         let reader: [String: Any] = ["uid": 102, "name": "读者"]
         func post(_ id: Int, _ title: String) -> [String: Any] {
@@ -120,8 +121,10 @@ enum ForumFixture {
                 "views": "100", "postPage": 1, "postPageCount": 1, "collectionCount": 0, "op": author,
                 "comments": Array(replies.prefix(1))]
         ]
+        let signedOut: [String: Any] = ["ready": true]
+        let authorSignedIn: [String: Any] = ["ready": true, "user": ["id": 101, "name": "楼主"]]
         let fixture: [String: Any] = [
-            "authentication": ["ready": true],
+            "authentication": signedInAsAuthor ? authorSignedIn : signedOut,
             "responses": try responses.mapValues { try JSONSerialization.data(withJSONObject: $0).base64EncodedString() }
         ]
         return String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)

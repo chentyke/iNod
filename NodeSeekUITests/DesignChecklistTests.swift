@@ -21,13 +21,47 @@ final class DesignChecklistTests: XCTestCase {
         assertEven(side: card.frame.maxX - dock.frame.maxX, bottom: card.frame.maxY - dock.frame.maxY, "Folded dock")
 
         dock.tap()
-        let more = card.buttons["更多回复操作"]
-        XCTAssertTrue(more.waitForExistence(timeout: 3))
+        // Signed out, nothing goes past a quote, so the quote button ends the opened dock.
+        let last = card.buttons["引用回复"]
+        XCTAssertTrue(last.waitForExistence(timeout: 3))
         // Let the opening spring settle before measuring.
-        XCTAssertTrue(more.wait(for: \.isHittable, toEqual: true, timeout: 3))
+        XCTAssertTrue(last.wait(for: \.isHittable, toEqual: true, timeout: 3))
         Thread.sleep(forTimeInterval: 0.6)
-        assertEven(side: card.frame.maxX - more.frame.maxX, bottom: card.frame.maxY - more.frame.maxY, "Opened dock")
-        XCTAssertLessThanOrEqual(more.frame.maxY, card.frame.maxY, "The opened dock stays inside its card.")
+        assertEven(side: card.frame.maxX - last.frame.maxX, bottom: card.frame.maxY - last.frame.maxY, "Opened dock")
+        XCTAssertLessThanOrEqual(last.frame.maxY, card.frame.maxY, "The opened dock stays inside its card.")
+    }
+
+    /// A reply with nothing to do but reply or quote shows the quote beside reply, with no ⋯ menu.
+    func testOpenedDockShowsQuoteBesideReplyWhenNothingElseApplies() throws {
+        let app = launchThread()
+        let card = app.otherElements["comment-2"]
+        XCTAssertTrue(foldedDock(in: card).waitForExistence(timeout: 5))
+
+        foldedDock(in: card).tap()
+        XCTAssertTrue(card.buttons["回复"].waitForExistence(timeout: 3))
+        XCTAssertTrue(card.buttons["引用回复"].exists, "Quote should sit beside reply.")
+        XCTAssertFalse(moreButton(in: card).exists, "With only a quote left, there is no ⋯ menu.")
+    }
+
+    /// When a reply can also be pinned or edited, ⋯ holds the quote and those actions, and never repeats reply.
+    func testOpenedDockFoldsQuoteIntoMoreWhenOtherActionsApply() throws {
+        // The thread's author can pin every reply.
+        let app = ForumFixture.launchThread(signedInAsAuthor: true)
+        let card = app.otherElements["comment-2"]
+        XCTAssertTrue(foldedDock(in: card).waitForExistence(timeout: 5))
+
+        foldedDock(in: card).tap()
+        let more = moreButton(in: card)
+        XCTAssertTrue(more.waitForExistence(timeout: 3))
+        XCTAssertTrue(card.buttons["回复"].exists)
+        XCTAssertFalse(card.buttons["引用回复"].exists, "Quote moves into ⋯ when there is more to show.")
+
+        XCTAssertTrue(more.wait(for: \.isHittable, toEqual: true, timeout: 3))
+        more.tap()
+        XCTAssertTrue(app.buttons["引用回复"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["置顶回复"].exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == %@", "回复")).count, 1,
+                       "The ⋯ menu must not repeat the reply button beside it.")
     }
 
     func testOpenedDockFoldsOnOutsideTapScrollAndAnotherDock() throws {
@@ -69,11 +103,10 @@ final class DesignChecklistTests: XCTestCase {
         XCTAssertTrue(foldedDock(in: first).waitForExistence(timeout: 5))
 
         foldedDock(in: first).hover()
-        // The Mac reports the menu button as a pop-up button rather than a button.
-        XCTAssertTrue(moreButton(in: first).waitForExistence(timeout: 3), "Hovering over the folded dock should open it.")
+        XCTAssertTrue(first.buttons["回复"].waitForExistence(timeout: 3), "Hovering over the folded dock should open it.")
 
         foldedDock(in: second).hover()
-        XCTAssertTrue(moreButton(in: second).waitForExistence(timeout: 3), "Hovering over another dock should open it.")
+        XCTAssertTrue(second.buttons["回复"].waitForExistence(timeout: 3), "Hovering over another dock should open it.")
         XCTAssertTrue(foldedDock(in: first).waitForExistence(timeout: 3), "Only one dock should be open at a time.")
         #endif
     }
@@ -114,6 +147,7 @@ final class DesignChecklistTests: XCTestCase {
             .press(forDuration: 0, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: end)))
     }
 
+    /// The Mac reports the menu button as a pop-up button rather than a button.
     private func moreButton(in card: XCUIElement) -> XCUIElement {
         card.descendants(matching: .any)["更多回复操作"]
     }
