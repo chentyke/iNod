@@ -4,7 +4,7 @@ enum SignInScripts {
     <!doctype html><html><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <style>body{margin:0;background:transparent}#verification{display:flex;justify-content:center;padding:8px 0}</style>
+    <style>html,body{height:100%;margin:0;background:transparent}#verification{display:flex;justify-content:center;align-items:center;height:100%;font-size:0;line-height:0}</style>
     <script>
     window.__verification={state:'loading',token:''};
     function verificationReady(){
