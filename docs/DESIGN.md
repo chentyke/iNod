@@ -56,13 +56,13 @@
 
 ## 自动检查
 
-CI 的 **Design checks** 会自动检查能从代码里看出来的部分。其余几项仍要截图量。
+CI 会自动检查能从代码里看出来的部分。其余几项仍要截图量。
 
-- `node scripts/check-design.mjs`：
+- `node scripts/check-design.mjs`：由 **Design checks** 运行。
   - 检查第 4 项，找出 `NodeSeek/` 里带状态色的渐变、不透明度 0.15 以上的状态色填充或背景，以及不透明度高于 0.3 的彩色描边。
   - 圆点不算在内。
   - 确有必要时，在该行或上一行写 `// design-check: allow <原因>`，原因不能省。
-- `scripts/check-pr-screenshots.mjs`：PR 改了界面代码时，“截图或录屏”一节必须有上传的图片或视频。
+- `scripts/check-pr-screenshots.mjs`：由 **Screenshots for interface changes** 运行。PR 改了界面代码时，“截图或录屏”一节必须有上传的图片或视频。
 - [DesignChecklistTests](../NodeSeekUITests/DesignChecklistTests.swift)：随 iOS UI tests 运行，用离线样本检查：
   - 第 6 项：回复卡片右下角的操作胶囊收起和展开时，到卡片右边和下边的距离相同。
   - 第 8 项：点卡片间隙、点另一张卡片的胶囊、滚动页面都会收起展开的操作；首页搜索在滚动时收起，从帖子返回后仍保持收起且不弹出键盘。

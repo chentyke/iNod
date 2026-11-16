@@ -1,0 +1,31 @@
+name: PR description
+
+# Runs apart from CI so that editing a PR's title or description re-checks only the description,
+# without restarting the build and UI tests.
+on:
+  pull_request:
+    branches: [main, 'image-stack/**']
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    name: Screenshots for interface changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require screenshots for interface changes
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-pr-screenshots.mjs "$BASE_SHA" HEAD

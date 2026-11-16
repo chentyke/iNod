@@ -23,5 +23,5 @@ sh scripts/verify-website.sh
    - 按[界面设计检查](docs/DESIGN.md)逐条自查，并在模拟器上点一遍。
    - 在 PR 的“截图或录屏”一节**上传**改动前后的截图或录屏，直接拖进 PR 描述即可。只写“本地已确认”“未上传”不算。
    - 上传前遮住账号、私信等个人信息，尽量用未登录状态或测试数据截图。
-   - CI 的 **Design checks** 会检查：改了 `NodeSeek/` 下的 Swift 代码（注释除外）而 PR 描述里没有图片或视频时，检查不通过。
+   - **Screenshots for interface changes** 检查会核对：改了 `NodeSeek/` 下的 Swift 代码（注释除外）而 PR 描述里没有图片或视频时，检查不通过。
 4. 向公开仓库的 `main` 提交 PR，说明改了什么、怎么检查的。关联已有 Issue，并在 PR 的 **Checks** 查看自动检查结果。
