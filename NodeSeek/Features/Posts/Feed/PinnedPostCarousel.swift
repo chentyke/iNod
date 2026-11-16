@@ -1,6 +1,13 @@
 import NodeSeekCore
 import SwiftUI
 
+// A UI test tap can land seconds after it located a card on a slow runner, by when autoplay has moved on.
+#if DEBUG
+private let carouselAutoplayIsOffForUITests = ProcessInfo.processInfo.arguments.contains("--ui-test-no-carousel-autoplay")
+#else
+private let carouselAutoplayIsOffForUITests = false
+#endif
+
 struct PinnedPostCarousel<Card: View>: View {
     private enum PageID: Hashable, Sendable {
         case post(Int)
@@ -52,7 +59,7 @@ struct PinnedPostCarousel<Card: View>: View {
     private static var pageDuration: Duration { .seconds(6) }
     private static var cardSpacing: CGFloat { 16 }
     private var currentID: Int? { settledID ?? posts.first?.id }
-    private var allowsAutoplay: Bool { !reduceMotion && !voiceOverEnabled }
+    private var allowsAutoplay: Bool { !reduceMotion && !voiceOverEnabled && !carouselAutoplayIsOffForUITests }
     private var countdown: Countdown? {
         guard hasPositionedFirstPage, isVisible, scrollStartedAt == nil, scenePhase == .active, allowsAutoplay,
               posts.count > 1, let currentID else { return nil }
