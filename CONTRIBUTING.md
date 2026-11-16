@@ -25,5 +25,5 @@ sh scripts/verify-website.sh
    - 用命令行时，`gh pr create` 和 `gh pr edit` 的 `--attach` 会把文件传成 GitHub 附件（需要 gh 2.101 或更新）：描述里写 `![改后](./after.png)`，再加 `--attach ./after.png`，引用会自动换成上传后的地址。表格里的 `<img src>` 不会被替换，要先上传，再把地址填进去。
    - 截图只放 GitHub 附件，不要提交进仓库，也不要另开分支存放：图片会永远留在 git 历史里，分支一删旧 PR 的图就失效。
    - 上传前遮住账号、私信等个人信息，尽量用未登录状态或测试数据截图。
-   - CI 的 **Design checks** 会检查：改了 `NodeSeek/` 下的 Swift 代码（注释除外）而 PR 描述里没有图片或视频时，检查不通过。
+   - **Screenshots for interface changes** 检查会核对：改了 `NodeSeek/` 下的 Swift 代码（注释除外）而 PR 描述里没有图片或视频时，检查不通过。
 4. 向公开仓库的 `main` 提交 PR，说明改了什么、怎么检查的。关联已有 Issue，并在 PR 的 **Checks** 查看自动检查结果。
