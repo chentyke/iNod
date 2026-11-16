@@ -96,7 +96,7 @@ struct ForumEditorView: View {
                 if let error { Text(error).font(.subheadline).foregroundStyle(.red).padding(.horizontal, 20).padding(.vertical, 8) }
                 Text("草稿自动保存在本机").font(.caption).foregroundStyle(.secondary).padding(.bottom, 8)
             }
-            .seekCanvas()
+            .seekCanvas(margins: .keepsGutter)
             .disabled(sending)
             .navigationTitle(request.mode.title).navigationBarTitleDisplayMode(.inline)
             .toolbar {
