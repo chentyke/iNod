@@ -20,13 +20,39 @@ enum ForumFixture {
         let post = postCard(threadTitle, in: app)
         XCTAssertTrue(post.waitForExistence(timeout: 10))
         post.tap()
-        XCTAssertTrue(app.otherElements["comment-2"].waitForExistence(timeout: 8))
+        XCTAssertTrue(element("comment-2", in: app).waitForExistence(timeout: 8))
         return app
     }
 
-    /// A tab in the root tab bar. iPhone shows it in a tab bar; iPad and Mac show the tabs as plain buttons at the top.
+    /// How many screen points one app point takes. The Mac app is scaled to match iPad, which draws it at 77%.
+    static var pointScale: CGFloat {
+        #if targetEnvironment(macCatalyst)
+        0.77
+        #else
+        1
+        #endif
+    }
+
+    /// A root tab. iPhone shows it in a tab bar and iPad as a plain button at the top; the Mac lists it in a sidebar.
     @MainActor static func tab(_ name: String, in app: XCUIApplication) -> XCUIElement {
-        app.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
+        let label = NSPredicate(format: "label == %@", name)
+        #if targetEnvironment(macCatalyst)
+        return app.descendants(matching: .any).matching(label).firstMatch
+        #else
+        return app.buttons.matching(label).firstMatch
+        #endif
+    }
+
+    /// An element by identifier whatever its type: the Mac reports some views as groups where iOS has others.
+    @MainActor static func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// A page or sheet's title bar. iOS reports it as a navigation bar; the Mac may report it as a toolbar.
+    @MainActor static func title(_ title: String, in app: XCUIApplication) -> XCUIElement {
+        let bars = [XCUIElement.ElementType.navigationBar, .toolbar].map(\.rawValue)
+        return app.descendants(matching: .any).matching(NSPredicate(
+            format: "elementType IN %@ AND (identifier == %@ OR label == %@)", bars, title, title)).firstMatch
     }
 
     @MainActor static func postCard(_ title: String, in app: XCUIApplication) -> XCUIElement {

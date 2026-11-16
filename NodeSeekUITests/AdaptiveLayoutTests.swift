@@ -5,10 +5,13 @@ import XCTest
 /// and the hardware-keyboard shortcuts reach the new-post and reply actions.
 @MainActor
 final class AdaptiveLayoutTests: XCTestCase {
+    // Element frames are in screen points, so app sizes are scaled by `ForumFixture.pointScale`.
     /// Matches `SeekLayout.readableWidth` in the app.
-    private let readableWidth: CGFloat = 760
+    private let readableWidth = 760 * ForumFixture.pointScale
     /// Matches `SeekLayout.gutter` in the app.
-    private let gutter: CGFloat = 16
+    private let gutter = 16 * ForumFixture.pointScale
+    /// How far the reply bar sits inside the cards.
+    private let replyBarInset = 4 * ForumFixture.pointScale
     /// docs/DESIGN.md allows 2 points between gaps that should match.
     private let tolerance: CGFloat = 2
 
@@ -47,17 +50,18 @@ final class AdaptiveLayoutTests: XCTestCase {
 
     func testThreadCardsAndReplyBarShareOneColumn() throws {
         let app = ForumFixture.launchThread()
-        let window = app.windows.firstMatch.frame
-        let card = app.otherElements["comment-2"].frame
-        assertColumn(card, in: window, "Reply card")
+        let comment = ForumFixture.element("comment-2", in: app)
+        let page = app.scrollViews.containing(.any, identifier: "comment-2").firstMatch.frame
+        let card = comment.frame
+        assertColumn(card, in: page, "Reply card")
 
         // The reply bar is inset 4 points inside the cards on every width.
         let reply = replyButton(in: app)
         let share = app.buttons["分享帖子"]
         XCTAssertTrue(reply.waitForExistence(timeout: 5))
         XCTAssertTrue(share.exists)
-        assertClose(reply.frame.minX - card.minX, 4, "Reply bar leading edge")
-        assertClose(card.maxX - share.frame.maxX, 4, "Reply bar trailing edge")
+        assertClose(reply.frame.minX - card.minX, replyBarInset, "Reply bar leading edge")
+        assertClose(card.maxX - share.frame.maxX, replyBarInset, "Reply bar trailing edge")
         attachScreenshot(of: app, named: "Thread")
     }
 
@@ -71,10 +75,10 @@ final class AdaptiveLayoutTests: XCTestCase {
 
         let tools = app.cells.containing(.staticText, identifier: "社区工具").firstMatch
         XCTAssertTrue(tools.waitForExistence(timeout: 5))
-        let window = app.windows.firstMatch.frame
+        let list = app.collectionViews.containing(.staticText, identifier: "社区工具").firstMatch.frame
         let row = tools.frame
         XCTAssertLessThanOrEqual(row.width, readableWidth + tolerance, "Grouped rows keep to the readable width.")
-        assertClose(row.minX - window.minX, window.maxX - row.maxX, "Grouped row side gaps")
+        assertClose(row.minX - list.minX, list.maxX - row.maxX, "Grouped row side gaps")
         attachScreenshot(of: app, named: "Account")
     }
 
@@ -83,7 +87,7 @@ final class AdaptiveLayoutTests: XCTestCase {
         XCTAssertTrue(app.buttons["发布帖子"].waitForExistence(timeout: 10))
 
         app.typeKey("n", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["登录 NodeSeek"].waitForExistence(timeout: 5),
+        XCTAssertTrue(ForumFixture.title("登录 NodeSeek", in: app).waitForExistence(timeout: 5),
                       "⌘N should start a new post, which asks a signed-out reader to sign in first.")
     }
 
@@ -93,7 +97,7 @@ final class AdaptiveLayoutTests: XCTestCase {
         XCTAssertTrue(reply.wait(for: \.isEnabled, toEqual: true, timeout: 5))
 
         app.typeKey("r", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["登录 NodeSeek"].waitForExistence(timeout: 5),
+        XCTAssertTrue(ForumFixture.title("登录 NodeSeek", in: app).waitForExistence(timeout: 5),
                       "⌘R should start a reply, which asks a signed-out reader to sign in first.")
     }
 
@@ -102,11 +106,12 @@ final class AdaptiveLayoutTests: XCTestCase {
     private func assertFeedColumn(in app: XCUIApplication, line: UInt = #line) {
         let post = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
         XCTAssertTrue(post.waitForExistence(timeout: 10), line: line)
-        let window = app.windows.firstMatch.frame
+        let list = app.collectionViews
+            .containing(NSPredicate(format: "label BEGINSWITH %@", ForumFixture.threadTitle)).firstMatch.frame
         // A feed card's button reports its whole list row: the card plus a gutter on each side.
         let row = post.frame
         let card = row.insetBy(dx: gutter, dy: 0)
-        assertColumn(card, in: window, "Feed card", line: line)
+        assertColumn(card, in: list, "Feed card", line: line)
 
         // The filter bar above the cards lines up with them.
         let category = app.buttons["选择版块，当前全部"]
@@ -117,11 +122,12 @@ final class AdaptiveLayoutTests: XCTestCase {
         assertClose(newPost.frame.maxX, card.maxX, "New post button and card trailing edges", line: line)
     }
 
-    /// A card fills the width up to `readableWidth` and sits in the middle of the window.
-    private func assertColumn(_ card: CGRect, in window: CGRect, _ name: String, line: UInt = #line) {
-        let expectedWidth = min(readableWidth, window.width - 2 * gutter)
-        assertClose(card.width, expectedWidth, "\(name) width in a \(window.width)-point window", line: line)
-        assertClose(card.minX - window.minX, window.maxX - card.maxX, "\(name) side gaps", line: line)
+    /// A card fills the width up to `readableWidth` and sits in the middle of the page that scrolls it,
+    /// which is the whole window on iPhone and iPad and the area beside the sidebar on a Mac.
+    private func assertColumn(_ card: CGRect, in page: CGRect, _ name: String, line: UInt = #line) {
+        let expectedWidth = min(readableWidth, page.width - 2 * gutter)
+        assertClose(card.width, expectedWidth, "\(name) width in a \(page.width)-point page", line: line)
+        assertClose(card.minX - page.minX, page.maxX - card.maxX, "\(name) side gaps", line: line)
     }
 
     private func replyButton(in app: XCUIApplication) -> XCUIElement {

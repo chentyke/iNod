@@ -42,7 +42,7 @@ final class OfflineNavigationTests: XCTestCase {
         XCTAssertTrue(tools.waitForExistence(timeout: 5))
         tools.tap()
 
-        XCTAssertTrue(app.navigationBars["社区工具"].waitForExistence(timeout: 5))
+        XCTAssertTrue(ForumFixture.title("社区工具", in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["查找用户"].exists)
     }
 }

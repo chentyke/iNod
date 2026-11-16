@@ -53,5 +53,7 @@ struct NodeSeekApp: App {
         #if targetEnvironment(macCatalyst)
         .windowResizability(.contentMinSize)
         #endif
+        // One window is enough, and ⌘N starts a new post instead of opening another window.
+        .commands { CommandGroup(replacing: .newItem) { } }
     }
 }
