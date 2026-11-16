@@ -80,6 +80,8 @@ struct CommentActionBar: View {
         ZStack(alignment: .trailing) {
             if isExpanded {
                 openDock
+                    // While it fades out, a quick tap on the folding dock must not land on a vanishing action.
+                    .allowsHitTesting(isExpanded)
                     // The items reveal themselves; the dock only needs a quick fade on the way out.
                     .transition(.asymmetric(insertion: .identity,
                                             removal: .opacity.animation(.easeOut(duration: 0.12))))

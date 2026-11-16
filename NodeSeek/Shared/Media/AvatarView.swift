@@ -30,6 +30,7 @@ struct AvatarView: View {
             if let image = displayedImage {
                 Image(image, scale: 1, label: Text(name)).resizable().scaledToFill()
             } else {
+                // design-check: allow 没有头像时的字母头像，颜色用来区分用户
                 Circle().fill(monogramTint.gradient)
                     .overlay { Text(String(name.prefix(1)).uppercased()).font(.system(size: size * 0.42, weight: .semibold, design: .rounded)).foregroundStyle(.white) }
             }
