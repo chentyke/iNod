@@ -33,8 +33,10 @@ struct RootView: View {
         #if targetEnvironment(macCatalyst)
         // A Mac window has no tab bar to show the tabs in, so list them in a sidebar.
         .tabViewStyle(.sidebarAdaptable)
-        #endif
+        .tint(Color.seekSidebarSelection)
+        #else
         .tint(Color.seekInk)
+        #endif
         .task(id: avatarURL) { await loadTabAvatar(from: avatarURL) }
     }
 

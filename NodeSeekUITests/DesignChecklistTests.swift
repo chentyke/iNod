@@ -55,6 +55,29 @@ final class DesignChecklistTests: XCTestCase {
         XCTAssertTrue(app.buttons["回复"].waitForNonExistence(timeout: 3), "Scrolling should fold the dock.")
     }
 
+    /// With a pointer, resting on a folded dock opens it, and resting on another one moves the opening there.
+    ///
+    /// Only the Mac runs it: the iPad simulator's synthesized hover never reaches the app's hover handlers,
+    /// and on GitHub's Mac runner no input reaches the app, so it runs on a Mac at hand.
+    func testPointerHoverOpensTheDock() throws {
+        #if !targetEnvironment(macCatalyst)
+        throw XCTSkip("Only the Mac delivers a test's pointer hover to the app.")
+        #else
+        let app = launchThread()
+        let first = app.otherElements["comment-2"]
+        let second = app.otherElements["comment-3"]
+        XCTAssertTrue(foldedDock(in: first).waitForExistence(timeout: 5))
+
+        foldedDock(in: first).hover()
+        // The Mac reports the menu button as a pop-up button rather than a button.
+        XCTAssertTrue(moreButton(in: first).waitForExistence(timeout: 3), "Hovering over the folded dock should open it.")
+
+        foldedDock(in: second).hover()
+        XCTAssertTrue(moreButton(in: second).waitForExistence(timeout: 3), "Hovering over another dock should open it.")
+        XCTAssertTrue(foldedDock(in: first).waitForExistence(timeout: 3), "Only one dock should be open at a time.")
+        #endif
+    }
+
     func testFeedSearchFoldsOnScrollAndStaysFoldedAfterAPost() throws {
         let app = launchThread(opensPost: false)
         let open = app.buttons["搜索帖子"]
@@ -89,6 +112,10 @@ final class DesignChecklistTests: XCTestCase {
     private func drag(_ app: XCUIApplication, from start: CGFloat, to end: CGFloat) {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: start))
             .press(forDuration: 0, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: end)))
+    }
+
+    private func moreButton(in card: XCUIElement) -> XCUIElement {
+        card.descendants(matching: .any)["更多回复操作"]
     }
 
     private func foldedDock(in card: XCUIElement) -> XCUIElement {

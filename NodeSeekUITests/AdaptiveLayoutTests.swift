@@ -59,7 +59,7 @@ final class AdaptiveLayoutTests: XCTestCase {
     func testThreadCardsAndReplyBarShareOneColumn() throws {
         let app = ForumFixture.launchThread()
         let comment = ForumFixture.element("comment-2", in: app)
-        let page = app.scrollViews.containing(.any, identifier: "comment-2").firstMatch.frame
+        let page = besideSidebar(app.scrollViews.containing(.any, identifier: "comment-2").firstMatch.frame, in: app)
         let card = comment.frame
         assertColumn(card, in: page, "Reply card")
 
@@ -71,6 +71,24 @@ final class AdaptiveLayoutTests: XCTestCase {
         assertClose(reply.frame.minX - card.minX, replyBarInset, "Reply bar leading edge")
         assertClose(card.maxX - share.frame.maxX, replyBarInset, "Reply bar trailing edge")
         attachScreenshot(of: app, named: "Thread")
+    }
+
+    /// The Mac sidebar marks the open tab with the app's tint. In dark mode its label must still stand out
+    /// from that highlight: an ink tint that turns white drew white text on a white bar.
+    func testSidebarSelectionIsReadableInDarkMode() throws {
+        #if targetEnvironment(macCatalyst)
+        for dark in [false, true] {
+            let app = ForumFixture.launch(dark: dark)
+            let selected = app.cells.matching(NSPredicate(format: "label == %@ AND isSelected == true", "社区")).firstMatch
+            XCTAssertTrue(selected.waitForExistence(timeout: 10), "The feed tab should be selected in the sidebar.")
+            attachScreenshot(of: app, named: dark ? "Sidebar in dark mode" : "Sidebar in light mode")
+            let contrast = try XCTUnwrap(ForumFixture.contrast(of: selected.screenshot().image))
+            XCTAssertGreaterThan(contrast, 0.4, "The selected tab's label should stand out from its highlight (dark: \(dark)).")
+            app.terminate()
+        }
+        #else
+        throw XCTSkip("Only the Mac shows the tabs in a sidebar.")
+        #endif
     }
 
     func testGroupedListKeepsTheColumn() throws {
@@ -148,7 +166,20 @@ final class AdaptiveLayoutTests: XCTestCase {
 
     /// The Mac lists the tabs in a sidebar beside the page instead of a tab bar.
     private func hasSidebar(_ app: XCUIApplication) -> Bool {
-        app.cells.matching(NSPredicate(format: "label == %@", "社区")).firstMatch.exists
+        sidebarTab(in: app).exists
+    }
+
+    private func sidebarTab(in app: XCUIApplication) -> XCUIElement {
+        app.cells.matching(NSPredicate(format: "label == %@", "社区")).firstMatch
+    }
+
+    /// The part of a page that a sidebar leaves free. The page runs on under the sidebar, but its cards
+    /// centre in the area beside it.
+    private func besideSidebar(_ page: CGRect, in app: XCUIApplication) -> CGRect {
+        guard hasSidebar(app) else { return page }
+        let sidebar = app.collectionViews.containing(.cell, identifier: sidebarTab(in: app).identifier).firstMatch.frame
+        guard sidebar.maxX > page.minX, sidebar.maxX < page.maxX else { return page }
+        return CGRect(x: sidebar.maxX, y: page.minY, width: page.maxX - sidebar.maxX, height: page.height)
     }
 
     private func replyButton(in app: XCUIApplication) -> XCUIElement {

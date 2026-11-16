@@ -1,25 +1,36 @@
 import XCTest
+import UIKit
 
 /// A signed-out forum with one feed page and one thread, served offline through `NODESEEK_UI_TEST_WEBSITE`.
 enum ForumFixture {
     static let threadTitle = "周末的读书计划"
+    static let threadID = 123
     static let announcementTitle = "本月读书会公告"
     private static let timestamp = "2025-01-04T12:00:00.000Z"
 
-    /// Launches the app on the fixture's feed.
-    @MainActor static func launch() -> XCUIApplication {
+    /// Launches the app on the fixture's feed, in dark mode when `dark` is set.
+    @MainActor static func launch(dark: Bool = false, opensThread: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json()
+        if opensThread { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "\(threadID)" }
+        // `appearance` is the in-app appearance setting; an argument sets it for this launch only.
+        app.launchArguments += ["-appearance", dark ? "dark" : "light"]
         app.launch()
         return app
     }
 
     /// Launches the app and opens the fixture's thread from the feed.
-    @MainActor static func launchThread() -> XCUIApplication {
-        let app = launch()
+    ///
+    /// UI tests can't click into the Mac app, so there the app opens the thread itself once the feed loads.
+    @MainActor static func launchThread(dark: Bool = false) -> XCUIApplication {
+        #if targetEnvironment(macCatalyst)
+        let app = launch(dark: dark, opensThread: true)
+        #else
+        let app = launch(dark: dark)
         let post = postCard(threadTitle, in: app)
         XCTAssertTrue(post.waitForExistence(timeout: 10))
         post.tap()
+        #endif
         XCTAssertTrue(element("comment-2", in: app).waitForExistence(timeout: 8))
         return app
     }
@@ -59,6 +70,33 @@ enum ForumFixture {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
     }
 
+    /// How far apart the darkest and lightest parts of an image are, from 0 (one flat colour) to 1 (black on white).
+    /// It skips the darkest and lightest 1% of pixels, so stray specks don't count; a short label covers only a few percent of its row.
+    static func contrast(of image: UIImage) -> CGFloat? {
+        guard let cgImage = image.cgImage else { return nil }
+        let width = cgImage.width, height = cgImage.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                                          bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn, width * height > 0 else { return nil }
+        var luminances: [CGFloat] = []
+        luminances.reserveCapacity(width * height)
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            let red = 0.2126 * CGFloat(pixels[i])
+            let green = 0.7152 * CGFloat(pixels[i + 1])
+            let blue = 0.0722 * CGFloat(pixels[i + 2])
+            luminances.append((red + green + blue) / 255)
+        }
+        luminances.sort()
+        let low = luminances[luminances.count / 100], high = luminances[luminances.count * 99 / 100]
+        return high - low
+    }
+
     private static func json() throws -> String {
         let author: [String: Any] = ["uid": 101, "name": "楼主"]
         let reader: [String: Any] = ["uid": 102, "name": "读者"]
@@ -71,7 +109,7 @@ enum ForumFixture {
              "time": ["createdDate": timestamp], "markdown": floor == 0 ? "周六下午两点开始读书。" : "第 \(floor) 楼：一起读。",
              "likeCount": 0, "upvoteCount": 0, "blocked": false]
         }
-        let posts = [post(123, threadTitle)] + (1...8).map { post(200 + $0, $0 == 1 ? announcementTitle : "读书笔记第 \($0) 篇") }
+        let posts = [post(threadID, threadTitle)] + (1...8).map { post(200 + $0, $0 == 1 ? announcementTitle : "读书笔记第 \($0) 篇") }
         let responses: [String: [String: Any]] = [
             "https://www.nodeseek.com/?sortBy=replyTime": ["posts": posts, "hasNextPage": false],
             "/api/content/list-categories": ["success": true, "data": []],

@@ -10,6 +10,9 @@ extension Color {
     static let seekInk = Color("Ink")
     static let seekOnInk = Color("OnInk")
     static let seekHairline = Color("Hairline")
+    /// The Mac sidebar's highlight behind the open tab, which always draws its label in white:
+    /// ink in light mode, a grey in dark mode where ink turns white.
+    static let seekSidebarSelection = Color("SidebarSelection")
 
     static func categoryTint(_ id: String) -> Color {
         switch id {
@@ -24,10 +27,10 @@ extension Color {
 }
 
 extension View {
-    func seekCanvas(margins: ReadableMargin = .replacesInset) -> some View {
+    func seekCanvas(margins: ReadableMargin = .replacesInset, in scroller: ReadableScroller = .list) -> some View {
         scrollEdgeEffectStyle(.soft, for: .top)
             .scrollContentBackground(.hidden).background(SeekCanvas())
-            .readableContentMargins(margins)
+            .readableContentMargins(margins, in: scroller)
     }
 
     func seekCard(padding: CGFloat = 20, radius: CGFloat = 24) -> some View {
