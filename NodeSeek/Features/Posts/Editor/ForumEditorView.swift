@@ -201,7 +201,7 @@ struct ForumEditorView: View {
                 links.append(image.url)
             }
         } catch {
-            if !Task.isCancelled, account.revision == revision { self.error = error.localizedDescription }
+            if !Task.isCancelled, account.revision == revision { self.error = SiteError.displayMessage(for: error) }
         }
     }
     private func submitOrConfirm() {
@@ -224,6 +224,6 @@ struct ForumEditorView: View {
             onPublished(result)
             dismiss()
             await account.refresh(force: true)
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = SiteError.displayMessage(for: error) }
     }
 }

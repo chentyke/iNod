@@ -38,6 +38,6 @@ struct VoteCreatorView: View {
         do {
             let id = try await account.website.createVote(title: title, multiple: multiple, isPublic: isPublic, options: options, userID: userID)
             onCreated(id); dismiss()
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = SiteError.displayMessage(for: error) }
     }
 }

@@ -42,9 +42,23 @@ struct AccountView: View {
                     if account.isRefreshing {
                         HStack { ProgressView(); Text("正在读取登录状态").foregroundStyle(.secondary) }
                     } else {
-                        Text("暂时无法确认登录状态").font(.headline)
+                        let failure = account.failure
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(failure.map { $0.kind == .other ? "暂时无法确认登录状态" : $0.title } ?? "暂时无法确认登录状态")
+                                .font(.headline)
+                            if let failure {
+                                Text(failure.advice).font(.subheadline).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        Button { Task { await account.refresh(force: true) } } label: {
+                            SeekRowLabel(title: "重试", symbol: "arrow.clockwise")
+                        }
                     }
-                    Button { open(NodeSeekRoute.home.url) } label: { SeekRowLabel(title: "打开官网", symbol: "globe", opensExternally: true) }
+                    // Offline, the website can't load either.
+                    if account.failure?.kind != .offline {
+                        Button { open(NodeSeekRoute.home.url) } label: { SeekRowLabel(title: "打开官网", symbol: "globe", opensExternally: true) }
+                    }
                 }
             } else {
                 Section {
@@ -60,7 +74,8 @@ struct AccountView: View {
                     .padding(.top, 8).padding(.bottom, 12)
                 }
             }
-            if let error = account.error {
+            // Signed in, but the latest check failed: the page still shows what was read before.
+            if account.hasLoaded, let error = account.error {
                 Section {
                     Text(error).font(.subheadline).foregroundStyle(.secondary)
                     Button("重新读取登录状态", systemImage: "arrow.clockwise") { Task { await account.refresh() } }

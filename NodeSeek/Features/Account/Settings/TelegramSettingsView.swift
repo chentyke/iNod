@@ -46,7 +46,7 @@ struct TelegramSettingsView: View {
             let status = try await account.website.telegramBinding(userID: userID)
             try Task.checkCancellation()
             detail = status.detail; bound = status.bound
-        } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        } catch { if !Task.isCancelled { self.error = SiteError.displayMessage(for: error) } }
     }
 
     private func unbind() async {
@@ -56,6 +56,6 @@ struct TelegramSettingsView: View {
             detail = nil; bound = nil
             busy = false
             await load()
-        } catch { self.error = error.localizedDescription; busy = false }
+        } catch { self.error = SiteError.displayMessage(for: error); busy = false }
     }
 }

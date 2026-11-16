@@ -66,6 +66,6 @@ struct LuckyView: View {
             let result = try await account.website.drawWinners(draw)
             try Task.checkCancellation()
             winners = result
-        } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        } catch { if !Task.isCancelled { self.error = SiteError.displayMessage(for: error) } }
     }
 }

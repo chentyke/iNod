@@ -9,7 +9,7 @@ struct ConversationView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var isLoading = false
     @State private var isSending = false
-    @State private var error: String?
+    @State private var error: LoadFailure?
     private var conversation: ConversationData? { account.inbox.conversations[peer.id] }
     @State private var draft = MessageDraft()
     @State private var draftLoaded = false
@@ -124,7 +124,7 @@ struct ConversationView: View {
             try await account.inbox.markConversationRead(peerID: peer.id, userID: userID)
         } catch is CancellationError {
         } catch {
-            if account.revision == revision, !Task.isCancelled { self.error = SiteError.displayMessage(for: error) }
+            if account.revision == revision, !Task.isCancelled { self.error = LoadFailure(error) }
         }
     }
 
@@ -144,7 +144,7 @@ struct ConversationView: View {
             await load(force: true)
         } catch is CancellationError {
         } catch {
-            if account.revision == revision { self.error = SiteError.displayMessage(for: error) }
+            if account.revision == revision { self.error = LoadFailure(error) }
         }
     }
 }

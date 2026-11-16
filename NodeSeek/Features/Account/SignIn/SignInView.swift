@@ -89,7 +89,7 @@ struct SignInView: View {
                 if account.isLoggedIn { dismiss() }
                 else { error = account.error ?? "登录请求已完成，暂时无法确认登录状态，请重新读取。" }
             }
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = SiteError.displayMessage(for: error) }
         if !isSecondFactor { await session.resetVerification() }
     }
 }

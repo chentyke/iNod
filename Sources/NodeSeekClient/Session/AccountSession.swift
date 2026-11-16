@@ -14,7 +14,9 @@ public final class AccountSession {
     public private(set) var revision = 0
     public private(set) var hasLoaded = false
     public private(set) var isRefreshing = false
-    public private(set) var error: String?
+    /// Why the sign-in status couldn't be read, if it couldn't.
+    public private(set) var failure: LoadFailure?
+    public var error: String? { failure?.message }
     public private(set) var isSigningOut = false
     public private(set) var avatarRevision = 0
     @ObservationIgnored var isSyncingNodeImageKey = false
@@ -79,7 +81,7 @@ public final class AccountSession {
         user = snapshot.user
         website.observe(snapshot)
         hasLoaded = true
-        error = nil
+        failure = nil
     }
 
     public func synchronizeAfterRequest(expectedRevision: Int) {
@@ -106,7 +108,7 @@ public final class AccountSession {
                 observe(snapshot, expectedRevision: version)
             } catch is CancellationError {
             } catch {
-                if revision == version { self.error = SiteError.displayMessage(for: error) }
+                if revision == version { failure = LoadFailure(error) }
             }
         }
         refreshTask = (version, task)
@@ -180,7 +182,7 @@ public final class AccountSession {
         revision += 1
         user = nil
         hasLoaded = false
-        error = nil
+        failure = nil
         inbox.reset(userID: nil, unreadCount: 0)
         collections.reset(userID: nil)
         categories.reset()

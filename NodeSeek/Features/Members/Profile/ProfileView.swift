@@ -91,7 +91,7 @@ struct ProfileView: View {
             }
         } catch is CancellationError {
         } catch {
-            loader.error = SiteError.displayMessage(for: error)
+            loader.error = LoadFailure(error)
         }
     }
 }

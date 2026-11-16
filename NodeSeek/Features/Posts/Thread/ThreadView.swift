@@ -77,13 +77,15 @@ struct ThreadView: View {
                         }
                         .padding(20)
                     } else if let error {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text(error.localizedDescription).foregroundStyle(.secondary)
-                            if account.website.needsWebsite {
-                                Button("打开官网完成验证", systemImage: "globe") { showsWebsite = true }
-                            }
-                            Button("重试") { refreshID = UUID() }
-                        }.padding(20)
+                        if detail == nil {
+                            LoadFailureView(failure: LoadFailure(error), isRetrying: isLoading,
+                                            offersWebsite: account.website.needsWebsite,
+                                            retry: { refreshID = UUID() }, openWebsite: { showsWebsite = true })
+                                .padding(.top, 12).padding(.bottom, 32)
+                        } else {
+                            LoadFailureBanner(failure: LoadFailure(error), isRetrying: isLoading) { refreshID = UUID() }
+                                .padding(.horizontal, 16).padding(.bottom, 12)
+                        }
                     }
                     if isLoading && detail == nil {
                         ProgressView("正在读取帖子").frame(maxWidth: .infinity).padding(40)
@@ -367,7 +369,7 @@ struct ThreadView: View {
             let first = try await account.website.thread(id:post.id,page:1)
             guard first.op.uid == account.user?.id,first.locked != true,let original = first.comments.first(where:{ $0.floorIndex == 0 }) else { throw SiteError.message("这篇帖子暂时不能编辑。") }
             editorRequest = .init(mode:.editPost(postID:post.id,originalRank:first.rank ?? 0),seed:EditorDraft(title:first.title,content:original.markdown,category:first.category ?? "daily",rank:first.rank ?? 0))
-        } catch { actionError = error.localizedDescription; showsActionError = true }
+        } catch { actionError = SiteError.displayMessage(for: error); showsActionError = true }
     }
 
     private func edit(_ comment: ForumComment) {
@@ -381,7 +383,7 @@ struct ThreadView: View {
         do {
             let _: ReactionResponse = try await account.website.perform(.pinComment(id: comment.id, pinned: comment.pined == true), userID: userID)
             page = 1; refreshID = UUID(); await account.refresh(force: true)
-        } catch { actionError = error.localizedDescription; showsActionError = true }
+        } catch { actionError = SiteError.displayMessage(for: error); showsActionError = true }
     }
     private func setCollection(_ collected: Bool) async {
         do {
@@ -450,7 +452,7 @@ struct ThreadView: View {
             Task { await account.refresh(force: true) }
         } catch is CancellationError {
         } catch {
-            actionError = error.localizedDescription
+            actionError = SiteError.displayMessage(for: error)
             showsActionError = true
             await account.refresh()
         }
@@ -508,7 +510,7 @@ struct ThreadView: View {
             account.synchronizeAfterRequest(expectedRevision: sessionRevision)
             guard account.revision == sessionRevision else { return }
             if let accessError = error as? PostAccessError { showAccessError(accessError) }
-            else { commentPageErrors[requestedPage] = error.localizedDescription }
+            else { commentPageErrors[requestedPage] = SiteError.displayMessage(for: error) }
         }
     }
 

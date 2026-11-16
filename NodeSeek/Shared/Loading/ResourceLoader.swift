@@ -5,7 +5,7 @@ import Observation
 @MainActor @Observable
 final class ResourceLoader<Value: Decodable> {
     var value: Value?
-    var error: String?
+    var error: LoadFailure?
     private(set) var nextPageError: String?
     var loading = false
     private(set) var isLoadingFirstPage = false
@@ -19,7 +19,7 @@ final class ResourceLoader<Value: Decodable> {
             guard previous != nil, !loading, !updating else { return nil }
             guard self.key?.userID == key.userID else {
                 value = nil
-                error = "登录账号已变化，请刷新页面。"
+                error = LoadFailure(message: "登录账号已变化，请刷新页面。")
                 return nil
             }
         } else {
@@ -45,8 +45,8 @@ final class ResourceLoader<Value: Decodable> {
             return result
         } catch {
             if id == operation, !Task.isCancelled, !(error is CancellationError) {
-                if merge == nil { self.error = error.localizedDescription }
-                else { nextPageError = error.localizedDescription }
+                if merge == nil { self.error = LoadFailure(error) }
+                else { nextPageError = SiteError.displayMessage(for: error) }
             }
         }
         return nil

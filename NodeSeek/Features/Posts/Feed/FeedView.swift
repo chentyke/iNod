@@ -21,7 +21,7 @@ struct FeedView: View {
     @State private var hasNextPage = false
     @State private var isLoading = true
     @State private var isLoadingMore = false
-    @State private var error: String?
+    @State private var error: LoadFailure?
     @State private var nextPageError: String?
     @State private var showsWebsite = false
     @State private var showsSignIn = false
@@ -153,16 +153,12 @@ struct FeedView: View {
         let matchesVisibility = loadedKey?.kind == feedKind
         let isSwitchingVisibility = !matchesVisibility && (!isSearch || !submittedQuery.isEmpty)
         return List {
-            if let error {
-                Section {
-                    Text(error).font(.subheadline).foregroundStyle(.secondary)
-                    if account.website.needsWebsite {
-                        Button("打开官网完成验证", systemImage: "globe") { showsWebsite = true }
-                    }
-                    Button("重试", systemImage: "arrow.clockwise") { refreshID = UUID() }
-                }
-                .listRowBackground(Color.clear)
-                .listSectionSeparator(.hidden)
+            if let error, hasContent {
+                // A failed refresh keeps the posts already on screen and notes the problem above them.
+                LoadFailureBanner(failure: error, isRetrying: isLoading) { refreshID = UUID() }
+                    .listRowInsets(EdgeInsets(top: 4, leading: SeekLayout.gutter, bottom: 6, trailing: SeekLayout.gutter))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
             Section {
                 if matchesVisibility {
@@ -200,6 +196,13 @@ struct FeedView: View {
             .listSectionSeparator(.hidden)
         }
         .listStyle(.plain)
+        .overlay {
+            if let error, !hasContent, !isSwitchingVisibility {
+                LoadFailureView(failure: error, isRetrying: isLoading,
+                                offersWebsite: account.website.needsWebsite,
+                                retry: { refreshID = UUID() }, openWebsite: { showsWebsite = true })
+            }
+        }
         .seekCanvas(margins: .keepsGutter)
         .contentMargins(.vertical, 6, for: .scrollContent)
         .safeAreaBar(edge: .top, spacing: 0) { filterBar }
@@ -217,6 +220,8 @@ struct FeedView: View {
             foldSearchIfEmpty()
         }
     }
+
+    private var hasContent: Bool { !posts.isEmpty || !pinnedPosts.isEmpty }
 
     private func foldSearchIfEmpty() {
         guard isSearchExpanded else { return }
@@ -388,8 +393,8 @@ struct FeedView: View {
         catch {
             guard !Task.isCancelled, loadID == operation, requestKey == request else { return }
             account.synchronizeAfterRequest(expectedRevision: sessionRevision)
-            if reset { self.error = error.localizedDescription }
-            else { nextPageError = error.localizedDescription }
+            if reset { self.error = LoadFailure(error) }
+            else { nextPageError = SiteError.displayMessage(for: error) }
         }
     }
 }

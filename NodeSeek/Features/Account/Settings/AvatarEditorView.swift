@@ -29,7 +29,7 @@ struct AvatarEditorView: View {
                 guard let data = try await item.loadTransferable(type:Data.self) else { throw SiteError.invalidResponse }
                 let prepared = try await Task.detached(priority:.userInitiated) { try AvatarProcessor.prepare(data) }.value
                 try Task.checkCancellation(); avatar = prepared
-            } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+            } catch { if !Task.isCancelled { self.error = SiteError.displayMessage(for: error) } }
         }
     }
     private func upload() async {
@@ -39,6 +39,6 @@ struct AvatarEditorView: View {
             self.avatar = nil; item = nil; success = true
             account.avatarDidChange()
             await account.refresh(force:true)
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = SiteError.displayMessage(for: error) }
     }
 }

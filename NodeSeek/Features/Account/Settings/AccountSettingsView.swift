@@ -40,6 +40,6 @@ struct AccountSettingsView: View {
     }
     private func signOut() async {
         do { try await account.signOut() }
-        catch { self.error = error.localizedDescription; showsError = true }
+        catch { self.error = SiteError.displayMessage(for: error); showsError = true }
     }
 }

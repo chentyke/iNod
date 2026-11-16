@@ -29,6 +29,6 @@ struct PasswordView: View {
         do {
             let _: ReactionResponse = try await account.website.perform(.changePassword(old: old, new: password), userID: userID)
             old = ""; password = ""; confirmation = ""; success = true; message = "密码已更新。"
-        } catch { success = false; message = error.localizedDescription }
+        } catch { success = false; message = SiteError.displayMessage(for: error) }
     }
 }

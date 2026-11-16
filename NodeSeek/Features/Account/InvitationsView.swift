@@ -73,6 +73,6 @@ struct InvitationsView: View {
             guard (payment == "coin" ? fresh.payment.coin.cost == config.payment.coin.cost : fresh.payment.stardust.cost == config.payment.stardust.cost) else { self.config = fresh; throw SiteError.message("官网价格已变化，请确认新价格后再购买。") }
             let _: ReactionResponse = try await account.website.perform(.buyInvitation(payment: payment), userID: userID)
             await load(force:true); await account.refresh(force:true)
-        } catch { loader.error = error.localizedDescription }
+        } catch { loader.error = LoadFailure(error) }
     }
 }

@@ -40,6 +40,6 @@ public final class CategoryStore {
             items = [ForumCategory.all[0]] + result.data
             refreshedAt = .now
             error = nil
-        } catch { if revision == version, !Task.isCancelled, !(error is CancellationError) { self.error = error.localizedDescription } }
+        } catch { if revision == version, !Task.isCancelled, !(error is CancellationError) { self.error = SiteError.displayMessage(for: error) } }
     }
 }

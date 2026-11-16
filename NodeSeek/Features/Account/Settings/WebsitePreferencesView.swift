@@ -38,7 +38,7 @@ struct WebsitePreferencesView: View {
             if account.user?.canCustomizeStyle == true {
                 style = try await account.website.websiteStyle(userID: userID); cssLoaded = true
             }
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = SiteError.displayMessage(for: error) }
     }
     private func save(style isStyle: Bool) async {
         guard !busy else { return }; busy = true; defer { busy = false }; error = nil
@@ -48,6 +48,6 @@ struct WebsitePreferencesView: View {
             } else {
                 let _: ReactionResponse = try await account.website.perform(.saveFestiveStyle(holiday), userID: userID); preferenceMessage = "节日设置已保存到 NodeSeek。"
             }
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = SiteError.displayMessage(for: error) }
     }
 }

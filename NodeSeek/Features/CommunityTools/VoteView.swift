@@ -64,7 +64,7 @@ struct VoteView: View {
             } else {
                 selected.formIntersection(result.vote.items.map(\.id))
             }
-        } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        } catch { if !Task.isCancelled { self.error = SiteError.displayMessage(for: error) } }
     }
     private func submit(lock: Bool) async {
         guard !busy, account.signInStatus == .signedIn, let userID = account.user?.id else { return }
@@ -73,6 +73,6 @@ struct VoteView: View {
         do {
             let _: ReactionResponse = try await account.website.perform(lock ? .lockVote(id: voteID) : .vote(items: selected.sorted()), userID: userID)
             await load(force: true)
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = SiteError.displayMessage(for: error) }
     }
 }
