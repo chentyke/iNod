@@ -86,7 +86,10 @@ final class AdaptiveLayoutTests: XCTestCase {
         let list = app.collectionViews.containing(.staticText, identifier: "社区工具").firstMatch.frame
         let row = tools.frame
         XCTAssertLessThanOrEqual(row.width, readableWidth + tolerance, "Grouped rows keep to the readable width.")
-        assertClose(row.minX - list.minX, list.maxX - row.maxX, "Grouped row side gaps")
+        // On a narrow screen the rows keep one gutter from each edge instead of running edge to edge.
+        let sideGap = max(gutter, ((list.width - readableWidth) / 2).rounded(.down))
+        assertClose(row.minX - list.minX, sideGap, "Grouped row leading gap")
+        assertClose(list.maxX - row.maxX, sideGap, "Grouped row trailing gap")
         attachScreenshot(of: app, named: "Account")
     }
 

@@ -20,7 +20,7 @@ struct StickerPickerView: View {
                     }.padding(20)
                 }
             }
-            .seekCanvas()
+            .seekCanvas(margins: .keepsGutter)
             .navigationTitle("表情").navigationBarTitleDisplayMode(.inline)
             .toolbar { Button("完成") { dismiss() } }
         }.presentationDetents([.medium, .large])

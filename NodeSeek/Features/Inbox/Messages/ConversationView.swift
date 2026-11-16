@@ -62,7 +62,7 @@ struct ConversationView: View {
                 }
             }
         }
-        .seekCanvas()
+        .seekCanvas(margins: .keepsGutter)
         .navigationTitle(peerName)
         .safeAreaBar(edge: .bottom, spacing: 0) {
             MessageComposer(draft: $draft, isBusy: isSending,
