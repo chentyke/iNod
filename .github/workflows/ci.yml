@@ -46,7 +46,8 @@ jobs:
     # The iPhone run keeps its original check name, which branch protection requires.
     name: ${{ matrix.check }}
     runs-on: xcode-27
-    timeout-minutes: 30
+    # Green runs take 12 to 26 minutes; a slow hosted runner can take 30 even when every test passes.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
