@@ -127,7 +127,7 @@ struct ThreadView: View {
         }
         .gesture(TapGesture().onEnded { foldActionDock() },
                  including: expandedActionsCommentID == nil ? .subviews : .all)
-        .seekCanvas(margins: .keepsGutter)
+        .seekCanvas(margins: .keepsGutter, in: .scrollView)
         .environment(\.forumDocumentURL,NodeSeekRoute.thread(id:post.id,page:page).url)
         .environment(\.openURL, OpenURLAction { url in
             switch ForumLink.parse(url.absoluteString) {

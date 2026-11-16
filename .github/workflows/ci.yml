@@ -115,6 +115,8 @@ jobs:
             -parallel-testing-enabled NO \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testAllTabsAreOnScreen \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testFeedKeepsAReadableCentredColumn \
+            -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testThreadCardsAndReplyBarShareOneColumn \
+            -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testSidebarSelectionIsReadableInDarkMode \
             -resultBundlePath "$RUNNER_TEMP/NodeSeekUITests-Mac.xcresult" \
             CODE_SIGN_IDENTITY=- test
       - name: Upload failed test results
