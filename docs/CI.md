@@ -11,7 +11,7 @@
 | Design checks | 按[界面设计检查](DESIGN.md)扫描 SwiftUI 代码里的渐变、大面积状态色和醒目的彩色描边。 |
 | Screenshots for interface changes | PR 改了界面代码时，检查描述里有没有上传截图或录屏。改完 PR 描述会自动重新检查。 |
 | Swift and website checks | 运行 Swift 单元测试，再检查网页请求格式和 WebKit 解析。 |
-| iOS UI tests | 一开始就在后台启动 iPhone 17 模拟器，同时构建 App 和测试；等模拟器启动完成后跑界面测试。模拟器刚启动的几分钟会占满 CPU，和构建重叠能少等一段。失败时，可在运行页面的 **Artifacts** 下载测试报告，用 Xcode 打开 `.xcresult`。 |
+| iOS UI tests | 等待 iPhone 17 模拟器启动完成，再构建 App 并跑界面测试。失败时，可在运行页面的 **Artifacts** 下载测试报告，用 Xcode 打开 `.xcresult`。 |
 
 公开仓库的检查使用 GitHub 提供的 `xcode-27` 环境，选用 Xcode 27.2 和 iOS 27.2 模拟器。测试使用本地样本和模拟响应，无需 Apple 签名、NodeSeek 账号或 GitHub Secrets。[GitHub 提供的 Xcode 和模拟器版本](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
 
