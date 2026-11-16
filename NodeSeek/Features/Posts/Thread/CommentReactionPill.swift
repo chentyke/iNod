@@ -4,16 +4,17 @@ import SwiftUI
 enum DockMetrics {
     /// The folded dock's height, which is also the footer row's height.
     static let foldedHeight: CGFloat = 22
-    /// The opened dock's height; its items are this tall and `itemWidth` wide.
-    static let openHeight: CGFloat = 30
-    static let itemWidth: CGFloat = 36
+    /// The opened dock's height; its items are this tall and `itemWidth` wide. It is taller than the
+    /// footer row, so it floats over the end of the reply's text rather than fitting beside it.
+    static let openHeight: CGFloat = 42
+    static let itemWidth: CGFloat = 46
     /// The card's bottom padding, and the folded dock's gap to the card's side and bottom.
     static let cardInset: CGFloat = 12
     /// The space between the reply's text and the footer row.
     static let bodyGap: CGFloat = 8
-    /// The opened dock's gap to the card's side, its bottom, and the text above, all the same.
-    static var openMargin: CGFloat { (cardInset + foldedHeight + bodyGap - openHeight) / 2 }
-    /// How far the opened dock sits below the footer row's centre to keep `openMargin` even above and below.
+    /// The opened dock's gap to the card's side and bottom, the same on both.
+    static let openMargin: CGFloat = 8
+    /// How far the opened dock's centre sits below the footer row's centre (negative lifts it) to keep `openMargin`.
     static var openDrop: CGFloat { (cardInset + foldedHeight / 2) - (openMargin + openHeight / 2) }
 }
 
@@ -53,12 +54,12 @@ struct CommentReactionPill: View {
                 Text(count.formatted()).foregroundStyle(isSelected ? tint : Color.secondary)
             }
         }
-        .font(.footnote.weight(.semibold))
+        .font(.body.weight(.semibold))
         .monospacedDigit()
         .lineLimit(1)
-        .padding(.horizontal, 9)
+        .padding(.horizontal, 11)
         .frame(minWidth: DockMetrics.itemWidth, minHeight: DockMetrics.openHeight)
-        .background { if isSelected { Capsule().fill(tint.opacity(0.1)).padding(3) } }
+        .background { if isSelected { Capsule().fill(tint.opacity(0.1)).padding(4) } }
         .contentShape(.rect)
     }
 }
@@ -69,7 +70,7 @@ struct CommentToolButtonLabel: View {
 
     var body: some View {
         Image(systemName: symbol)
-            .font(.footnote.weight(.semibold))
+            .font(.body.weight(.semibold))
             .foregroundStyle(.secondary)
             .frame(width: DockMetrics.itemWidth, height: DockMetrics.openHeight)
             .contentShape(.rect)
