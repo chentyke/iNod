@@ -219,6 +219,9 @@ struct FeedView: View {
             isSearchFocused = false
             foldSearchIfEmpty()
         }
+        #if DEBUG
+        .modifier(UITestPostOpener(posts: posts, isEnabled: !isSearch && !recommended && !isLinkedPage))
+        #endif
     }
 
     private var hasContent: Bool { !posts.isEmpty || !pinnedPosts.isEmpty }
