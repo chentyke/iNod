@@ -8,7 +8,7 @@ struct AccountDataView<Value: Decodable, Content: View>: View {
     let isBusy: Bool
     let retry: () async -> Void
     @ViewBuilder var content: (Value) -> Content
-    @State private var showsWebsite = false
+    @State private var showsVerification = false
     @Environment(AccountSession.self) private var account
 
     init(value: Value?, error: LoadFailure?, isBusy: Bool, retry: @escaping () async -> Void,
@@ -38,7 +38,7 @@ struct AccountDataView<Value: Decodable, Content: View>: View {
             } else if let error = error {
                 LoadFailureView(failure: error, isRetrying: isBusy,
                                 offersWebsite: account.website.needsWebsite || account.signInStatus == .signedOut,
-                                retry: { Task { await retry() } }, openWebsite: { showsWebsite = true })
+                                retry: { Task { await retry() } }, verify: { showsVerification = true })
             } else {
                 ProgressView("正在读取").frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -47,6 +47,6 @@ struct AccountDataView<Value: Decodable, Content: View>: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
-        .sheet(isPresented: $showsWebsite, onDismiss: { Task { await retry() } }) { WebsiteView(initialURL: NodeSeekRoute.home.url) }
+        .sheet(isPresented: $showsVerification, onDismiss: { Task { await retry() } }) { WebsiteView(initialURL: NodeSeekRoute.home.url) }
     }
 }

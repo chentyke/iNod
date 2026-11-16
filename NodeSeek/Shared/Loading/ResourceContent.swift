@@ -6,7 +6,7 @@ struct ResourceContent<Value: Decodable, Content: View>: View {
     var websiteURL = NodeSeekRoute.home.url
     let retry: () async -> Void
     @ViewBuilder let content: (Value) -> Content
-    @State private var showsWebsite = false
+    @State private var showsVerification = false
     private var isBusy: Bool { loader.loading || loader.updating }
     var body: some View {
         VStack(spacing: 0) {
@@ -18,12 +18,12 @@ struct ResourceContent<Value: Decodable, Content: View>: View {
                 }
                 content(value)
             } else if let error = loader.error {
-                LoadFailureView(failure: error, isRetrying: isBusy, offersWebsite: true,
-                                retry: { Task { await retry() } }, openWebsite: { showsWebsite = true })
+                LoadFailureView(failure: error, isRetrying: isBusy, offersWebsite: true, websiteURL: websiteURL,
+                                retry: { Task { await retry() } }, verify: { showsVerification = true })
             } else {
                 ProgressView("正在读取").frame(maxWidth:.infinity,maxHeight:.infinity)
             }
         }.seekCanvas().navigationBarTitleDisplayMode(.inline).toolbar(.visible,for:.navigationBar).toolbar(.hidden,for:.tabBar)
-        .sheet(isPresented:$showsWebsite,onDismiss:{ Task { await retry() } }) { WebsiteView(initialURL: websiteURL) }
+        .sheet(isPresented:$showsVerification,onDismiss:{ Task { await retry() } }) { WebsiteView(initialURL: websiteURL) }
     }
 }

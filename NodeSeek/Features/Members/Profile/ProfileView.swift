@@ -7,7 +7,7 @@ struct ProfileView: View {
     @Environment(AccountSession.self) private var account
     @Environment(\.openMemberDestination) private var openMember
     @State private var loader = AccountLoader<AccountProfile>()
-    @State private var showsWebsite = false
+    @State private var showsSignIn = false
     @State private var isConfirmingFollow = false
 
     private var isOwnProfile: Bool { account.user?.id == userID }
@@ -70,7 +70,7 @@ struct ProfileView: View {
         }
         .task(id: "\(userID)|\(account.revision)") { await load() }
         .refreshable { await load(force: true) }
-        .sheet(isPresented: $showsWebsite) { SignInView() }
+        .sheet(isPresented: $showsSignIn) { SignInView() }
     }
 
     private func load(force: Bool = false) async {
@@ -82,7 +82,7 @@ struct ProfileView: View {
         isConfirmingFollow = true
         defer { isConfirmingFollow = false }
         do {
-            try await account.withConfirmedSignIn(onSignedOut: { showsWebsite = true }) { viewer in
+            try await account.withConfirmedSignIn(onSignedOut: { showsSignIn = true }) { viewer in
                 guard viewer.id != userID else { return }
                 if await loader.action(account.website, .follow(memberID: userID, followed: followed), userID: viewer.id) != nil {
                     await load(force: true)

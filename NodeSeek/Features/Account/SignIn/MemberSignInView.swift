@@ -5,7 +5,7 @@ import SwiftUI
 struct MemberSignInView: View {
     @Environment(AccountSession.self) private var account
     @State private var showsSignIn = false
-    @State private var showsWebsite = false
+    @State private var showsVerification = false
     var body: some View {
         Group {
             if account.signInStatus == .signedOut {
@@ -13,7 +13,7 @@ struct MemberSignInView: View {
             } else if let failure = account.failure, !account.isRefreshing {
                 LoadFailureView(failure: failure, fallbackTitle: "无法确认登录状态",
                                 retry: { Task { await account.refresh(force: true) } },
-                                openWebsite: { showsWebsite = true })
+                                verify: { showsVerification = true })
             } else {
                 ProgressView("正在读取登录状态")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -24,7 +24,7 @@ struct MemberSignInView: View {
             if account.signInStatus == .unconfirmed { await account.refresh() }
         }
         .sheet(isPresented: $showsSignIn) { SignInView() }
-        .sheet(isPresented: $showsWebsite, onDismiss: { Task { await account.refresh(force: true) } }) {
+        .sheet(isPresented: $showsVerification, onDismiss: { Task { await account.refresh(force: true) } }) {
             WebsiteView(initialURL: NodeSeekRoute.home.url)
         }
     }

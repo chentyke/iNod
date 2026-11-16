@@ -12,7 +12,7 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
     let leadingContent: LeadingContent
     @ViewBuilder let row: (Item) -> Row
     @Environment(AccountSession.self) private var account
-    @State private var showsWebsite = false
+    @State private var showsVerification = false
 
     var body: some View {
         List {
@@ -40,7 +40,7 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
                 if let error {
                     LoadFailureView(failure: error, isRetrying: isBusy,
                                     offersWebsite: account.website.needsWebsite || account.signInStatus == .signedOut,
-                                    retry: { Task { await reload() } }, openWebsite: { showsWebsite = true })
+                                    retry: { Task { await reload() } }, verify: { showsVerification = true })
                 } else if items == nil || isBusy {
                     ProgressView().accessibilityLabel("正在加载")
                 } else {
@@ -49,7 +49,7 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
                 }
             }
         }
-        .sheet(isPresented: $showsWebsite, onDismiss: { Task { await reload() } }) {
+        .sheet(isPresented: $showsVerification, onDismiss: { Task { await reload() } }) {
             WebsiteView(initialURL: NodeSeekRoute.home.url)
         }
     }

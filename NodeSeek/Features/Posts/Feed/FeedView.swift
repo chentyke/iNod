@@ -23,7 +23,7 @@ struct FeedView: View {
     @State private var isLoadingMore = false
     @State private var error: LoadFailure?
     @State private var nextPageError: String?
-    @State private var showsWebsite = false
+    @State private var showsVerification = false
     @State private var showsSignIn = false
     @State private var collectionError: (postID: Int, collected: Bool, revision: Int, message: String)?
     @State private var showsCollectionError = false
@@ -87,7 +87,7 @@ struct FeedView: View {
             if openingNewPost { await openNewPost() }
         }
         .onDisappear { openingNewPost = false }
-        .sheet(isPresented: $showsWebsite, onDismiss: { refreshID = UUID() }) { WebsiteView(initialURL: NodeSeekRoute.home.url) }
+        .sheet(isPresented: $showsVerification, onDismiss: { refreshID = UUID() }) { WebsiteView(initialURL: NodeSeekRoute.home.url) }
         .sheet(isPresented: $showsSignIn) { SignInView() }
         .alert("无法打开发帖编辑器", isPresented: $showsNewPostError) {
             Button("重试") { openingNewPost = true }
@@ -200,7 +200,7 @@ struct FeedView: View {
             if let error, !hasContent, !isSwitchingVisibility {
                 LoadFailureView(failure: error, isRetrying: isLoading,
                                 offersWebsite: account.website.needsWebsite,
-                                retry: { refreshID = UUID() }, openWebsite: { showsWebsite = true })
+                                retry: { refreshID = UUID() }, verify: { showsVerification = true })
             }
         }
         .seekCanvas(margins: .keepsGutter)

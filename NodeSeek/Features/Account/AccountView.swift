@@ -5,9 +5,8 @@ import SwiftUI
 struct AccountView: View {
     @Environment(AccountSession.self) private var account
     @Environment(\.openURL) private var openURL
-    @State private var showsWebsite = false
+    @State private var showsVerification = false
     @State private var showsSignIn = false
-    @State private var websiteURL = NodeSeekRoute.home.url
 
     var body: some View {
         List {
@@ -55,9 +54,11 @@ struct AccountView: View {
                             SeekRowLabel(title: "重试", symbol: "arrow.clockwise")
                         }
                     }
-                    // Offline, the website can't load either.
-                    if account.failure?.kind != .offline {
-                        Button { open(NodeSeekRoute.home.url) } label: { SeekRowLabel(title: "打开官网", symbol: "globe", opensExternally: true) }
+                    // Only the website inside the app shares its cookies with the app, so the check is finished there.
+                    if account.failure?.kind == .verificationRequired {
+                        Button { showsVerification = true } label: { SeekRowLabel(title: "打开官网完成验证", symbol: "checkmark.shield") }
+                    } else if account.failure?.kind != .offline { // Offline, the website can't load either.
+                        Button { Browser.open(NodeSeekRoute.home.url) } label: { SeekRowLabel(title: "打开官网", symbol: "globe", opensExternally: true) }
                     }
                 }
             } else {
@@ -87,7 +88,7 @@ struct AccountView: View {
             }
             Section {
                 AccountAboutRow(version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
-                Button { open(NodeSeekRoute.home.url) } label: {
+                Button { Browser.open(NodeSeekRoute.home.url) } label: {
                     SeekRowLabel(title: "NodeSeek 官网", symbol: "globe", opensExternally: true)
                 }
             } header: { SeekSectionTitle(title: "关于") }
@@ -97,11 +98,9 @@ struct AccountView: View {
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await account.refresh(force: true) }
         .task { await account.refresh() }
-        .sheet(isPresented: $showsWebsite) { WebsiteView(initialURL: websiteURL) }
+        .sheet(isPresented: $showsVerification) { WebsiteView(initialURL: NodeSeekRoute.home.url) }
         .sheet(isPresented: $showsSignIn) { SignInView() }
     }
-
-    private func open(_ url: URL) { websiteURL = url; showsWebsite = true }
 }
 
 /// The app's name, what it is, and its version, laid out like the other rows.
