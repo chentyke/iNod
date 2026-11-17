@@ -8,9 +8,9 @@ struct PostRow: View {
 
     static let cornerRadius: CGFloat = 22
     static let listVerticalInset: CGFloat = 6
-    private var date: Date? { ISO8601DateFormatter.nodeSeek.date(from: post.activityDate) }
 
     var body: some View {
+        let date = post.parsedActivityDate
         VStack(alignment: .leading, spacing: 10) {
             header
             title
@@ -29,7 +29,7 @@ struct PostRow: View {
         .contentShape(.contextMenuPreview, .rect(cornerRadius: Self.cornerRadius))
         .contentShape(.hoverEffect, .rect(cornerRadius: Self.cornerRadius))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText)
+        .accessibilityLabel(accessibilityText(date: date))
     }
 
     @ViewBuilder private var title: some View {
@@ -52,7 +52,7 @@ struct PostRow: View {
         }
     }
 
-    private var accessibilityText: String {
+    private func accessibilityText(date: Date?) -> String {
         var parts: [String] = []
         if post.pinned { parts.append("置顶") }
         parts.append(post.title)

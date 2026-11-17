@@ -45,6 +45,20 @@ import Testing
     #expect(try decoder.decode(PostSummary.self, from: encoded).rank == 3)
 }
 
+@Test(arguments: [
+    ("2026-10-15T13:00:00.125Z", 1_792_069_200.125 as Double?),
+    ("2026-10-15T21:00:00.250+08:00", 1_792_069_200.250),
+    ("2026-10-15T13:00:00Z", nil),
+    ("invalid", nil),
+    ("", nil)
+])
+func postActivityDateKeepsWebsiteTimestampRules(_ rawDate: String, _ expectedTimestamp: Double?) {
+    let post = PostSummary(id: 1, title: "测试", author: "", avatar: "", category: "", categoryKey: "",
+                           views: 0, replies: 0, activityDate: rawDate, pinned: false)
+
+    #expect(post.parsedActivityDate?.timeIntervalSince1970 == expectedTimestamp)
+}
+
 @Test func markdownKeepsCodeAndImagesSeparate() {
     let blocks = MarkdownBlock.parse("# 标题\n\n正文 **加粗**\n\n```swift\nlet x = 1\n```\n\n![截图](https://example.com/a.png)")
     #expect(blocks == [.heading("标题"), .text("正文 **加粗**"), .code("let x = 1"), .image(alt: "截图", url: URL(string: "https://example.com/a.png")!)])
