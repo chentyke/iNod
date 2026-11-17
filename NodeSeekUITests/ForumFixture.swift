@@ -10,9 +10,11 @@ enum ForumFixture {
 
     /// Launches the app on the fixture's feed, in dark mode when `dark` is set,
     /// signed in as the thread's author when `signedInAsAuthor` is set.
-    @MainActor static func launch(dark: Bool = false, opensThread: Bool = false, signedInAsAuthor: Bool = false) -> XCUIApplication {
+    @MainActor static func launch(dark: Bool = false, opensThread: Bool = false, signedInAsAuthor: Bool = false,
+                                  openingMarkdown: String = "周六下午两点开始读书。", assetResponses: [String: Data] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor)
+        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor,
+                                                                    openingMarkdown: openingMarkdown, assetResponses: assetResponses)
         if opensThread { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "\(threadID)" }
         // `appearance` is the in-app appearance setting; an argument sets it for this launch only.
         app.launchArguments += ["-appearance", dark ? "dark" : "light"]
@@ -98,7 +100,7 @@ enum ForumFixture {
         return high - low
     }
 
-    private static func json(signedInAsAuthor: Bool) throws -> String {
+    private static func json(signedInAsAuthor: Bool, openingMarkdown: String, assetResponses: [String: Data]) throws -> String {
         let author: [String: Any] = ["uid": 101, "name": "楼主"]
         let reader: [String: Any] = ["uid": 102, "name": "读者"]
         func post(_ id: Int, _ title: String) -> [String: Any] {
@@ -107,7 +109,7 @@ enum ForumFixture {
         }
         let replies: [[String: Any]] = (0...6).map { floor in
             ["commentId": 500 + floor, "floorIndex": floor, "poster": floor == 0 ? author : reader,
-             "time": ["createdDate": timestamp], "markdown": floor == 0 ? "周六下午两点开始读书。" : "第 \(floor) 楼：一起读。",
+             "time": ["createdDate": timestamp], "markdown": floor == 0 ? openingMarkdown : "第 \(floor) 楼：一起读。",
              "likeCount": 0, "upvoteCount": 0, "blocked": false]
         }
         let posts = [post(threadID, threadTitle)] + (1...8).map { post(200 + $0, $0 == 1 ? announcementTitle : "读书笔记第 \($0) 篇") }
@@ -123,9 +125,10 @@ enum ForumFixture {
         ]
         let signedOut: [String: Any] = ["ready": true]
         let authorSignedIn: [String: Any] = ["ready": true, "user": ["id": 101, "name": "楼主"]]
+        let encodedResponses = try responses.mapValues { try JSONSerialization.data(withJSONObject: $0).base64EncodedString() }
         let fixture: [String: Any] = [
             "authentication": signedInAsAuthor ? authorSignedIn : signedOut,
-            "responses": try responses.mapValues { try JSONSerialization.data(withJSONObject: $0).base64EncodedString() }
+            "responses": encodedResponses.merging(assetResponses.mapValues { $0.base64EncodedString() }) { response, _ in response }
         ]
         return String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
     }

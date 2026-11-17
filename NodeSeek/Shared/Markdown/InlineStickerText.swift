@@ -6,6 +6,8 @@ struct InlineStickerText: View {
     let markdown: String
     var expands = true
     var trailingLabel: Text?
+    var font: Font = .body
+    var lineSpacing: CGFloat = 5
     @Environment(\.forumDocumentURL) private var documentURL
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .body) private var stickerSize = 32.0
@@ -34,9 +36,9 @@ struct InlineStickerText: View {
             }
             let hasLinks = prepared.contains(where: \.hasLinks)
             TimelineView(.animation(minimumInterval: 0.1, paused: reduceMotion || !animations.values.contains { $0.isAnimated })) { context in
-                TextWithTrailingLabel(text: rendered(prepared, at: context.date).font(.body), label: trailingLabel,
+                TextWithTrailingLabel(text: rendered(prepared, at: context.date).font(font), label: trailingLabel,
                                       hasLinks: hasLinks)
-                    .lineSpacing(5)
+                    .lineSpacing(lineSpacing)
                     .frame(maxWidth: expands ? .infinity : nil, alignment: .leading)
             }
             .task(id: markdown) {
@@ -50,9 +52,9 @@ struct InlineStickerText: View {
             }
         } else {
             let text = ForumText.attributed(markdown, baseURL: documentURL)
-            TextWithTrailingLabel(text: Text(text).font(.body), label: trailingLabel,
+            TextWithTrailingLabel(text: Text(text).font(font), label: trailingLabel,
                                   hasLinks: text.runs.contains { $0.link != nil })
-                .lineSpacing(5)
+                .lineSpacing(lineSpacing)
                 .frame(maxWidth: expands ? .infinity : nil, alignment: .leading)
         }
     }

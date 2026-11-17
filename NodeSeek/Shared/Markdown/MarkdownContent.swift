@@ -9,7 +9,6 @@ struct MarkdownContent<Embedded: View>: View {
     var loadsBlocksOnScroll = false
     var onOpenImages: ((ImageGallery) -> Void)?
     @ViewBuilder var embedded: (MarkdownBlock) -> Embedded
-    @Environment(\.forumDocumentURL) private var documentURL
     @State private var gallery: ImageGallery?
 
     var body: some View {
@@ -48,9 +47,7 @@ struct MarkdownContent<Embedded: View>: View {
         case .text(let text):
             InlineStickerText(markdown: text, expands: expandsText, trailingLabel: label)
         case .heading(let text):
-            let attributed = ForumText.attributed(text, baseURL: documentURL)
-            TextWithTrailingLabel(text: Text(attributed).font(.title3.bold()), label: label,
-                                  hasLinks: attributed.runs.contains { $0.link != nil })
+            InlineStickerText(markdown: text, expands: false, trailingLabel: label, font: .title3.bold(), lineSpacing: 0)
         case .code(let text): MarkdownCodeBlock(text: text)
         case .image(let alt, let url): ForumImageView(url: url, alt: alt, onOpenImages: openImages)
         case .quote(let text):
