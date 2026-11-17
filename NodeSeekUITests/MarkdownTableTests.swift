@@ -33,4 +33,34 @@ final class MarkdownTableTests: XCTestCase {
         XCTAssertEqual(lastTitle.frame.midY, extraCell.frame.midY, accuracy: 1)
         XCTAssertLessThan(lastStatus.frame.maxX, extraCell.frame.minX)
     }
+
+    func testWideTableScrollsAndKeepsColumnsAfterAnEmptyCell() {
+        continueAfterFailure = false
+        let headings = (1...11).map { "第\($0)列" }.joined(separator: " | ")
+        let rule = Array(repeating: "---", count: 11).joined(separator: " | ")
+        let cells = (["开头", "", "空格之后"] + (4...10).map { "内容\($0)" } + ["最后一格"])
+            .joined(separator: " | ")
+        let app = ForumFixture.launch(dark: true, opensThread: true, openingMarkdown: """
+        | \(headings) |
+        | \(rule) |
+        | \(cells) |
+        """)
+
+        let table = app.scrollViews["markdown-table"]
+        XCTAssertTrue(table.waitForExistence(timeout: 8))
+
+        let thirdHeading = app.staticTexts["第3列"]
+        let thirdCell = app.staticTexts["空格之后"]
+        let lastCell = app.staticTexts["最后一格"]
+        XCTAssertTrue(thirdHeading.exists)
+        XCTAssertTrue(thirdCell.exists)
+        XCTAssertEqual(thirdHeading.frame.minX, thirdCell.frame.minX, accuracy: 1)
+        XCTAssertFalse(lastCell.isHittable)
+
+        for _ in 0..<4 {
+            if lastCell.isHittable { break }
+            table.swipeLeft()
+        }
+        XCTAssertTrue(lastCell.isHittable)
+    }
 }

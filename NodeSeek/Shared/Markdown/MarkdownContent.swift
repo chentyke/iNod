@@ -81,25 +81,42 @@ struct MarkdownContent<Embedded: View>: View {
 private struct MarkdownTable: View {
     let rows: [[String]]
     @Environment(\.forumDocumentURL) private var documentURL
+
     var body: some View {
-        let columnCount = rows.lazy.map(\.count).max() ?? 0
         ScrollView(.horizontal) {
-            Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+            Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
                 ForEach(rows.indices, id: \.self) { row in
+                    let cells = rows[row]
+                    if row > 0 {
+                        Rectangle()
+                            .fill(.quaternary)
+                            .frame(height: 0.5)
+                            .gridCellUnsizedAxes(.horizontal)
+                    }
                     GridRow {
-                        ForEach(0..<columnCount, id: \.self) { column in
-                            let text = ForumText.attributed(column < rows[row].count ? rows[row][column] : "", baseURL: documentURL)
+                        if cells.isEmpty {
+                            Color.clear
+                                .frame(height: 36)
+                                .gridCellUnsizedAxes(.horizontal)
+                        }
+                        ForEach(cells.indices, id: \.self) { column in
+                            let text = ForumText.attributed(cells[column], baseURL: documentURL)
                             TextWithTrailingLabel(text: Text(text).font(.subheadline.weight(row == 0 ? .semibold : .regular)),
                                                   label: nil, hasLinks: text.runs.contains { $0.link != nil })
-                                .padding(12).frame(minWidth: 100, maxWidth: 260, alignment: .leading)
-                                .background(Color.primary.opacity(row == 0 ? 0.07 : (row.isMultiple(of: 2) ? 0.025 : 0)))
-                                .overlay(alignment: .bottom) { Divider() }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .frame(minWidth: 76, maxWidth: 260, alignment: .leading)
                         }
                     }
                 }
             }
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(.quaternary, lineWidth: 0.5)
+                    .allowsHitTesting(false)
+            }
         }
         .contentMargins(.horizontal, 0, for: .scrollContent)
-        .clipShape(.rect(cornerRadius: 10))
+        .accessibilityIdentifier("markdown-table")
     }
 }
