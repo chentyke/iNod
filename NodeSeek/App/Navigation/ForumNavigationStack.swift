@@ -72,6 +72,8 @@ struct ForumNavigationStack<Content: View>: View {
         case .communityTools: CommunityToolsView()
         case .recommended: FeedView(recommended: true, isLinkedPage: true)
         case .luckyDraw: LuckyView()
+        case .networkQuality: NetworkQualityView()
+        case .deviceBenchmark: DeviceBenchmarkView()
         case .rulings(let recordID): RulingsView(recordID: recordID) { path.append($0) }
         case .directory(let providers): DirectoryView(providers: providers)
         case .siteArticle(let path, let title): SiteArticleView(path: path, title: title)

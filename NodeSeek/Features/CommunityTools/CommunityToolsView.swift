@@ -13,6 +13,10 @@ struct CommunityToolsView: View {
                 NavigationLink(value: AppDestination.rulings(recordID: nil)) { SeekRowLabel(title: "管理记录", symbol: "list.bullet.rectangle") }
                 if let userID = account.user?.id { NavigationLink(value: AppDestination.invitations(userID: userID)) { SeekRowLabel(title: "邀请朋友", symbol: "ticket") } }
             }
+            Section("检测") {
+                NavigationLink(value: AppDestination.networkQuality) { SeekRowLabel(title: "网络检测", symbol: "gauge.with.needle") }
+                NavigationLink(value: AppDestination.deviceBenchmark) { SeekRowLabel(title: "本机性能", symbol: "cpu") }
+            }
             Section("发现") {
                 NavigationLink(value: AppDestination.directory(providers: true)) { SeekRowLabel(title: "合作商家", symbol: "building.2") }
                 NavigationLink(value: AppDestination.directory(providers: false)) { SeekRowLabel(title: "友情链接", symbol: "link") }

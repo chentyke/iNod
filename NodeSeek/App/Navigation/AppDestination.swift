@@ -7,6 +7,8 @@ enum AppDestination: Hashable {
     case communityTools
     case recommended
     case luckyDraw
+    case networkQuality
+    case deviceBenchmark
     case rulings(recordID: Int?)
     case directory(providers: Bool)
     case siteArticle(path: String, title: String)
