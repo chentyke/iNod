@@ -6,6 +6,21 @@ public actor ForumImageLoader {
     public static let shared = ForumImageLoader()
     private static let byteLimit = 24_000_000
 
+    public enum Size: Hashable, Sendable {
+        case full
+        case thumbnail
+
+        fileprivate var maxPixels: Int {
+            // The 76-point NodeImage row needs at most 228 pixels at 3× scale.
+            self == .thumbnail ? 240 : 1600
+        }
+    }
+
+    private struct Key: Hashable {
+        let url: URL
+        let size: Size
+    }
+
     private struct Download {
         let id: UUID
         let task: Task<Void, Never>
@@ -13,10 +28,10 @@ public actor ForumImageLoader {
     }
 
     private let session: URLSession
-    private var cache: [URL: CGImage] = [:]
-    private var recent: [URL] = []
+    private var cache: [Key: CGImage] = [:]
+    private var recent: [Key] = []
     private var cachedBytes = 0
-    private var pending: [URL: Download] = [:]
+    private var pending: [Key: Download] = [:]
 
     init(session: URLSession? = nil) {
         if let session { self.session = session }
@@ -28,12 +43,13 @@ public actor ForumImageLoader {
         }
     }
 
-    public func load(_ url: URL) async throws -> CGImage {
+    public func load(_ url: URL, size: Size = .full, prioritized: Bool = false) async throws -> CGImage {
         guard ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { throw SiteError.invalidResponse }
         try Task.checkCancellation()
-        if let image = cache[url] {
-            recent.removeAll { $0 == url }
-            recent.append(url)
+        let key = Key(url: url, size: size)
+        if let image = cache[key] {
+            recent.removeAll { $0 == key }
+            recent.append(key)
             return image
         }
 
@@ -44,36 +60,36 @@ public actor ForumImageLoader {
                     continuation.resume(throwing: CancellationError())
                     return
                 }
-                if pending[url] != nil {
-                    pending[url]?.waiters[waiterID] = continuation
+                if pending[key] != nil {
+                    pending[key]?.waiters[waiterID] = continuation
                 } else {
                     let id = UUID()
-                    let task = Task {
+                    let task = Task(priority: prioritized ? .userInitiated : .utility) {
                         let result: Result<CGImage, Error>
-                        do { result = .success(try await download(url)) }
+                        do { result = .success(try await download(key, prioritized: prioritized)) }
                         catch { result = .failure(error) }
-                        finish(url, id: id, result: result)
+                        finish(key, id: id, result: result)
                     }
-                    pending[url] = Download(id: id, task: task, waiters: [waiterID: continuation])
+                    pending[key] = Download(id: id, task: task, waiters: [waiterID: continuation])
                 }
             }
         } onCancel: {
-            Task { await self.cancel(url, waiterID: waiterID) }
+            Task { await self.cancel(key, waiterID: waiterID) }
         }
         try Task.checkCancellation()
         return image
     }
 
-    private func cancel(_ url: URL, waiterID: UUID) {
-        guard let waiter = pending[url]?.waiters.removeValue(forKey: waiterID) else { return }
-        if pending[url]?.waiters.isEmpty == true {
-            pending.removeValue(forKey: url)?.task.cancel()
+    private func cancel(_ key: Key, waiterID: UUID) {
+        guard let waiter = pending[key]?.waiters.removeValue(forKey: waiterID) else { return }
+        if pending[key]?.waiters.isEmpty == true {
+            pending.removeValue(forKey: key)?.task.cancel()
         }
         waiter.resume(throwing: CancellationError())
     }
 
-    private func finish(_ url: URL, id: UUID, result: Result<CGImage, Error>) {
-        guard pending[url]?.id == id, let download = pending.removeValue(forKey: url) else { return }
+    private func finish(_ key: Key, id: UUID, result: Result<CGImage, Error>) {
+        guard pending[key]?.id == id, let download = pending.removeValue(forKey: key) else { return }
         if case .success(let image) = result {
             let cost = image.bytesPerRow * image.height
             if cost <= Self.byteLimit {
@@ -82,31 +98,32 @@ public actor ForumImageLoader {
                         cachedBytes -= removed.bytesPerRow * removed.height
                     }
                 }
-                cache[url] = image
-                recent.append(url)
+                cache[key] = image
+                recent.append(key)
                 cachedBytes += cost
             }
         }
         for waiter in download.waiters.values { waiter.resume(with: result) }
     }
 
-    private func download(_ url: URL) async throws -> CGImage {
-        try await ImageWorkLimiter.shared.acquire()
-        defer { Task { await ImageWorkLimiter.shared.release() } }
-        try Task.checkCancellation()
-        var request = ForumImageRequest.make(url: url)
-        request.cachePolicy = .useProtocolCachePolicy
-        let (data, response) = try await session.data(for: request)
-        try Task.checkCancellation()
-        guard (response as? HTTPURLResponse)?.statusCode == 200,
-              data.count <= 20_000_000,
-              let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: 1600,
-                kCGImageSourceShouldCacheImmediately: true
-              ] as CFDictionary) else { throw SiteError.message("图片暂时无法加载，请重试。") }
-        return image
+    private func download(_ key: Key, prioritized: Bool) async throws -> CGImage {
+        try await ImageWorkLimiter.load(prioritized: prioritized) { [session] in
+            var request = ForumImageRequest.make(url: key.url)
+            request.cachePolicy = .useProtocolCachePolicy
+            let (data, response) = try await session.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 20_000_000 else {
+                throw SiteError.message("图片暂时无法加载，请重试。")
+            }
+            return data
+        } decode: { data in
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+                  let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: key.size.maxPixels,
+                    kCGImageSourceShouldCacheImmediately: true
+                  ] as CFDictionary) else { throw SiteError.message("图片暂时无法加载，请重试。") }
+            return image
+        }
     }
 }

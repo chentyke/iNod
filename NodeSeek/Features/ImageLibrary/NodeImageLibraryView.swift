@@ -280,7 +280,7 @@ struct NodeImageLibraryView: View {
 
     private func imageDetails(_ image: HostedImage, selecting: Bool) -> some View {
         HStack(spacing: 12) {
-            ForumImageView(url: image.url, alt: image.filename)
+            ForumImageView(url: image.url, alt: image.filename, size: .thumbnail)
                 .frame(width: 76, height: 58).clipped()
                 .allowsHitTesting(!selecting).accessibilityHidden(selecting)
             VStack(alignment: .leading, spacing: 4) {

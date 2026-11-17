@@ -102,7 +102,7 @@ Fluent 使用 `/static/image/sticker/emoji/{编号}.mov`，官网另提供 WebM�
 
 ## 帖子图片
 
-图床的网页嵌入请求需要 `Referer: https://www.nodeseek.com/`。客户端携带官网来源与图片 Accept，忽略旧的错误缓存；不向图床传递 NodeSeek Cookie 或 Authorization。使用 ImageIO 将长边缩小到最多 1600 像素，缓存最多 4 张，失败时显示重试。
+图床的网页嵌入请求需要 `Referer: https://www.nodeseek.com/`。客户端携带官网来源与图片 Accept，忽略旧的错误缓存；不向图床传递 NodeSeek Cookie 或 Authorization。使用 ImageIO 将长边缩小到最多 1600 像素，图床列表的缩略图最多 240 像素。解码缓存合计最多 12 张、24 MB，读取失败时显示重试。
 
 ## 用户主页与私聊补充
 

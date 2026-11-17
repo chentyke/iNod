@@ -17,19 +17,28 @@ public actor StickerThumbnailLoader {
     }
     private static func download(_ sticker: ForumSticker) async -> CGImage? {
         do {
-            try await ImageWorkLimiter.shared.acquire()
-            defer { Task { await ImageWorkLimiter.shared.release() } }
-            try Task.checkCancellation()
-            let (data,response) = try await URLSession.shared.data(for:ForumImageRequest.make(url:sticker.url))
-            guard (response as? HTTPURLResponse)?.statusCode == 200,data.count < 8_000_000 else { return nil }
-            if !sticker.isVideo {
-                guard let source = CGImageSourceCreateWithData(data as CFData,nil) else { return nil }
-                return CGImageSourceCreateThumbnailAtIndex(source,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,kCGImageSourceThumbnailMaxPixelSize:96] as CFDictionary)
+            return try await ImageWorkLimiter.load {
+                let (data, response) = try await URLSession.shared.data(for: ForumImageRequest.make(url: sticker.url))
+                guard (response as? HTTPURLResponse)?.statusCode == 200, data.count < 8_000_000 else {
+                    throw URLError(.badServerResponse)
+                }
+                return data
+            } decode: { data in
+                if !sticker.isVideo {
+                    guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+                    return CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceThumbnailMaxPixelSize: 96
+                    ] as CFDictionary)
+                }
+                let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".mov")
+                try data.write(to: file)
+                defer { try? FileManager.default.removeItem(at: file) }
+                let generator = AVAssetImageGenerator(asset: AVURLAsset(url: file))
+                generator.maximumSize = CGSize(width: 96, height: 96)
+                generator.appliesPreferredTrackTransform = true
+                return try await generator.image(at: .zero).image
             }
-            let file = FileManager.default.temporaryDirectory.appending(path:UUID().uuidString + ".mov")
-            try data.write(to:file); defer { try? FileManager.default.removeItem(at:file) }
-            let generator = AVAssetImageGenerator(asset:AVURLAsset(url:file)); generator.maximumSize = CGSize(width:96,height:96); generator.appliesPreferredTrackTransform = true
-            return try await generator.image(at:.zero).image
         } catch { return nil }
     }
 }

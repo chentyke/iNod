@@ -31,23 +31,30 @@ public actor StickerLoader {
     }
 
     private static func download(_ sticker: ForumSticker) async -> StickerAnimation? {
+        do {
+            return try await ImageWorkLimiter.load {
+                try await data(for: sticker)
+            } decode: { data in
+                if sticker.isVideo { return await decodeVideo(data) }
+                return decodeImage(data)
+            }
+        } catch { return nil }
+    }
+
+    private static func data(for sticker: ForumSticker) async throws -> Data {
         #if DEBUG
         if let fixtureResponses {
-            guard let data = fixtureResponses[sticker.url.absoluteString] else { return nil }
-            return sticker.isVideo ? await decodeVideo(data) : decodeImage(data)
+            guard let data = fixtureResponses[sticker.url.absoluteString] else { throw URLError(.resourceUnavailable) }
+            return data
         }
         #endif
-        do {
-            try await ImageWorkLimiter.shared.acquire()
-            defer { Task { await ImageWorkLimiter.shared.release() } }
-            try Task.checkCancellation()
-            var request = URLRequest(url: sticker.url)
-            request.timeoutInterval = 15
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200, data.count < 8_000_000 else { return nil }
-            if sticker.isVideo { return await decodeVideo(data) }
-            return decodeImage(data)
-        } catch { return nil }
+        var request = URLRequest(url: sticker.url)
+        request.timeoutInterval = 15
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200, data.count < 8_000_000 else {
+            throw URLError(.badServerResponse)
+        }
+        return data
     }
 
     private static func decodeImage(_ data: Data) -> StickerAnimation? {
