@@ -1,0 +1,53 @@
+# Project Quality 检测接口
+
+`NodeSeekClient` 提供检测服务和 Swift 报告类型。界面预览可以直接用 `NetworkQualityExamples.running`、`.completed`、`.partial`、`.cancelled` 和 `.unavailable`。示例 IP 是文档专用地址。
+
+## 首版接入
+
+- 点击开始时，在一个 `Task` 中调用 `await NetworkQualityService().run(onProgress:)`。回调给出当前报告，最终报告由 `run` 返回。用 `currentStep` 和 `completedStepCount` 显示进度，`Step.allCases.count` 是总步数。
+- 取消时调用该任务的 `cancel()`，等 `run` 返回即可显示已完成的测试。重试时再调用一次 `run`，每次都有新的 `id`。更新 SwiftUI 状态时回到 `MainActor`。
+- 单项用 `QualityCheck` 显示等待、进行中、成功、无法测量和已取消。`.completed` 表示测完，单项仍可能失败。`.interrupted(.offline)` 和 `.interrupted(.networkChanged)` 表示途中停止。没开始的项保持 `.pending`。
+- 测速请求发送和接收的数据合计最多约 42 MB，另有小量请求和协议开销。请求根据系统和 VPN 当前的路由发出。`network` 是系统监视到的起始网络，报告里的出口 IP 对应各自的检测请求。分流时，测速和查 IP 可能走不同的出口。
+- 分享时如需隐藏 IP，使用报告里非地址字段生成分享内容。报告的原始 JSON 包含完整地址。
+
+| 字段 | 单位与算法 | 节点和字段说明 |
+| --- | --- | --- |
+| `ipv4`、`ipv6` | 分别请求仅支持对应地址类型的 ipify 端点，检查实际返回地址的类型 | `source` 带请求地址和时间。地址由对应站点观察到。仅 IPv6 网络也可能经 NAT64 访问 IPv4 端点。 |
+| `attribution` | 用实际查出的 IP 查询 IPinfo，记录国家、地区、城市、ASN 和该网络名称 | `attributionSource` 带数据来源和查询时间。查不到归属时仍显示出口地址。IPinfo 的匿名查询会按出口地址限制请求量。 |
+| `latency` | ms。Cloudflare 请求 `bytes=0` 预热一次，取五次 HTTP 首字节时延的中位数，从请求开始计时。有有效服务端耗时时扣除它。 | 每个样本记测试时间、Cloudflare 节点代码、实际连接的地址类型（若系统提供）和失败原因。端点为 `speed.cloudflare.com/__down?bytes=0`。 |
+| `jitterMilliseconds` | ms。相邻、成功且到同一节点、使用同一地址类型的时延差取绝对值，再求平均。没有这样的样本对时留空。 | 与 `latency` 共用样本。 |
+| `download`、`upload` | Mbps。两方向各尝试 1 MB、10 MB、10 MB。用内容字节数除以耗时，取至少 250 ms 的样本的第 90 百分位。全是短样本时，取最大成功测试量对应的样本，标为估计值。 | 下载从请求开始计到接收结束，扣除服务端耗时。上传从请求开始计到收到响应首字节。每次记录字节数、耗时、节点和时间。 |
+
+Cloudflare 的 HTTP 时延和抖动算法可在同节点上复测。iNod 使用较少的样本和流量，带宽统计以内容字节数为准。NodeQuality 的 NetQuality 报告采用 Speedtest.net 节点和三网 TCP 延迟，公网 IP 类型、ASN 和国家可比。测速成绩需要在同一节点用相同大小、样本数和算法复测再比较。
+
+[NodeQuality](https://github.com/LloydAsp/NodeQuality) / [NetQuality](https://github.com/xykt/NetQuality) / [IPQuality](https://github.com/xykt/IPQuality) / [Cloudflare Speedtest](https://github.com/cloudflare/speedtest) / [ipify](https://www.ipify.org/) / [IPinfo](https://support.ipinfo.io/hc/en-us/articles/34121895556242-Legacy-Free-API-vs-IPinfo-Lite)
+
+## 首版对照方法
+
+1. iPhone 和电脑连同一个 Wi-Fi，在相近时间分别跑检测，每次记录设备、时间、连接方式、是否有 VPN、出口类型和测速节点。只有节点一致的样本用于计算差异。
+2. 在电脑上运行同一 `NetworkQualityService`，使用相同的请求大小、顺序和算法。记录两个报告的延迟、抖动和 Mbps，并检查两侧 IP 和 ASN。
+3. 在 iPhone 上用蜂窝网络重跑。还需在仅一种 IP 可用、VPN 分流、测速时换网络和取消后重跑的情况下记录结果。检查用户看到的不可用原因是否与实际情况相符。
+
+## 进阶检测与离线跑分
+
+- 用 `AdvancedNetworkQualityService().run(for:)` 对已有首版报告补测。预览用 `AdvancedQualityExamples.partial`。五个网站分别发一次 HTTPS GET，报告区分页面可访问、重定向、HTTP 451、超时和其他失败。HTTP 403 只记录服务端拒绝。
+- 邮件测试尝试连接 `portquiz.net` 的 TCP 25，区分成功、拒绝、超时和其他错误。STUN 检测通过同一个 IPv4 UDP 端口，向服务器的不同 IP 和端口发请求，记录观测到的映射地址、端口和 RFC 5780 映射行为。先测 Nextcloud，查不全时再测小米，两次尝试分别返回。
+- IP 信誉从 Spamhaus DROP 和 Blocklist.de 下载公开名单，在手机上分别比对已有的 IPv4 和 IPv6。`notListed` 表示对应名单未收录该地址。各来源的结果、失败原因和查询时间分开显示。
+- 三网使用 NextTrace 的北京电信、北京联通、广州移动 IPv4 节点。向每个节点发 5 个 ICMP 请求计算丢包。逐跳追踪最多 24 跳，一跳超时后继续测。报告记录缺少回应的位置、目标和实际发包数。对最多 12 个不同的公网沿途地址查 IPinfo，查到时附上网络名称和 ASN。这是从手机发出的线路，NodeQuality 还会检测反方向线路。
+- 用 `HardwareQualityService.run(onProgress:)` 在 iPhone 上离线运行。取消和首版检测的用法一样，预览用 `HardwareQualityExamples.completed`。CPU 单线程计算 128 MiB 输入的 SHA-256。存储顺序写入并同步 64 MiB 测试文件，再顺序读回。写入和读取都请系统绕过文件缓存，完成或取消后删除测试文件。结果以 MiB/s 为单位，带系统版本、设备型号、低电量模式和温度状态。
+
+[RFC 5780](https://www.rfc-editor.org/info/rfc5780/) / [Nextcloud STUN](https://github.com/nextcloud/spreed/blob/main/lib/Config.php) / [PortQuiz](http://portquiz.net/) / [Spamhaus DROP](https://www.spamhaus.org/blocklists/do-not-route-or-peer/) / [Blocklist.de](https://www.blocklist.de/en/export.html)
+
+## 实机验证记录
+
+iPhone 17，iOS 27.3，2026-11-17。手机离线时，网络检测返回 `offline`。连续三轮 CPU 和存储测试均完成，均无文件清理错误。设备温度状态始终为 `fair`，低电量模式关闭。下表数字四舍五入到整数。
+
+| 轮次 | CPU（MiB/s） | 写入（MiB/s） | 读取（MiB/s） |
+| --- | ---: | ---: | ---: |
+| 1 | 2777 | 265 | 1287 |
+| 2 | 3009 | 232 | 933 |
+| 3 | 2575 | 203 | 941 |
+
+Mac 在 2026-11-18 用同一份代码经 Wi-Fi 测得 TPE 节点下载 4.48 Mbps、上传 4.56 Mbps、时延 376.52 ms、抖动 401.32 ms，五个时延样本均有效。IPv4 和归属返回成功，IPv6 请求在建立加密连接时失败。TCP 25 可连接。两个 IP 名单先前一次请求成功，本次均超时。Nextcloud 返回了映射地址和端口，服务器给出的备用地址与主地址相同，小米请求超时，本次未取得 NAT 分类。三网均有目的地址回应，逐跳结果仍待真机确认。
+
+待测场景包括 iPhone 与电脑在同一 Wi-Fi 上对照、蜂窝网络、只有一种 IP 可用、VPN 分流和真机测速时换网。
