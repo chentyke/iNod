@@ -8,7 +8,7 @@ struct PostPreview: View {
     let post: PostSummary
     @AppStorage("showsBlockedContent") private var showsBlocked = false
     @State private var original: ForumComment?
-    @State private var replies: [ForumComment] = []
+    @State private var replies: [PostPreviewReply] = []
     @State private var error: (any Error)?
 
     var body: some View {
@@ -35,8 +35,8 @@ struct PostPreview: View {
                             Divider()
                             ForEach(visibleReplies) { reply in
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(reply.poster.name).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                                    Text(ForumText.attributed(Self.snippet(reply.markdown), baseURL: post.url)).font(.subheadline).foregroundStyle(Color.seekInk).lineLimit(3)
+                                    Text(reply.author).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                    Text(ForumText.attributed(reply.snippet, baseURL: post.url)).font(.subheadline).foregroundStyle(Color.seekInk).lineLimit(3)
                                 }
                             }
                         }
@@ -69,7 +69,7 @@ struct PostPreview: View {
                 try Task.checkCancellation()
                 guard showsBlocked == includeBlocked else { return }
                 original = detail.comments.first { $0.floorIndex == 0 }
-                replies = Array(detail.replies.filter { !Self.snippet($0.markdown).isEmpty }.prefix(3))
+                replies = PostPreviewReply.select(from: detail.replies)
                 if original == nil { error = SiteError.message("没有找到正文") }
             } catch is CancellationError {
             } catch {
@@ -77,13 +77,5 @@ struct PostPreview: View {
                 self.error = error
             }
         }
-    }
-
-    /// A reply's own words: quoted floors and sticker codes are left out.
-    private static func snippet(_ markdown: String) -> String {
-        let lines = markdown.split(whereSeparator: \.isNewline).filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix(">") }
-        return InlineContent.parse(lines.joined(separator: " "))
-            .compactMap { if case .text(let text) = $0 { text } else { nil } }
-            .joined().trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
