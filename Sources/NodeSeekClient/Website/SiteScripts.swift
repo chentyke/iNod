@@ -148,7 +148,7 @@ enum SiteScripts {
             const authentication = (() => {
         """# + readiness + #"""
             })();
-            return JSON.stringify({content:JSON.parse(content),authentication:JSON.parse(authentication)});
+            return {content, authentication};
         } catch(e) { return JSON.stringify({__error:e.message||String(e)}); }
         """#
     }
@@ -163,7 +163,7 @@ enum SiteScripts {
             const authentication = (() => {
         """# + readiness + #"""
             })();
-            return JSON.stringify({content:JSON.parse(content),authentication:JSON.parse(authentication)});
+            return {content, authentication};
         } catch(e) { return JSON.stringify({__error:e.message||String(e)}); }
         """#
     }

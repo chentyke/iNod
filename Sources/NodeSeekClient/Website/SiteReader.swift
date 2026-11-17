@@ -91,6 +91,10 @@ final class SiteReader {
     }
 
     private func scriptData(_ script: String, arguments: [String: Any] = [:]) async throws -> Data {
+        try checkedScriptData(await runScript(script, arguments: arguments))
+    }
+
+    private func runScript(_ script: String, arguments: [String: Any] = [:]) async throws -> Any? {
         let boundedScript = #"""
         const fetch = async (url, options = {}) => {
             try { return await globalThis.fetch(url, {...options,signal:AbortSignal.timeout(\#(Int(Self.requestTimeout * 1000)))}); }
@@ -107,6 +111,10 @@ final class SiteReader {
         let requestPage = page
         let result = try await requestPage.callJavaScript(boundedScript, arguments: arguments)
         guard requestPage === storedPage else { throw CancellationError() }
+        return result
+    }
+
+    private func checkedScriptData(_ result: Any?) throws -> Data {
         guard let json = result as? String else { throw SiteError.invalidResponse }
         let data = Data(json.utf8)
         if let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
@@ -201,21 +209,26 @@ final class SiteReader {
         needsWebsite = false
         if loadedDocument == url {
             loadedDocument = nil
-            do { return try await read(scriptData(SiteScripts.loadedDocument(extraction))) }
+            do { return try readDocument(await runScript(SiteScripts.loadedDocument(extraction))) }
             catch is CancellationError { throw CancellationError() }
             catch { }
             needsWebsite = false
         }
-        return try await read(scriptData(SiteScripts.document(extraction, checkingPostAccess: checkingPostAccess), arguments: ["path": url.absoluteString]))
+        return try readDocument(await runScript(
+            SiteScripts.document(extraction, checkingPostAccess: checkingPostAccess), arguments: ["path": url.absoluteString]
+        ))
     }
 
-    private func read(_ data: Data) throws -> Data {
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let content = object["content"], let auth = object["authentication"] as? [String: Any] else { throw SiteError.invalidResponse }
-        let snapshot = try JSONDecoder().decode(AuthenticationSnapshot.self, from: JSONSerialization.data(withJSONObject: auth))
+    private func readDocument(_ result: Any?) throws -> Data {
+        guard let document = result as? [String: String],
+              let content = document["content"], let auth = document["authentication"] else {
+            _ = try checkedScriptData(result)
+            throw SiteError.invalidResponse
+        }
+        let snapshot = try JSONDecoder().decode(AuthenticationSnapshot.self, from: Data(auth.utf8))
         guard snapshot.ready else { throw SiteError.invalidResponse }
         authentication = snapshot
-        return try JSONSerialization.data(withJSONObject: content, options: .fragmentsAllowed)
+        return Data(content.utf8)
     }
 
     func reply(postID: Int, content: String) async throws {

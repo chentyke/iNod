@@ -72,3 +72,27 @@ import Testing
     #expect(cache.count == 1)
     #expect(cache.totalBytes == 2)
 }
+
+@Test func cacheReusesDecodedResponsesWithinTheSameBudgetAndExpiration() throws {
+    final class Response: Decodable {
+        let id: Int
+    }
+    let data = Data(#"{"id":7}"#.utf8)
+    let response = try JSONDecoder().decode(Response.self, from: data)
+    let start = Date(timeIntervalSince1970: 1000)
+    var cache = ResponseCache<String>(maximumBytes: data.count * 2)
+    cache.insert(data, decoded: response, for: "thread", lifetime: 15, now: start)
+    #expect(cache.totalBytes == data.count * 2)
+    #expect(try cache.decodedValue(Response.self, for: "thread", now: start) === response)
+    #expect(try cache.decodedValue([String: Int].self, for: "thread", now: start) == ["id": 7])
+    #expect(try cache.decodedValue(Response.self, for: "thread", now: start.addingTimeInterval(15)) == nil)
+    #expect(try cache.decodedValue(Response.self, for: "thread", now: start.addingTimeInterval(15), allowingStale: true) === response)
+    cache.insert(data, for: "another", lifetime: 15, now: start)
+    #expect(try cache.decodedValue(Response.self, for: "thread", now: start, allowingStale: true) == nil)
+    #expect(cache.totalBytes == data.count)
+
+    var smallCache = ResponseCache<String>(maximumBytes: data.count)
+    smallCache.insert(data, decoded: response, for: "thread", lifetime: 15, now: start)
+    #expect(smallCache.totalBytes == data.count)
+    #expect(try smallCache.decodedValue(Response.self, for: "thread", now: start)?.id == 7)
+}
