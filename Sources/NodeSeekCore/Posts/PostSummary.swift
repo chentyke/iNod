@@ -1,6 +1,9 @@
 import Foundation
+import Synchronization
 
 public struct PostSummary: Codable, Identifiable, Hashable, Sendable {
+    private static let activityDateFormatter = Mutex(ISO8601DateFormatter.nodeSeek)
+
     public let id: Int
     public let title: String
     public let author: String
@@ -16,4 +19,7 @@ public struct PostSummary: Codable, Identifiable, Hashable, Sendable {
 
     public var url: URL { NodeSeekRoute.thread(id: id, page: 1).url }
     public var avatarURL: URL? { URL(string: avatar, relativeTo: NodeSeekRoute.origin)?.absoluteURL }
+    public var parsedActivityDate: Date? {
+        Self.activityDateFormatter.withLock { $0.date(from: activityDate) }
+    }
 }
