@@ -12,19 +12,31 @@ import WebKit
             if event == .finished { break }
         }
 
+        func response(_ result: Any?) throws -> [String: Any] {
+            if let document = result as? [String: String] {
+                return try document.mapValues {
+                    try JSONSerialization.jsonObject(with: Data($0.utf8), options: .fragmentsAllowed)
+                }
+            }
+            let json = result as! String
+            let failure = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+            precondition(failure["__error"] != nil || failure["__postAccess"] != nil)
+            return failure
+        }
+
         func read(_ extraction: String, html: String, url: URL = url, status: Int = 200, challenge: Bool = false,
                   checkingPostAccess: Bool = true) async throws -> [String: Any] {
-            let response = #"""
+            let mockFetch = #"""
             const fetch = async () => ({
                 ok: status < 400, status, url: path, text: async () => html,
                 headers: new Headers(challenge ? {'cf-mitigated': 'challenge'} : {})
             });
             """#
-            let script = response + SiteScripts.document(extraction, checkingPostAccess: checkingPostAccess)
-            let json = try await page.callJavaScript(script, arguments: [
+            let script = mockFetch + SiteScripts.document(extraction, checkingPostAccess: checkingPostAccess)
+            let result = try await page.callJavaScript(script, arguments: [
                 "path": url.absoluteString, "html": html, "status": status, "challenge": challenge
-            ]) as! String
-            return try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+            ])
+            return try response(result)
         }
 
         let levelMessage = "查看本帖需要<b>Lv 5</b>，您的权限不足😑，请赚取🍗升级您的用户等级"
@@ -58,6 +70,18 @@ import WebKit
         let post = readable["content"] as? [String: Any]
         precondition(post?["rank"] as? Int == 5 && post?["views"] as? String == "42", "\(readable)")
         precondition((post?["comments"] as? [Any])?.count == 1)
+
+        let markdown = "## 引用\n\n> \"原文\""
+        let loaded = try await page.callJavaScript(
+            "window.__config__ = {user: {member_id: 7, member_name: '读者'}};\n"
+                + SiteScripts.loadedDocument("return JSON.stringify(markdown);"),
+            arguments: ["markdown": markdown]
+        )
+        let loadedDocument = try response(loaded)
+        let auth = loadedDocument["authentication"] as? [String: Any]
+        precondition(loadedDocument["content"] as? String == markdown)
+        precondition(auth?["ready"] as? Bool == true)
+        precondition((auth?["user"] as? [String: Any])?["id"] as? Int == 7)
 
         let feedHTML = bootstrap + """
         <ul><li class="post-list-item"><div class="post-title">

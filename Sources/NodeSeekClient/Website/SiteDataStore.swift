@@ -73,7 +73,9 @@ public final class SiteDataStore {
 
     public func cached<Value: Decodable>(_ type: Value.Type = Value.self, key: SiteRequestKey, allowingStale: Bool = true) -> Value? {
         guard snapshot?.user?.id == key.userID else { return nil }
-        if let data = cache.value(for: key, allowingStale: allowingStale) { return try? JSONDecoder().decode(type, from: data) }
+        do {
+            if let value = try cache.decodedValue(type, for: key, allowingStale: allowingStale) { return value }
+        } catch { return nil }
         guard allowingStale, let disk, Self.persistedKinds.contains(key.kind) else { return nil }
         // Before the site confirms who is signed in, trust the account the saved pages belong to.
         let owner = snapshot == nil ? persistedAccount : key.userID
@@ -290,7 +292,7 @@ public final class SiteDataStore {
             return try JSONDecoder().decode(Value.self, from: data)
         }
         #endif
-        if !force, let data = cache.value(for: key) { return try JSONDecoder().decode(Value.self, from: data) }
+        if !force, let value = try cache.decodedValue(Value.self, for: key) { return value }
         let epoch = generation
         let request: (id: UUID, task: Task<DecodedResponse, Error>)
         if let existing = requests[key] { request = existing }
@@ -302,7 +304,8 @@ public final class SiteDataStore {
                 let value = try JSONDecoder().decode(Value.self, from: data)
                 try validate?(value)
                 let response = DecodedResponse(value, data: data)
-                self.cache.insert(data, for: key, lifetime: lifetime)
+                let keepDecoded = key.kind.hasPrefix("feed") || key.kind.hasPrefix("thread")
+                self.cache.insert(data, decoded: keepDecoded ? value : nil, for: key, lifetime: lifetime)
                 if Self.persistedKinds.contains(key.kind) { self.disk?.insert(data, kind: key.kind, path: key.path, owner: key.userID) }
                 return response
             })
