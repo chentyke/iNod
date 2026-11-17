@@ -47,6 +47,8 @@ struct ThreadView: View {
     @State private var actionError: String?
     @State private var showsActionError = false
     @State private var gallery: ImageGallery?
+    @State private var replyImagePages: [Task<ImageGallery.ReplyImages, Never>] = []
+    @State private var openingGallery: Task<Void, Never>?
 
     private var accessError: PostAccessError? { error as? PostAccessError }
     private var isCollected: Bool { account.collections.status(post.id) == true }
@@ -229,6 +231,7 @@ struct ThreadView: View {
             if let reactionToPrepare { await prepare(reactionToPrepare.reaction, commentID: reactionToPrepare.commentID) }
         }
         .onDisappear {
+            openingGallery?.cancel()
             requestedCommentPage = nil
             pendingReply = nil
             reactionToPrepare = nil
@@ -333,11 +336,28 @@ struct ThreadView: View {
     }
 
     private func openImages(_ images: ImageGallery, from comment: ForumComment) {
+        openingGallery?.cancel()
         guard comment.floorIndex > 0, let detail else { gallery = images; return }
-        let replies = visibleReplies(in: detail)
-        guard let index = replies.firstIndex(where: { $0.id == comment.id }) else { return }
-        gallery = images.adding(before: replies[..<index].flatMap { ImageGallery.images(in: $0.markdown) },
-                               after: replies[(index + 1)...].flatMap { ImageGallery.images(in: $0.markdown) })
+        let replyIDs = visibleReplies(in: detail).map(\.id)
+        guard let index = replyIDs.firstIndex(of: comment.id) else { return }
+        let pages = replyImagePages
+        let key = loadedKey
+        let revision = account.revision
+        let kind = threadKind
+        openingGallery = Task {
+            let result = await images.includingReplies(replyIDs, at: index, from: pages)
+            guard !Task.isCancelled, loadedKey == key, account.revision == revision, threadKind == kind else { return }
+            gallery = result
+        }
+    }
+
+    private func setDetail(_ value: PostDetail?) {
+        if value == nil {
+            openingGallery?.cancel()
+            for page in replyImagePages { page.cancel() }
+        }
+        replyImagePages = value.map { [ImageGallery.prepareReplyImages(visibleReplies(in: $0))] } ?? []
+        detail = value
     }
 
     private func requestReply(content: String = "") {
@@ -489,6 +509,8 @@ struct ThreadView: View {
             guard result.postId == post.id, result.postPage == requestedPage else { throw SiteError.invalidResponse }
             var existingIDs = Set(detail?.comments.map(\.id) ?? [])
             let comments = result.comments.filter { existingIDs.insert($0.id).inserted }
+            let replies = comments.filter { $0.floorIndex > 0 && (showsBlocked || !$0.blocked) }
+            replyImagePages.append(ImageGallery.prepareReplyImages(replies))
             if loadingEarlier {
                 detail?.comments.insert(contentsOf: comments, at: 0)
                 firstLoadedPage = requestedPage
@@ -515,7 +537,7 @@ struct ThreadView: View {
     }
 
     private func showAccessError(_ error: PostAccessError) {
-        detail = nil
+        setDetail(nil)
         createdDate = nil
         self.error = error
     }
@@ -528,9 +550,9 @@ struct ThreadView: View {
         loadID = operation
         requestedCommentPage = nil
         commentPageErrors.removeAll()
-        if loadedKey != key { detail = nil }
+        if loadedKey != key { setDetail(nil) }
         loadedKey = key
-        if detail == nil { detail = account.website.cached(key: key) }
+        if detail == nil, let cached: PostDetail = account.website.cached(key: key) { setDetail(cached) }
         if let date = detail?.comments.first(where: { $0.floorIndex == 0 })?.time.date { createdDate = date }
         firstLoadedPage = detail?.postPage ?? page
         lastLoadedPage = firstLoadedPage
@@ -548,7 +570,7 @@ struct ThreadView: View {
             guard loadID == operation, threadKind == key.kind else { return }
             account.synchronizeAfterRequest(expectedRevision: sessionRevision)
             guard account.revision == sessionRevision else { return }
-            detail = result
+            setDetail(result)
             account.collections.observe([post.id], collected: result.collected == true, expectedRevision: collectionRevision)
             if let date = result.comments.first(where: { $0.floorIndex == 0 })?.time.date { createdDate = date }
             firstLoadedPage = result.postPage

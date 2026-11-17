@@ -44,6 +44,28 @@ final class ThreadImageGalleryTests: XCTestCase {
         assertPicture("第二条评论第一张", position: "第 3 张，共 3 张", in: app)
     }
 
+    func testIncludesImagesAfterLoadingAnotherReplyPage() throws {
+        continueAfterFailure = false
+        let server = try imageServer()
+        defer { server.cancel() }
+        let port = try XCTUnwrap(server.port)
+        let app = XCUIApplication()
+        app.launchArguments += ["-showsBlockedContent", "NO"]
+        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture(port: port.rawValue, paged: true)
+        app.launch()
+
+        let post = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "周末照片")).firstMatch
+        XCTAssertTrue(post.waitForExistence(timeout: 8))
+        post.tap()
+
+        let laterImage = app.buttons["第二条评论第一张"]
+        XCTAssertTrue(reveal(laterImage, in: app.scrollViews.firstMatch))
+        laterImage.tap()
+        assertPicture("第二条评论第一张", position: "第 3 张，共 3 张", in: app)
+        swipeGallery(in: app, forward: false)
+        assertPicture("第一条评论第二张", position: "第 2 张，共 3 张", in: app)
+    }
+
     func testCollapsedCalloutsShowImagesAfterOpening() throws {
         continueAfterFailure = false
         let server = try imageServer()
@@ -141,7 +163,7 @@ final class ThreadImageGalleryTests: XCTestCase {
         return listener
     }
 
-    private func websiteFixture(port: UInt16, opening: String? = nil) throws -> String {
+    private func websiteFixture(port: UInt16, opening: String? = nil, paged: Bool = false) throws -> String {
         let author: [String: Any] = ["uid": 101, "name": "楼主"]
         let reader: [String: Any] = ["uid": 102, "name": "读者"]
         let timestamp = "2025-01-04T12:00:00.000Z"
@@ -159,13 +181,20 @@ final class ThreadImageGalleryTests: XCTestCase {
         let feedPost: [String: Any] = ["id": 123, "title": "周末照片", "author": "楼主", "authorID": 101,
                                       "avatar": "", "category": "日常", "categoryKey": "daily", "views": 100,
                                       "replies": 3, "activityDate": timestamp, "pinned": false]
-        let responses: [String: [String: Any]] = [
+        var responses: [String: [String: Any]] = [
             "https://www.nodeseek.com/?sortBy=replyTime": ["posts": [feedPost], "pinnedPosts": [], "hasNextPage": false],
             "/api/content/list-categories": ["success": true, "data": []],
             "/api/notification/unread-count": ["unreadCount": ["all": 0]],
             "https://www.nodeseek.com/post-123-1": ["postId": 123, "title": "周末照片", "categoryWord": "日常",
-                "views": "100", "postPage": 1, "postPageCount": 1, "collectionCount": 0, "op": author, "comments": comments]
+                "views": "100", "postPage": 1, "postPageCount": paged ? 2 : 1, "collectionCount": 0, "op": author,
+                "comments": paged ? Array(comments.dropLast()) : comments]
         ]
+        if paged {
+            responses["https://www.nodeseek.com/post-123-2"] = [
+                "postId": 123, "title": "周末照片", "categoryWord": "日常", "views": "100",
+                "postPage": 2, "postPageCount": 2, "collectionCount": 0, "op": author, "comments": [comments[3]]
+            ]
+        }
         let fixture: [String: Any] = [
             "authentication": ["ready": true, "user": ["id": 101, "name": "楼主"]],
             "responses": try responses.mapValues { try JSONSerialization.data(withJSONObject: $0).base64EncodedString() }
