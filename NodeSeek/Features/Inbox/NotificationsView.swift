@@ -87,16 +87,12 @@ struct NotificationsView: View {
         guard !isMarkingRead else { return }
         isMarkingRead = true
         defer { isMarkingRead = false }
-        if tab == .messages {
-            do { try await account.inbox.markAllMessagesRead(userID: userID) }
-            catch is CancellationError { }
-            catch { readError = SiteError.displayMessage(for: error) }
-        } else {
-            for kind in NoticeKind.allCases {
-                do { try await account.inbox.markNoticesRead(kind, ids: nil, userID: userID) }
-                catch is CancellationError { return }
-                catch { readError = SiteError.displayMessage(for: error) }
+        do {
+            switch tab {
+            case .messages: try await account.inbox.markAllMessagesRead(userID: userID)
+            case .activity: try await account.inbox.markAllNoticesRead(userID: userID)
             }
-        }
+        } catch is CancellationError { }
+        catch { readError = SiteError.displayMessage(for: error) }
     }
 }

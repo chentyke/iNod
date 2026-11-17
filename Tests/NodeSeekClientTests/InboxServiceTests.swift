@@ -89,6 +89,30 @@ struct InboxServiceTests {
         #expect(inbox.unreadCount == 7)
     }
 
+    @Test(arguments: [false, true])
+    func markingAllNoticesRefreshesUnreadOnceAfterTheWrites(failsFirst: Bool) async throws {
+        let site = try TestInboxWebsite()
+        let inbox = InboxService(website: site)
+        inbox.reset(userID: 1, unreadCount: 4)
+        if failsFirst { site.failingNoticeKind = .replies }
+
+        let (reads, continuation) = AsyncStream<[NoticeKind]>.makeStream()
+        site.onUnreadRead = { continuation.yield(site.noticeWrites) }
+        if failsFirst {
+            await #expect(throws: TestInboxWebsite.Failure.self) { try await inbox.markAllNoticesRead(userID: 1) }
+        } else {
+            try await inbox.markAllNoticesRead(userID: 1)
+        }
+
+        var iterator = reads.makeAsyncIterator()
+        let writesAtRefresh = await iterator.next()
+        continuation.finish()
+        site.onUnreadRead = nil
+        #expect(writesAtRefresh == NoticeKind.allCases)
+        #expect(site.unreadReads == 1)
+        #expect(site.noticeWrites == NoticeKind.allCases)
+    }
+
     @Test func confirmedSendSurvivesAFailedListRefresh() async throws {
         let site = try TestInboxWebsite()
         let inbox = InboxService(website: site)
@@ -115,6 +139,10 @@ private final class TestInboxWebsite: InboxWebsite {
     private var finishConversationRead: CheckedContinuation<Void, Never>?
     private(set) var threadReads = 0
     private(set) var conversationReads: [Int] = []
+    private(set) var unreadReads = 0
+    private(set) var noticeWrites: [NoticeKind] = []
+    var onUnreadRead: (() -> Void)?
+    var failingNoticeKind: NoticeKind?
     var failUnreadRefresh = false
     var failMarkRead = false
     var failThreadsRead = false
@@ -155,6 +183,8 @@ private final class TestInboxWebsite: InboxWebsite {
     }
 
     func unreadCount(userID: Int) async throws -> Int {
+        unreadReads += 1
+        onUnreadRead?()
         if failUnreadRefresh { throw Failure.network }
         return 3
     }
@@ -182,7 +212,10 @@ private final class TestInboxWebsite: InboxWebsite {
         """#.utf8))
     }
     func notices(_ kind: NoticeKind, userID: Int, force: Bool) async throws -> AccountPage<ForumNotice> { .init(items: [], hasNext: false) }
-    func markNoticesRead(_ kind: NoticeKind, ids: [Int]?, userID: Int) async throws { }
+    func markNoticesRead(_ kind: NoticeKind, ids: [Int]?, userID: Int) async throws {
+        noticeWrites.append(kind)
+        if kind == failingNoticeKind { throw Failure.network }
+    }
 
     func markMessagesRead(ids: [Int]?, peerID: Int?, userID: Int) async throws {
         if failMarkRead { throw Failure.network }
