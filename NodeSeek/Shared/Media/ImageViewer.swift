@@ -2,12 +2,14 @@ import SwiftUI
 
 struct ImageViewer: View {
     let gallery: ImageGallery
+    let initialImageIsThumbnail: Bool
     @Environment(\.dismiss) private var dismiss
     @State private var currentIndex: Int
     @State private var zoomedPage: Int?
 
-    init(gallery: ImageGallery) {
+    init(gallery: ImageGallery, initialImageIsThumbnail: Bool = false) {
         self.gallery = gallery
+        self.initialImageIsThumbnail = initialImageIsThumbnail
         _currentIndex = State(initialValue: gallery.startIndex)
     }
 
@@ -62,7 +64,11 @@ struct ImageViewer: View {
 
     private func page(at index: Int) -> some View {
         let item = gallery.items[index]
-        return ForumImageContent(url: item.url, initialImage: index == gallery.startIndex ? gallery.initialImage : nil) { image in
+        let initialImage = index == gallery.startIndex ? gallery.initialImage : nil
+        return ForumImageContent(url: item.url,
+                                 initialImage: initialImageIsThumbnail ? nil : initialImage,
+                                 previewImage: initialImageIsThumbnail ? initialImage : nil,
+                                 prioritized: index == currentIndex) { image in
             ZoomableForumImage(image: image, label: item.label, isCurrent: index == currentIndex) { isZoomed in
                 if isZoomed { zoomedPage = index }
                 else if zoomedPage == index { zoomedPage = nil }
