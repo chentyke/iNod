@@ -10,7 +10,9 @@ struct TelegramSettingsView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var confirmsUnbind = false
-    @State private var showsWebsite = false
+    /// Set when the reader leaves for the website, so the binding is read again when they come back.
+    @State private var awaitsWebsite = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Form {
@@ -21,7 +23,10 @@ struct TelegramSettingsView: View {
                         if !detail.displayName.isEmpty { LabeledContent("名称", value: detail.displayName).textSelection(.enabled) }
                         if let username = detail.username { LabeledContent("用户名", value: "@" + username).textSelection(.enabled) }
                     }
-                    Button(bound ? "在官网管理绑定" : "绑定 Telegram", systemImage: "globe") { showsWebsite = true }
+                    Button(bound ? "在官网管理绑定" : "绑定 Telegram", systemImage: "globe") {
+                        awaitsWebsite = true
+                        Browser.open(NodeSeekRoute.settings(section: "contact").url)
+                    }
                     if bound { Button("解除绑定", role: .destructive) { confirmsUnbind = true } }
                 }
             } else if busy { ProgressView("正在读取绑定信息") }
@@ -30,8 +35,10 @@ struct TelegramSettingsView: View {
         }
         .seekCanvas().navigationTitle("Telegram 提醒").navigationBarTitleDisplayMode(.inline).disabled(busy)
         .task { await load() }.refreshable { await load() }
-        .sheet(isPresented: $showsWebsite, onDismiss: { Task { await load() } }) {
-            WebsiteView(initialURL: URL(string: "https://www.nodeseek.com/setting#contact")!)
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, awaitsWebsite else { return }
+            awaitsWebsite = false
+            Task { await load() }
         }
         .confirmationDialog("解除 Telegram 绑定？", isPresented: $confirmsUnbind, titleVisibility: .visible) {
             Button("解除绑定", role: .destructive) { Task { await unbind() } }

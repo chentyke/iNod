@@ -72,3 +72,12 @@ import Testing
     ])
     #expect(ForumText.attributed("@Alice #7").runs.compactMap(\.link).isEmpty)
 }
+
+@Test func websiteOnlyPagesHaveRoutesThatStayOnTheWebsite() {
+    let settings = NodeSeekRoute.settings(section: "contact").url
+    #expect(settings.absoluteString == "https://www.nodeseek.com/setting#contact")
+    #expect(ForumLink.parse(settings.absoluteString) == .website(settings))
+    let signIn = NodeSeekRoute.signIn.url
+    #expect(signIn.absoluteString == "https://www.nodeseek.com/signIn.html")
+    #expect(ForumLink.parse(signIn.absoluteString) == .website(signIn))
+}

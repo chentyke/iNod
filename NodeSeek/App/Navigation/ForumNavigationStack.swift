@@ -7,7 +7,6 @@ struct ForumNavigationStack<Content: View>: View {
     @ViewBuilder let content: () -> Content
     @Environment(AccountSession.self) private var account
     @State private var path = NavigationPath()
-    @State private var website: ForumWebsiteAddress?
     @Namespace private var postTransition
 
     var body: some View {
@@ -54,16 +53,15 @@ struct ForumNavigationStack<Content: View>: View {
         .environment(\.postTransitionNamespace, postTransition)
         .environment(\.openAccountDestination, AccountNavigationAction { path.append($0) })
         .environment(\.openURL,OpenURLAction { url in
-            guard let link = ForumLink.parse(url.absoluteString) else { return .systemAction }
-            switch link {
-            case .native(let destination): path.append(destination)
-            case .website(let url): website = ForumWebsiteAddress(url:url)
+            switch ForumLink.parse(url.absoluteString) {
+            case .native(let destination): path.append(destination); return .handled
+            // A page the app has no screen for opens in the reader's browser.
+            case .website(let url): return .systemAction(url)
+            case nil: return .systemAction
             }
-            return .handled
         })
-        .sheet(item:$website) { address in WebsiteView(initialURL: address.url) }
         .onChange(of: account.user?.id) { previous, current in
-            if previous != nil, previous != current { path = NavigationPath(); website = nil }
+            if previous != nil, previous != current { path = NavigationPath() }
         }
     }
 

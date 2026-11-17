@@ -6,6 +6,10 @@ public enum NodeSeekRoute: Sendable {
     case thread(id: Int, page: Int)
     case home
     case recommended(page: Int)
+    /// A section of the website's settings page, such as `contact` or `security`.
+    case settings(section: String)
+    /// The website's sign-in page, which also leads to signing up and resetting a password.
+    case signIn
 
     public static let origin = URL(string: "https://www.nodeseek.com")!
 
@@ -30,6 +34,11 @@ public enum NodeSeekRoute: Sendable {
             parts.path = "/"
         case .recommended(let page):
             parts.path = max(1,page) == 1 ? "/award" : "/award/page-\(max(1,page))"
+        case .settings(let section):
+            parts.path = "/setting"
+            parts.fragment = section
+        case .signIn:
+            parts.path = "/signIn.html"
         }
         // Website query parsing treats a literal + as a space.
         parts.percentEncodedQuery = parts.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
