@@ -12,17 +12,25 @@ public final class InboxService {
     private var userID: Int?
     private var session = 0
     private var changes = 0
+    private var threadsChanged = 0
+    private var allConversationsChanged = 0
+    private var conversationsChanged: [Int: Int] = [:]
+    private var noticesChanged: [NoticeKind: Int] = [:]
+    private var markingConversations: Set<Int> = []
 
     init(website: any InboxWebsite) { self.website = website }
 
     func reset(userID: Int?, unreadCount: Int) {
-        session += 1
         changes += 1
+        session = changes
         self.userID = userID
         self.unreadCount = unreadCount
         threads = nil
         conversations.removeAll()
         notices.removeAll()
+        conversationsChanged.removeAll()
+        noticesChanged.removeAll()
+        markingConversations.removeAll()
     }
 
     public func refreshUnread() async {
@@ -36,38 +44,44 @@ public final class InboxService {
 
     public func loadThreads(userID: Int, force: Bool = false) async throws {
         try checkOwner(userID)
-        let version = changes
-        let value = try await website.messageThreads(userID: userID, force: force)
-        try checkRead(version)
-        threads = value
+        try await read(since: { threadsChanged }) {
+            try await website.messageThreads(userID: userID, force: force)
+        } apply: {
+            threads = $0
+        }
     }
 
     public func loadConversation(peerID: Int, userID: Int, force: Bool = false) async throws {
         try checkOwner(userID)
-        let version = changes
-        let value = try await website.conversation(peerID: peerID, userID: userID, force: force)
-        try checkRead(version)
-        conversations[peerID] = value
+        try await read(since: { max(allConversationsChanged, conversationsChanged[peerID] ?? 0) }) {
+            try await website.conversation(peerID: peerID, userID: userID, force: force)
+        } apply: {
+            conversations[peerID] = $0
+        }
     }
 
     public func loadNotices(_ kind: NoticeKind, userID: Int, force: Bool = false) async throws {
         try checkOwner(userID)
-        let version = changes
-        let value = try await website.notices(kind, userID: userID, force: force)
-        try checkRead(version)
-        notices[kind] = value
+        try await read(since: { noticesChanged[kind] ?? 0 }) {
+            try await website.notices(kind, userID: userID, force: force)
+        } apply: {
+            notices[kind] = $0
+        }
     }
 
     public func markConversationRead(peerID: Int, userID: Int) async throws {
         try checkOwner(userID)
         let ids = Set(conversations[peerID]?.items.filter { !$0.viewed && $0.receiverID == userID }.map(\.id) ?? [])
-        guard !ids.isEmpty else { return }
+        guard !ids.isEmpty, markingConversations.insert(peerID).inserted else { return }
         let version = session
-        try await website.markMessagesRead(ids: ids.sorted(), userID: userID)
-        try confirmChange(version)
+        defer { if session == version { markingConversations.remove(peerID) } }
+        try await website.markMessagesRead(ids: ids.sorted(), peerID: peerID, userID: userID)
+        try confirmMessageChange(version, peerID: peerID)
         updateConversation(peerID: peerID, userID: userID, ids: ids)
-        await refreshUnread()
-        try checkSession(version)
+        Task { [weak self] in
+            guard let self, self.session == version else { return }
+            await self.refreshUnread()
+        }
     }
 
     public func markAllMessagesRead(userID: Int) async throws {
@@ -75,8 +89,8 @@ public final class InboxService {
         let version = session
         let previousThreads = Set(threads?.items ?? [])
         let previousIDs = conversations.mapValues { Set($0.items.map(\.id)) }
-        try await website.markMessagesRead(ids: nil, userID: userID)
-        try confirmChange(version)
+        try await website.markMessagesRead(ids: nil, peerID: nil, userID: userID)
+        try confirmMessageChange(version, peerID: nil)
         updateThreads { previousThreads.contains($0) }
         for (peerID, ids) in previousIDs { updateConversation(peerID: peerID, userID: userID, ids: ids) }
         await refreshUnread()
@@ -89,6 +103,7 @@ public final class InboxService {
         let affected = Set(ids ?? notices[kind]?.items.map(\.id) ?? [])
         try await website.markNoticesRead(kind, ids: ids, userID: userID)
         try confirmChange(version)
+        noticesChanged[kind] = changes
         if let page = notices[kind] {
             notices[kind] = AccountPage(items: page.items.map { notice in
                 var notice = notice
@@ -104,10 +119,13 @@ public final class InboxService {
         try checkOwner(userID)
         let version = session
         try await website.sendMessage(content, markdown: markdown, peerID: peerID, userID: userID)
-        try confirmChange(version)
-        // The send is confirmed even if the subsequent reads fail.
-        if threads != nil { try? await loadThreads(userID: userID, force: true) }
-        try checkSession(version)
+        try confirmMessageChange(version, peerID: peerID)
+        if threads != nil {
+            Task { [weak self] in
+                guard let self, self.session == version else { return }
+                try? await self.loadThreads(userID: userID, force: true)
+            }
+        }
     }
 
     private func checkOwner(_ userID: Int) throws {
@@ -118,14 +136,45 @@ public final class InboxService {
         guard session == version else { throw CancellationError() }
     }
 
-    private func checkRead(_ version: Int) throws {
+    private func read<Value>(
+        since lastChange: () -> Int,
+        fetch: () async throws -> Value,
+        apply: (Value) -> Void
+    ) async throws {
+        let started = changes
+        do {
+            let value = try await fetch()
+            try checkRead(started, since: lastChange())
+            apply(value)
+        } catch is CancellationError {
+            // A write can invalidate a request while the page is still waiting for it.
+            try checkRead(started, since: session)
+            let retry = changes
+            let value = try await fetch()
+            try checkRead(retry, since: lastChange())
+            apply(value)
+        }
+    }
+
+    private func checkRead(_ version: Int, since lastChange: Int) throws {
         try Task.checkCancellation()
-        guard changes == version else { throw CancellationError() }
+        guard version >= max(session, lastChange) else { throw CancellationError() }
     }
 
     private func confirmChange(_ version: Int) throws {
         try checkSession(version)
         changes += 1
+    }
+
+    private func confirmMessageChange(_ version: Int, peerID: Int?) throws {
+        try confirmChange(version)
+        threadsChanged = changes
+        if let peerID {
+            conversationsChanged[peerID] = changes
+        } else {
+            allConversationsChanged = changes
+            conversationsChanged.removeAll()
+        }
     }
 
     private func updateConversation(peerID: Int, userID: Int, ids: Set<Int>) {

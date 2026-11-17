@@ -38,7 +38,7 @@ struct MessageThreadsView: View {
             .navigationLinkIndicatorVisibility(.hidden)
         }
         .scrollDismissesKeyboard(.interactively)
-        .task { await load(force: true) }
+        .task { await load() }
         .task(id: search) {
             memberSearch = nil
             guard !search.isEmpty else { return }

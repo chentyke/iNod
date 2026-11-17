@@ -7,7 +7,7 @@ struct ConversationView: View {
     let userID: Int
     @Environment(AccountSession.self) private var account
     @Environment(\.scenePhase) private var scenePhase
-    @State private var isLoading = false
+    @State private var loadID: UUID?
     @State private var isSending = false
     @State private var error: LoadFailure?
     private var conversation: ConversationData? { account.inbox.conversations[peer.id] }
@@ -23,8 +23,9 @@ struct ConversationView: View {
 
     var body: some View {
         let peerName = conversation?.peer.name ?? peer.name
+        let isActive = scenePhase == .active
 
-        AccountDataView(value: conversation, error: error, isBusy: isLoading || isSending, retry: { await load(force: true) }) { data in
+        AccountDataView(value: conversation, error: error, isBusy: loadID != nil || isSending, retry: { await load(force: true) }) { data in
             ScrollViewReader { proxy in
                 ScrollView {
                     ConversationTimeline(messages: data.items, userID: userID)
@@ -66,7 +67,7 @@ struct ConversationView: View {
         .navigationTitle(peerName)
         .safeAreaBar(edge: .bottom, spacing: 0) {
             MessageComposer(draft: $draft, isBusy: isSending,
-                canSend: !isSending && !isLoading && !draft.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && conversation != nil && account.user?.id == userID,
+                canSend: !isSending && !draft.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && conversation != nil && account.user?.id == userID,
                 focus: $isFocused,
                 onStickers: { isFocused = false; showsStickers = true },
                 onPreview: { isFocused = false; showsPreview = true },
@@ -91,13 +92,13 @@ struct ConversationView: View {
         }
         .onDisappear { isVisible = false }
         .onChange(of: draft) { if draftLoaded { MessageDraftStore.save(draft, ownerID: userID, peerID: peer.id) } }
-        .task(id: isVisible && scenePhase == .active) {
-            guard isVisible, scenePhase == .active else { return }
-            await load(force: true)
+        .task(id: isActive) {
+            guard isActive else { return }
+            await load(replacingCurrentLoad: true)
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(10)) } catch { return }
                 guard !Task.isCancelled, isVisible, scenePhase == .active else { return }
-                if !isSending && !isLoading { await load(force: true) }
+                if !isSending { await load(force: true) }
             }
         }
         .refreshable { await load(force: true) }
@@ -112,39 +113,51 @@ struct ConversationView: View {
         .sheet(isPresented:$showsStickers) { StickerPickerView { sticker in draft.isMarkdown = true; draft.content += ":\(sticker.code):" } }
     }
 
-    private func load(force: Bool = false) async {
-        guard account.user?.id == userID, !isLoading else { return }
-        isLoading = true
-        defer { isLoading = false }
+    private func load(force: Bool = false, replacingCurrentLoad: Bool = false) async {
+        guard account.user?.id == userID, !Task.isCancelled, replacingCurrentLoad || loadID == nil else { return }
+        let id = UUID()
+        loadID = id
+        defer { if loadID == id { loadID = nil } }
         error = nil
         let revision = account.revision
         do {
             try await account.inbox.loadConversation(peerID: peer.id, userID: userID, force: force)
-            guard !Task.isCancelled, isVisible, scenePhase == .active, account.revision == revision else { return }
+        } catch is CancellationError {
+            return
+        } catch {
+            if loadID == id, account.revision == revision, !Task.isCancelled { self.error = LoadFailure(error) }
+            return
+        }
+        guard loadID == id else { return }
+        loadID = nil
+        guard !Task.isCancelled, isVisible, scenePhase == .active, account.revision == revision else { return }
+        do {
             try await account.inbox.markConversationRead(peerID: peer.id, userID: userID)
         } catch is CancellationError {
         } catch {
-            if account.revision == revision, !Task.isCancelled { self.error = LoadFailure(error) }
+            if loadID == nil, account.revision == revision, !Task.isCancelled { self.error = LoadFailure(error) }
         }
     }
 
     private func send() async {
         let text = draft.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isSending, !isLoading, conversation != nil, account.user?.id == userID, peer.id != userID else { return }
+        guard !text.isEmpty, !isSending, conversation != nil, account.user?.id == userID, peer.id != userID else { return }
         isSending = true
-        defer { isSending = false }
         error = nil
         let revision = account.revision
         do {
+            defer { isSending = false }
             try await account.inbox.send(text, markdown: draft.isMarkdown, peerID: peer.id, userID: userID)
             guard account.revision == revision else { return }
             draft.content = ""
             MessageDraftStore.save(draft, ownerID: userID, peerID: peer.id)
             scrollAfterSend = true
-            await load(force: true)
         } catch is CancellationError {
+            return
         } catch {
             if account.revision == revision { self.error = LoadFailure(error) }
+            return
         }
+        await load(force: true, replacingCurrentLoad: true)
     }
 }
