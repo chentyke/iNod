@@ -34,7 +34,7 @@ public final class AccountSession {
     }
 
     #if DEBUG
-    private struct UITestWebsite: Decodable {
+    struct UITestWebsite: Decodable {
         let authentication: AuthenticationSnapshot
         let responses: [String: Data]
     }
