@@ -18,9 +18,9 @@ public final class SiteDataStore {
         let data: Data
         let value: Any
 
-        init<Value: Decodable>(_ type: Value.Type, data: Data) throws {
+        init<Value>(_ value: Value, data: Data) {
             self.data = data
-            value = try JSONDecoder().decode(type, from: data)
+            self.value = value
         }
     }
 
@@ -112,6 +112,12 @@ public final class SiteDataStore {
         guard auth.user?.id == userID else { throw SiteError.message("登录已变化，请返回「我的」重新打开。") }
         return try await value(key: key(for: resource, viewerID: userID), lifetime: resource.lifetime, force: force) {
             try await self.reader.accountData(resource, userID: userID)
+        } validate: { (result: Value) in
+            if case .conversation(let peerID) = resource {
+                guard (result as? ConversationData)?.belongs(to: userID, peerID: peerID) == true else {
+                    throw SiteError.message("返回的会话用户不一致，请重新打开私聊。")
+                }
+            }
         }
     }
 
@@ -204,19 +210,26 @@ public final class SiteDataStore {
         }
     }
 
-    func action(path: String, body: [String: Any], userID: Int, headers: [String: String]) async throws -> ReactionResponse {
+    func action(path: String, body: [String: Any], userID: Int, headers: [String: String], messagePeerID: Int? = nil) async throws -> ReactionResponse {
         let revision = identityRevision
         let auth = try await bootstrap()
         guard revision == identityRevision, auth.user?.id == userID else { throw CancellationError() }
         let result = try await reader.accountAction(path: path, body: body, userID: userID, headers: headers)
         guard revision == identityRevision else { throw CancellationError() }
-        invalidate(after: path)
+        invalidate(after: path, messagePeerID: messagePeerID)
         return result
     }
 
-    private func invalidate(after path: String) {
-        if path.hasPrefix("/api/notification/") {
-            invalidate { ["notices", "messages", "conversation"].contains($0.kind) || $0.path.hasPrefix("/api/notification/") }
+    private func invalidate(after path: String, messagePeerID: Int? = nil) {
+        if path.hasPrefix("/api/notification/message/") {
+            let conversationPath = messagePeerID.map { AccountResource.conversation($0).path }
+            invalidate { key in
+                key.kind == "messages" || key.path == Self.unreadCountPath
+                    || (key.kind == "conversation" && (conversationPath == nil || key.path == conversationPath))
+            }
+        } else if path.hasPrefix("/api/notification/") {
+            let prefix = path.split(separator: "/").dropLast().joined(separator: "/")
+            invalidate { $0.path.hasPrefix("/\(prefix)/") || $0.path == Self.unreadCountPath }
         } else if path.hasPrefix("/api/fans/") {
             invalidate { $0.kind == "profile" || $0.path.hasPrefix("/api/fans/") }
         } else if path.hasPrefix("/api/statistics/collection") {
@@ -266,7 +279,9 @@ public final class SiteDataStore {
         reader.resetAuthentication()
     }
 
-    private func value<Value: Decodable>(key: SiteRequestKey, lifetime: TimeInterval, force: Bool, fetch: @escaping @MainActor () async throws -> Data) async throws -> Value {
+    private func value<Value: Decodable>(key: SiteRequestKey, lifetime: TimeInterval, force: Bool,
+                                         fetch: @escaping @MainActor () async throws -> Data,
+                                         validate: ((Value) throws -> Void)? = nil) async throws -> Value {
         #if DEBUG
         if let responsesForUITests {
             guard let data = responsesForUITests[key.path] else {
@@ -284,7 +299,9 @@ public final class SiteDataStore {
                 let data = try await fetch()
                 try Task.checkCancellation()
                 guard self.generation == epoch else { throw CancellationError() }
-                let response = try DecodedResponse(Value.self, data: data)
+                let value = try JSONDecoder().decode(Value.self, from: data)
+                try validate?(value)
+                let response = DecodedResponse(value, data: data)
                 self.cache.insert(data, for: key, lifetime: lifetime)
                 if Self.persistedKinds.contains(key.kind) { self.disk?.insert(data, kind: key.kind, path: key.path, owner: key.userID) }
                 return response
@@ -296,6 +313,8 @@ public final class SiteDataStore {
         try Task.checkCancellation()
         guard generation == epoch else { throw CancellationError() }
         if let value = response.value as? Value { return value }
-        return try JSONDecoder().decode(Value.self, from: response.data)
+        let value = try JSONDecoder().decode(Value.self, from: response.data)
+        try validate?(value)
+        return value
     }
 }

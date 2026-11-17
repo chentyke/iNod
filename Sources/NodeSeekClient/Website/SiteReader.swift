@@ -34,18 +34,9 @@ final class SiteReader {
         needsWebsite = false
     }
 
-    func accountRead<T: Decodable>(_ resource: AccountResource, userID: Int) async throws -> T {
-        try JSONDecoder().decode(T.self, from: await accountData(resource, userID: userID))
-    }
-
     func accountData(_ resource: AccountResource, userID: Int) async throws -> Data {
         try await prepareAccount(userID: userID)
-        let data = try await readResource(resource, userID: userID)
-        if case .conversation(let peerID) = resource {
-            let conversation = try JSONDecoder().decode(ConversationData.self, from: data)
-            guard conversation.belongs(to: userID, peerID: peerID) else { throw SiteError.message("返回的会话用户不一致，请重新打开私聊。") }
-        }
-        return data
+        return try await readResource(resource, userID: userID)
     }
 
     func publicData(_ resource: AccountResource) async throws -> Data {

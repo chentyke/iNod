@@ -38,7 +38,7 @@ struct InboxServiceTests {
         #expect(inbox.unreadCount == 4)
     }
 
-    @Test func oldListCannotUndoAConfirmedRead() async throws {
+    @Test func listRetriesWhenAReadReceiptMakesItsResponseOutdated() async throws {
         let site = try TestInboxWebsite()
         let inbox = InboxService(website: site)
         inbox.reset(userID: 1, unreadCount: 4)
@@ -51,9 +51,27 @@ struct InboxServiceTests {
         try await inbox.markConversationRead(peerID: 2, userID: 1)
         site.resumeThreadsRead()
 
-        await #expect(throws: CancellationError.self) { try await pending.value }
+        try await pending.value
+        #expect(site.threadReads == 3)
         #expect(inbox.threads?.items.first?.viewed == true)
-        #expect(inbox.unreadCount == 3)
+    }
+
+    @Test func markingOneConversationReadDoesNotInterruptAnother() async throws {
+        let site = try TestInboxWebsite()
+        let inbox = InboxService(website: site)
+        inbox.reset(userID: 1, unreadCount: 4)
+        try await inbox.loadConversation(peerID: 2, userID: 1)
+
+        let pending = await site.pauseNextConversationRead {
+            try await inbox.loadConversation(peerID: 3, userID: 1)
+        }
+        try await inbox.markConversationRead(peerID: 2, userID: 1)
+        site.resumeConversationRead()
+
+        try await pending.value
+        #expect(site.conversationReads == [2, 3])
+        #expect(inbox.conversations[2]?.items.first?.viewed == true)
+        #expect(inbox.conversations[3]?.peer.id == 3)
     }
 
     @Test func oldResultsCannotEnterANewSessionForTheSameUser() async throws {
@@ -90,9 +108,13 @@ private final class TestInboxWebsite: InboxWebsite {
     enum Failure: Error { case network }
 
     private let conversationValue: ConversationData
-    private let threadsValue: AccountPage<MessageThread>
+    private var threadsValue: AccountPage<MessageThread>
     private var didStartThreadsRead: CheckedContinuation<Void, Never>?
     private var finishThreadsRead: CheckedContinuation<Void, Never>?
+    private var didStartConversationRead: CheckedContinuation<Void, Never>?
+    private var finishConversationRead: CheckedContinuation<Void, Never>?
+    private(set) var threadReads = 0
+    private(set) var conversationReads: [Int] = []
     var failUnreadRefresh = false
     var failMarkRead = false
     var failThreadsRead = false
@@ -121,27 +143,55 @@ private final class TestInboxWebsite: InboxWebsite {
         finishThreadsRead = nil
     }
 
+    func pauseNextConversationRead(_ operation: @escaping @MainActor () async throws -> Void) async -> Task<Void, any Error> {
+        let task = Task { try await operation() }
+        await withCheckedContinuation { didStartConversationRead = $0 }
+        return task
+    }
+
+    func resumeConversationRead() {
+        finishConversationRead?.resume()
+        finishConversationRead = nil
+    }
+
     func unreadCount(userID: Int) async throws -> Int {
         if failUnreadRefresh { throw Failure.network }
         return 3
     }
 
     func messageThreads(userID: Int, force: Bool) async throws -> AccountPage<MessageThread> {
+        threadReads += 1
         if failThreadsRead { throw Failure.network }
+        let value = threadsValue
         if let started = didStartThreadsRead {
             didStartThreadsRead = nil
             await withCheckedContinuation { finishThreadsRead = $0; started.resume() }
         }
-        return threadsValue
+        return value
     }
 
-    func conversation(peerID: Int, userID: Int, force: Bool) async throws -> ConversationData { conversationValue }
+    func conversation(peerID: Int, userID: Int, force: Bool) async throws -> ConversationData {
+        conversationReads.append(peerID)
+        if let started = didStartConversationRead {
+            didStartConversationRead = nil
+            await withCheckedContinuation { finishConversationRead = $0; started.resume() }
+        }
+        if peerID == 2 { return conversationValue }
+        return try JSONDecoder().decode(ConversationData.self, from: Data(#"""
+        {"peer":{"id":3,"name":"Second reader"},"items":[]}
+        """#.utf8))
+    }
     func notices(_ kind: NoticeKind, userID: Int, force: Bool) async throws -> AccountPage<ForumNotice> { .init(items: [], hasNext: false) }
     func markNoticesRead(_ kind: NoticeKind, ids: [Int]?, userID: Int) async throws { }
 
-    func markMessagesRead(ids: [Int]?, userID: Int) async throws {
+    func markMessagesRead(ids: [Int]?, peerID: Int?, userID: Int) async throws {
         if failMarkRead { throw Failure.network }
         markedIDs = ids
+        var items = threadsValue.items
+        for index in items.indices where peerID == nil || items[index].id == peerID {
+            items[index].viewed = true
+        }
+        threadsValue = AccountPage(items: items, hasNext: threadsValue.hasNext, cursor: threadsValue.cursor)
     }
 
     func sendMessage(_ content: String, markdown: Bool, peerID: Int, userID: Int) async throws { sent.append(content) }
