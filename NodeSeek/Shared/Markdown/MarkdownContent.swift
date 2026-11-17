@@ -82,11 +82,12 @@ private struct MarkdownTable: View {
     let rows: [[String]]
     @Environment(\.forumDocumentURL) private var documentURL
     var body: some View {
+        let columnCount = rows.lazy.map(\.count).max() ?? 0
         ScrollView(.horizontal) {
             Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
                 ForEach(rows.indices, id: \.self) { row in
                     GridRow {
-                        ForEach(0..<(rows.map(\.count).max() ?? 0), id: \.self) { column in
+                        ForEach(0..<columnCount, id: \.self) { column in
                             let text = ForumText.attributed(column < rows[row].count ? rows[row][column] : "", baseURL: documentURL)
                             TextWithTrailingLabel(text: Text(text).font(.subheadline.weight(row == 0 ? .semibold : .regular)),
                                                   label: nil, hasLinks: text.runs.contains { $0.link != nil })
