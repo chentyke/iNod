@@ -78,6 +78,7 @@ public struct QualityRouteReport: Codable, Equatable, Sendable {
     public let address: String?
     public let sent: Int
     public let received: Int
+    public internal(set) var averageLatencyMs: Double? = nil
     public internal(set) var hops: [Hop]
     public let reachedDestination: Bool
     public let issue: QualityIssue?

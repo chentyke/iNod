@@ -1,3 +1,4 @@
+import NodeSeekCore
 import Network
 import Synchronization
 
@@ -8,6 +9,17 @@ struct QualityNetworkPath: Equatable, Sendable {
     init(network: NetworkQualityReport.Network, path: NWPath? = nil) {
         self.network = network
         self.path = path
+    }
+
+    var context: NetworkContext {
+        let kind: NetworkKind = switch network {
+        case .wifi: .wifi
+        case .cellular: .cellular
+        case .ethernet: .wired
+        case .offline: .offline
+        case .unknown, .other: .other
+        }
+        return NetworkContext(kind: kind, isConstrained: path?.isConstrained ?? false, isExpensive: path?.isExpensive ?? false)
     }
 
     static func updates() -> AsyncStream<Self> {

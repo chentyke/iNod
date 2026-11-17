@@ -56,6 +56,8 @@ public struct DeviceBenchmarkReport: Sendable, Equatable, Codable, Identifiable 
     public var method: String
     public var thermalAtStart: ThermalLevel
     public var thermalAtEnd: ThermalLevel?
+    public var lowPowerMode: Bool?
+    public var cleanupIssue: QualityIssue?
     public var cpuSingle: QualityResult<CPUScore>
     public var cpuMulti: QualityResult<CPUScore>
     public var storageSequential: QualityResult<StorageThroughput>
@@ -80,7 +82,7 @@ public struct DeviceBenchmarkReport: Sendable, Equatable, Codable, Identifiable 
     }
     public var isFinished: Bool { DeviceBenchmarkStep.allCases.allSatisfy { status(of: $0).isFinished } }
     /// Every step measured, so the run can be compared with earlier ones.
-    public var isComplete: Bool { DeviceBenchmarkStep.allCases.allSatisfy { status(of: $0) == .measured } }
+    public var isComplete: Bool { cleanupIssue == nil && DeviceBenchmarkStep.allCases.allSatisfy { status(of: $0) == .measured } }
     public var runningStep: DeviceBenchmarkStep? {
         DeviceBenchmarkStep.allCases.first { if case .running = status(of: $0) { true } else { false } }
     }

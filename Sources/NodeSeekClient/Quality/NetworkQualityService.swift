@@ -24,6 +24,7 @@ public struct NetworkQualityService: Sendable {
 
     /// Cancel the calling task to stop the run. The returned report keeps completed checks.
     public func run(
+        steps: [NetworkQualityReport.Step] = NetworkQualityReport.Step.allCases,
         onProgress: @escaping @Sendable (NetworkQualityReport) async -> Void = { _ in }
     ) async -> NetworkQualityReport {
         var report = NetworkQualityReport()
@@ -47,7 +48,7 @@ public struct NetworkQualityService: Sendable {
         let startReport = report
         return await withTaskGroup(of: RunEvent.self) { group in
             group.addTask {
-                .measured(await Self.measure(startReport, send: send, onProgress: onProgress))
+                .measured(await Self.measure(startReport, steps: steps, send: send, onProgress: onProgress))
             }
             group.addTask {
                 for await path in updates where path != initial {
@@ -84,24 +85,35 @@ public struct NetworkQualityService: Sendable {
     }
 
     private static func measure(
-        _ initial: NetworkQualityReport, send: QualityHTTP.Request,
+        _ initial: NetworkQualityReport, steps: [NetworkQualityReport.Step], send: QualityHTTP.Request,
         onProgress: @Sendable (NetworkQualityReport) async -> Void
     ) async -> NetworkQualityReport {
         var report = initial
-        await measure(.ipv4, at: \.ipv4, report: &report, onProgress: onProgress) {
-            try await publicIP(v6: false, send: send)
-        }
-        await measure(.ipv6, at: \.ipv6, report: &report, onProgress: onProgress) {
-            try await publicIP(v6: true, send: send)
-        }
-        await measure(.latency, at: \.latency, report: &report, onProgress: onProgress) {
-            try await latency(send: send)
-        }
-        await measure(.download, at: \.download, report: &report, onProgress: onProgress) {
-            try await bandwidth(upload: false, send: send)
-        }
-        await measure(.upload, at: \.upload, report: &report, onProgress: onProgress) {
-            try await bandwidth(upload: true, send: send)
+        for step in steps {
+            switch step {
+            case .ipv4:
+                await measure(step, at: \.ipv4, report: &report, onProgress: onProgress) { _ in
+                    try await publicIP(v6: false, send: send)
+                }
+            case .ipv6:
+                await measure(step, at: \.ipv6, report: &report, onProgress: onProgress) { _ in
+                    try await publicIP(v6: true, send: send)
+                }
+            case .latency:
+                await measure(step, at: \.latency, report: &report, onProgress: onProgress) { _ in
+                    try await latency(send: send)
+                }
+            case .download, .upload:
+                let keyPath = step == .upload ? \NetworkQualityReport.upload : \.download
+                await measure(step, at: keyPath, report: &report, onProgress: onProgress) { latest in
+                    try await bandwidth(upload: step == .upload, send: send) { sample, fraction in
+                        var progress = latest
+                        progress.stepFraction = fraction
+                        progress.currentMbps = sample.seconds.map { Double(sample.bytes) * 8 / $0 / 1_000_000 }
+                        await onProgress(progress)
+                    }
+                }
+            }
         }
         return report
     }
@@ -111,7 +123,7 @@ public struct NetworkQualityService: Sendable {
         at keyPath: WritableKeyPath<NetworkQualityReport, QualityCheck<Value>>,
         report: inout NetworkQualityReport,
         onProgress: @Sendable (NetworkQualityReport) async -> Void,
-        operation: () async throws -> Value
+        operation: (NetworkQualityReport) async throws -> Value
     ) async {
         guard !Task.isCancelled else { return }
         report.currentStep = step
@@ -119,7 +131,7 @@ public struct NetworkQualityService: Sendable {
         await onProgress(report)
         do {
             try Task.checkCancellation()
-            let result = try await operation()
+            let result = try await operation(report)
             try Task.checkCancellation()
             report[keyPath: keyPath] = .measured(result)
         } catch {
@@ -239,7 +251,10 @@ extension NetworkQualityService {
         return result
     }
 
-    private static func bandwidth(upload: Bool, send: QualityHTTP.Request) async throws -> QualityBandwidth {
+    private static func bandwidth(
+        upload: Bool, send: QualityHTTP.Request,
+        onSample: (QualityTransferSample, Double) async -> Void
+    ) async throws -> QualityBandwidth {
         let endpoint = upload ? uploadURL : downloadURL
         let source = QualitySource(provider: "Cloudflare", endpoint: endpoint, checkedAt: .now)
         var samples: [QualityTransferSample] = []
@@ -273,6 +288,7 @@ extension NetworkQualityService {
                 samples.append(.init(checkedAt: started, node: nil, bytes: size, seconds: nil, issue: issue))
                 if issue == .httpStatus(429) { break }
             }
+            if let sample = samples.last { await onSample(sample, Double(samples.count) / Double(transferSizes.count)) }
         }
         let result = QualityBandwidth(source: source, samples: samples)
         guard result.megabitsPerSecond != nil else {

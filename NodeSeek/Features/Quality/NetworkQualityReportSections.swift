@@ -44,7 +44,7 @@ struct NetworkQualityReportSections: View {
                            value: speed.latencyMs.map { "\(QualityFormat.ms($0)) ms" } ?? "")
                 QualityRow("抖动", status: speed.jitterMs == nil ? missing : .measured, value: speed.jitterMs.map { "\(QualityFormat.ms($0)) ms" } ?? "")
                 QualityRow("测试节点", status: .measured, value: "\(speed.server.provider) \(speed.server.location)")
-                QualityRow("消耗流量", status: .measured, value: QualityFormat.bytes(speed.bytesTransferred))
+                QualityRow("测速数据量", status: .measured, value: QualityFormat.bytes(speed.bytesTransferred))
             }
         }
         .retryMenu(.speed, retryable: retryable.contains(.speed), retry: retry)
@@ -71,15 +71,15 @@ struct NetworkQualityReportSections: View {
         Section {
             if let traces = report?.routes.value {
                 ForEach(traces) { trace in
-                    if trace.issue == nil {
+                    if !trace.hops.isEmpty {
                         NavigationLink { RouteTraceView(trace: trace) } label: { RouteRow(trace: trace) }
                     } else { RouteRow(trace: trace) }
                 }
             } else {
-                QualityRow("电信 · 联通 · 移动", status: status(.routes), value: "")
+                QualityRow("电信，联通，移动", status: status(.routes), value: "")
             }
         } header: { Text("三网线路") } footer: {
-            if report?.routes.value != nil { Text("每个目标发送 20 个测试包。点开查看沿途节点。") }
+            if report?.routes.value != nil { Text("点开查看沿途节点和测试包数量。") }
         }
         .retryMenu(.routes, retryable: retryable.contains(.routes), retry: retry)
     }
@@ -89,13 +89,13 @@ struct NetworkQualityReportSections: View {
     private var connectionSection: some View {
         Section {
             if steps.contains(.nat) {
-                QualityRow(title: "NAT 类型", status: status(.nat)) {
+                QualityRow(title: "NAT 类型", subtitle: report?.nat.value?.server, status: status(.nat)) {
                     Text(report?.nat.value?.type.title ?? "").foregroundStyle(.secondary)
                 }
                 .retryMenu(.nat, retryable: retryable.contains(.nat), retry: retry)
             }
             if steps.contains(.mailPort) {
-                QualityRow(title: "邮件端口", subtitle: report?.mailPort.value.map { "TCP \($0.port) · \($0.target)" } ?? "TCP 25", status: status(.mailPort)) {
+                QualityRow(title: "邮件端口", subtitle: report?.mailPort.value.map { "TCP \($0.port)，\($0.target)" } ?? "TCP 25", status: status(.mailPort)) {
                     if let probe = report?.mailPort.value {
                         HStack(spacing: 6) { QualityDot(tint: probe.outcome.tint); Text(probe.outcome.title).foregroundStyle(.secondary) }
                     }
@@ -103,18 +103,7 @@ struct NetworkQualityReportSections: View {
                 .retryMenu(.mailPort, retryable: retryable.contains(.mailPort), retry: retry)
             }
         } header: { Text("连接") } footer: {
-            let notes = [report?.nat.value.map { "\($0.type.title)：\($0.type.explanation)" }, mailNote].compactMap { $0 }
-            if !notes.isEmpty { Text(notes.joined(separator: "\n")) }
-        }
-    }
-
-    private var mailNote: String? {
-        switch report?.mailPort.value?.outcome {
-        case .timedOut: "25 端口连接超时，通常是运营商封锁了这个端口。"
-        case .refused: "25 端口收到明确拒绝。"
-        case .open: "25 端口可以连接，可以直接投递邮件。"
-        case .undetermined: "没有得到足够的回应，无法判断 25 端口。"
-        case nil: nil
+            if let nat = report?.nat.value, let issue = nat.issue { Text(issue.detail ?? issue.title) }
         }
     }
 
@@ -125,7 +114,7 @@ struct NetworkQualityReportSections: View {
         return Section {
             if let records {
                 ForEach(records) { record in
-                    QualityRow(title: record.source, subtitle: [record.family == .v4 ? "IPv4" : "IPv6", record.label].compactMap { $0 }.joined(separator: " · "),
+                    QualityRow(title: record.source, subtitle: [record.family == .v4 ? "IPv4" : "IPv6", record.label].compactMap { $0 }.joined(separator: "，"),
                                status: record.issue.map { .failed($0) } ?? .measured) {
                         HStack(spacing: 6) { QualityDot(tint: record.verdict.tint); Text(record.verdict.title).foregroundStyle(.secondary) }
                     }
@@ -141,7 +130,7 @@ struct NetworkQualityReportSections: View {
 
     private func reputationNote(_ records: [ReputationRecord]) -> String {
         // Clean and low risk read as agreement; a source flagging medium or high risk against the rest does not.
-        let flagged = Set(records.filter { $0.issue == nil && $0.verdict != .unknown }.map { $0.verdict == .medium || $0.verdict == .high })
+        let flagged = Set(records.filter { $0.issue == nil && $0.verdict != .unknown }.map { $0.verdict == .medium || $0.verdict == .high || $0.verdict == .listed })
         var note = "结果来自各数据源的原始结论"
         if flagged.count > 1 { note += "，各家结论不同，可以对照来源判断" }
         if let time = records.map(\.queriedAt).max() { note += "。查询于 \(time.formatted(date: .omitted, time: .shortened))" }
@@ -155,16 +144,16 @@ struct NetworkQualityReportSections: View {
         return Section {
             if let probes {
                 ForEach(probes) { probe in
-                    QualityRow(title: probe.name, status: .measured) {
+                    QualityRow(title: probe.name, subtitle: probe.endpoint?.host(), status: probe.issue.map { .failed($0) } ?? .measured) {
                         HStack(spacing: 6) { QualityDot(tint: probe.outcome.tint); Text(probe.outcomeTitle).foregroundStyle(.secondary) }
                     }
                 }
             } else {
-                QualityRow("Netflix、YouTube 等服务", status: status(.services), value: "")
+                QualityRow("网站连通性", status: status(.services), value: "")
             }
         } header: { Text("常用服务") } footer: {
             if let probes, probes.contains(where: { $0.basis == .webPage }) {
-                Text("「网页可访问」只表示网站能打开，没有检查账号和内容是否可用。")
+                Text("测试范围为网站首页。")
             }
         }
         .retryMenu(.services, retryable: retryable.contains(.services), retry: retry)
@@ -181,12 +170,15 @@ struct NetworkQualityReportSections: View {
     private func methodNote(_ report: NetworkQualityReport) -> String {
         var lines: [String] = []
         if let speed = report.speed.value {
-            lines.append("速度使用 \(speed.server.provider) \(speed.server.location)节点，延迟取 \(speed.latencySamples) 次空闲往返的中位数，抖动为相邻两次延迟之差的平均值。")
+            let node = speed.server.location.isEmpty ? speed.server.provider : "\(speed.server.provider) \(speed.server.location)"
+            lines.append("测速节点 \(node)。延迟取 \(speed.latencySamples) 次 HTTP 首字节时延的中位数，抖动取相邻样本差值的绝对值再求平均。")
         }
-        let echo = [report.ipv4.value, report.ipv6.value].compactMap { $0 }
-        if let source = echo.first?.echoSource { lines.append("公网地址由 \(source) 返回，") }
-        if let lookup = echo.compactMap(\.owner?.source).first { lines[lines.count - 1] += "归属由 \(lookup) 查询。" }
-        else if !echo.isEmpty { lines[lines.count - 1] = String(lines[lines.count - 1].dropLast()) + "。" }
+        let egress = [report.ipv4.value, report.ipv6.value].compactMap { $0 }
+        for entry in egress {
+            let family = entry.family == .v4 ? "IPv4" : "IPv6"
+            let attribution = entry.owner.map { "，归属由 \($0.source) 查询" } ?? ""
+            lines.append("\(family) 地址由 \(entry.echoSource) 返回\(attribution)。")
+        }
         lines.append("开始于 \(report.startedAt.formatted(date: .abbreviated, time: .shortened))。")
         return lines.joined(separator: "\n")
     }
@@ -233,7 +225,7 @@ private struct RouteRow: View {
     let trace: RouteTrace
 
     var body: some View {
-        QualityRow(title: "\(trace.carrier.title) · \(trace.city)", subtitle: "\(trace.family == .v4 ? "IPv4" : "IPv6") · \(trace.target)",
+        QualityRow(title: "\(trace.carrier.title)，\(trace.city)", subtitle: "\(trace.family == .v4 ? "IPv4" : "IPv6")，\(trace.target)",
                    status: trace.issue.map { .failed($0) } ?? .measured) {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(trace.averageLatencyMs.map { "\(QualityFormat.ms($0)) ms" } ?? "—").foregroundStyle(Color.seekInk).monospacedDigit()

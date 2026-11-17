@@ -23,7 +23,7 @@ struct RouteTraceView: View {
             }
         }
         .seekGroupedList()
-        .navigationTitle("\(trace.carrier.title) · \(trace.city)").navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar)
+        .navigationTitle("\(trace.carrier.title)，\(trace.city)").navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar)
     }
 }
 

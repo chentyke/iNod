@@ -135,13 +135,13 @@ struct QualityDot: View {
 
 extension ReputationVerdict {
     var tint: Color {
-        switch self { case .clean: .green; case .low: .green.opacity(0.6); case .medium: .orange; case .high: .red; case .unknown: .secondary }
+        switch self { case .clean: .green; case .low: .green.opacity(0.6); case .medium: .orange; case .high, .listed: .red; case .unknown, .notListed: .secondary }
     }
 }
 
 extension ServiceOutcome {
     var tint: Color {
-        switch self { case .reachable: .green; case .regionRestricted: .orange; case .timedOut: .red; case .undetermined: .secondary }
+        switch self { case .reachable: .green; case .regionRestricted, .legallyRestricted: .orange; case .timedOut: .red; case .undetermined, .redirected: .secondary }
     }
 }
 

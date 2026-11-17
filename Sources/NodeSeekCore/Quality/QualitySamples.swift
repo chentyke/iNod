@@ -218,17 +218,4 @@ extension NetworkQualityReport {
         case .services: services = other.services
         }
     }
-
-    mutating func setRunning(_ step: NetworkQualityStep, _ progress: QualityProgress) {
-        switch step {
-        case .speed: speed = .running(progress)
-        case .ipv4: ipv4 = .running(progress)
-        case .ipv6: ipv6 = .running(progress)
-        case .routes: routes = .running(progress)
-        case .nat: nat = .running(progress)
-        case .mailPort: mailPort = .running(progress)
-        case .reputation: reputation = .running(progress)
-        case .services: services = .running(progress)
-        }
-    }
 }

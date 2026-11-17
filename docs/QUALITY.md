@@ -2,6 +2,14 @@
 
 `NodeSeekClient` 提供检测服务和 Swift 报告类型。界面预览可以直接用 `NetworkQualityExamples.running`、`.completed`、`.partial`、`.cancelled` 和 `.unavailable`。示例 IP 是文档专用地址。
 
+## App 接入
+
+网络检测页面使用 `LiveNetworkQualityTester`，本机性能页面使用 `LiveDeviceBenchmark`。两者都用 `NodeSeekCore` 中的报告类型，每次进度变化发送一份报告，页面取消时结束请求。界面测试通过 `--ui-test-offline` 播放示例，示例跑分单独保存。
+
+重试沿用上一份报告，测速只补测缺少的统计项，线路、IP 名单和网站只重试失败的来源。开始重试时如果网络类型不同，报告保留已测得的成绩，并提示重新检测。进阶 NAT 只显示实际查到的地址和端口分配方式。邮件检查只建立 TCP 连接，不投递邮件。
+
+本机性能方法为 `iNod Bench 1`。单核和多核各计算 128 次 1 MiB 的 SHA-256，多核版本按当前可用的处理器数量分配工作。存储使用同一份 64 MiB 文件，先顺序读写，然后各做 4096 次 4 KiB 的随机写入和读取，随机操作的位置顺序固定。存储报告使用 MB/s，随机测试同时记录每秒操作数。下方三轮真机记录属于接入前的单核和顺序读写方法。
+
 ## 首版接入
 
 - 点击开始时，在一个 `Task` 中调用 `await NetworkQualityService().run(onProgress:)`。回调给出当前报告，最终报告由 `run` 返回。用 `currentStep` 和 `completedStepCount` 显示进度，`Step.allCases.count` 是总步数。
@@ -34,7 +42,7 @@ Cloudflare 的 HTTP 时延和抖动算法可在同节点上复测。iNod 使用�
 - 邮件测试尝试连接 `portquiz.net` 的 TCP 25，区分成功、拒绝、超时和其他错误。STUN 检测通过同一个 IPv4 UDP 端口，向服务器的不同 IP 和端口发请求，记录观测到的映射地址、端口和 RFC 5780 映射行为。先测 Nextcloud，查不全时再测小米，两次尝试分别返回。
 - IP 信誉从 Spamhaus DROP 和 Blocklist.de 下载公开名单，在手机上分别比对已有的 IPv4 和 IPv6。`notListed` 表示对应名单未收录该地址。各来源的结果、失败原因和查询时间分开显示。
 - 三网使用 NextTrace 的北京电信、北京联通、广州移动 IPv4 节点。向每个节点发 5 个 ICMP 请求计算丢包。逐跳追踪最多 24 跳，一跳超时后继续测。报告记录缺少回应的位置、目标和实际发包数。对最多 12 个不同的公网沿途地址查 IPinfo，查到时附上网络名称和 ASN。这是从手机发出的线路，NodeQuality 还会检测反方向线路。
-- 用 `HardwareQualityService.run(onProgress:)` 在 iPhone 上离线运行。取消和首版检测的用法一样，预览用 `HardwareQualityExamples.completed`。CPU 单线程计算 128 MiB 输入的 SHA-256。存储顺序写入并同步 64 MiB 测试文件，再顺序读回。写入和读取都请系统绕过文件缓存，完成或取消后删除测试文件。结果以 MiB/s 为单位，带系统版本、设备型号、低电量模式和温度状态。
+- 用 `HardwareQualityService.run(onProgress:)` 在 iPhone 上离线运行。取消和首版检测的用法一样，预览用 `HardwareQualityExamples.completed`。CPU 单核和多核使用同一批固定工作量。存储顺序读写后复用同一测试文件做随机读写。写入和读取都请系统绕过文件缓存，完成或取消后删除测试文件。结果以 MiB/s 为单位，带系统版本、设备型号、低电量模式和温度状态。
 
 [RFC 5780](https://www.rfc-editor.org/info/rfc5780/) / [Nextcloud STUN](https://github.com/nextcloud/spreed/blob/main/lib/Config.php) / [PortQuiz](http://portquiz.net/) / [Spamhaus DROP](https://www.spamhaus.org/blocklists/do-not-route-or-peer/) / [Blocklist.de](https://www.blocklist.de/en/export.html)
 

@@ -52,6 +52,8 @@ public struct NetworkQualityReport: Codable, Equatable, Identifiable, Sendable {
     public internal(set) var state: State = .running
     public internal(set) var currentStep: Step?
     public internal(set) var completedStepCount = 0
+    var stepFraction: Double?
+    var currentMbps: Double?
     public internal(set) var network: Network = .unknown
     public internal(set) var ipv4: QualityCheck<QualityPublicIP> = .pending
     public internal(set) var ipv6: QualityCheck<QualityPublicIP> = .pending
@@ -152,4 +154,10 @@ public struct QualityTransferSample: Codable, Equatable, Sendable {
     public let seconds: Double?
     public let issue: QualityIssue?
     public internal(set) var connectionFamily: QualityIPFamily? = nil
+}
+
+
+extension QualityCheck {
+    var value: Value? { if case .measured(let value) = self { value } else { nil } }
+    var issue: QualityIssue? { if case .unavailable(let issue) = self { issue } else { nil } }
 }

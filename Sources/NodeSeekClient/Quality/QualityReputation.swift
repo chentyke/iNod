@@ -11,14 +11,17 @@ struct QualityReputation {
 
     static func lookup(report: NetworkQualityReport, send: @escaping QualityHTTP.Request) async -> [QualityIPReputation] {
         let families: [(QualityIPFamily, QualityCheck<QualityPublicIP>)] = [(.ipv4, report.ipv4), (.ipv6, report.ipv6)]
-        let targets = families.compactMap { family, check -> (QualityIPFamily, [UInt8])? in
-            guard case .measured(let ip) = check, let bytes = addressBytes(ip.address) else { return nil }
-            return (family, bytes)
-        }
+        return await lookup(addresses: families.compactMap { family, check in check.value.map { (family, $0.address) } }, send: send)
+    }
+
+    static func lookup(
+        addresses: [(QualityIPFamily, String)], ids: Set<String>? = nil, send: @escaping QualityHTTP.Request
+    ) async -> [QualityIPReputation] {
+        let targets = addresses.compactMap { family, address in addressBytes(address).map { (family, $0) } }
         guard !targets.isEmpty else { return [] }
-        async let abuse = blocklist(targets: targets, send: send)
+        async let abuse = blocklist(targets: targets.filter { ids?.contains("Blocklist.de-\($0.0 == .ipv4 ? "v4" : "v6")") != false }, send: send)
         async let drop = withTaskGroup(of: QualityIPReputation.self) { group in
-            for (family, bytes) in targets {
+            for (family, bytes) in targets where ids?.contains("Spamhaus DROP-\(family == .ipv4 ? "v4" : "v6")") != false {
                 group.addTask { await spamhaus(family: family, bytes: bytes, send: send) }
             }
             var items: [QualityIPReputation] = []
@@ -31,6 +34,7 @@ struct QualityReputation {
     private static func blocklist(
         targets: [(QualityIPFamily, [UInt8])], send: QualityHTTP.Request
     ) async -> [QualityIPReputation] {
+        guard !targets.isEmpty else { return [] }
         let url = URL(string: "https://lists.blocklist.de/lists/all.txt")!
         let source = QualitySource(provider: "Blocklist.de", endpoint: url, checkedAt: .now)
         do {

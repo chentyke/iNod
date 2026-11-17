@@ -22,14 +22,14 @@ public struct AdvancedNetworkQualityService: Sendable {
         )
     }
 
-    static func websiteAccess(send: @escaping QualityHTTP.Request) async -> [QualityServiceAccess] {
+    static func websiteAccess(names: Set<String>? = nil, send: @escaping QualityHTTP.Request) async -> [QualityServiceAccess] {
         let sites = [
             ("Apple", "https://www.apple.com/"), ("Google", "https://www.google.com/"),
             ("YouTube", "https://www.youtube.com/"), ("GitHub", "https://github.com/"),
             ("ChatGPT", "https://chatgpt.com/")
         ]
         return await withTaskGroup(of: (Int, QualityServiceAccess).self) { group in
-            for (index, site) in sites.enumerated() {
+            for (index, site) in sites.enumerated() where names?.contains(site.0) != false {
                 group.addTask {
                     let url = URL(string: site.1)!
                     let source = QualitySource(provider: site.0, endpoint: url, checkedAt: .now)
@@ -58,7 +58,7 @@ public struct AdvancedNetworkQualityService: Sendable {
         }
     }
 
-    private static func mailAccess() async -> QualityMailAccess {
+    static func mailAccess() async -> QualityMailAccess {
         let host = "portquiz.net"
         let port: UInt16 = 25
         let checkedAt = Date.now

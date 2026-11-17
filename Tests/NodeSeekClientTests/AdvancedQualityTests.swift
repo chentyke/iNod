@@ -67,7 +67,7 @@ struct AdvancedQualityTests {
         }
         Task { _ = await task.value; continuation.finish() }
         var iterator = steps.makeAsyncIterator()
-        for expected in HardwareQualityReport.Step.allCases {
+        for expected in [HardwareQualityReport.Step.cpu, .cpuMulti, .write, .read] {
             #expect(await iterator.next() == expected)
         }
         #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).count == 1)

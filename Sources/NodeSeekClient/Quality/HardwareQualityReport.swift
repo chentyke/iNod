@@ -9,7 +9,7 @@ public struct HardwareQualityReport: Codable, Equatable, Identifiable, Sendable 
     }
 
     public enum Step: String, CaseIterable, Codable, Sendable {
-        case cpu, write, read
+        case cpu, cpuMulti, write, read, randomWrite, randomRead
     }
 
     public enum Thermal: String, Codable, Sendable {
@@ -21,12 +21,16 @@ public struct HardwareQualityReport: Codable, Equatable, Identifiable, Sendable 
     public let deviceModel: String
     public let operatingSystem: String
     public let lowPowerMode: Bool
+    public internal(set) var processorCount = ProcessInfo.processInfo.activeProcessorCount
     public let initialThermalState: Thermal
     public internal(set) var finalThermalState: Thermal?
     public internal(set) var finishedAt: Date?
     public internal(set) var state: State = .running
     public internal(set) var currentStep: Step?
     public internal(set) var cpu: QualityCheck<HardwareQualityMeasurement> = .pending
+    public internal(set) var cpuMulti: QualityCheck<HardwareQualityMeasurement> = .pending
+    public internal(set) var randomWrite: QualityCheck<HardwareQualityMeasurement> = .pending
+    public internal(set) var randomRead: QualityCheck<HardwareQualityMeasurement> = .pending
     public internal(set) var write: QualityCheck<HardwareQualityMeasurement> = .pending
     public internal(set) var read: QualityCheck<HardwareQualityMeasurement> = .pending
     public internal(set) var cleanupIssue: QualityIssue?

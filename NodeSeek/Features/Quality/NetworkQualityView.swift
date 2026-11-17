@@ -130,7 +130,7 @@ private struct NetworkQualityHeader: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 if let speed, let latency = speed.latencyMs {
-                    Text("延迟 \(QualityFormat.ms(latency)) ms" + (speed.jitterMs.map { " · 抖动 \(QualityFormat.ms($0)) ms" } ?? ""))
+                    Text("延迟 \(QualityFormat.ms(latency)) ms" + (speed.jitterMs.map { "，抖动 \(QualityFormat.ms($0)) ms" } ?? ""))
                         .font(.subheadline.weight(.medium)).foregroundStyle(Color.seekInk)
                 } else if report.speed.status != .measured {
                     Text("速度未测得：\(report.speed.status.caption)").font(.subheadline).foregroundStyle(.secondary)
@@ -143,15 +143,15 @@ private struct NetworkQualityHeader: View {
     }
 
     @ViewBuilder private func figures(_ speed: SpeedMeasurement?) -> some View {
-        QualityFigure(title: "下载", value: speed?.downloadMbps, unit: "Mbps")
-        QualityFigure(title: "上传", value: speed?.uploadMbps, unit: "Mbps")
+        QualityFigure(title: speed?.downloadIsEstimate == true ? "下载（估计）" : "下载", value: speed?.downloadMbps, unit: "Mbps")
+        QualityFigure(title: speed?.uploadIsEstimate == true ? "上传（估计）" : "上传", value: speed?.uploadMbps, unit: "Mbps")
     }
 
     private func context(_ report: NetworkQualityReport, _ speed: SpeedMeasurement?) -> String {
         var parts = [report.network.kind.title]
         if let speed { parts.append("\(speed.server.provider) \(speed.server.location)") }
         parts.append(report.startedAt.formatted(date: .omitted, time: .shortened))
-        return parts.joined(separator: " · ")
+        return parts.joined(separator: "，")
     }
 
     @ViewBuilder private var actions: some View {

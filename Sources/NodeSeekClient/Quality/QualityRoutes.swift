@@ -15,9 +15,9 @@ struct QualityRoutes {
         Target(host: "ipv4.can-9808.endpoint.nxtrace.org", city: "广州", carrier: "中国移动")
     ]
 
-    static func measure(send: @escaping QualityHTTP.Request) async -> [QualityRouteReport] {
+    static func measure(hosts: Set<String>? = nil, send: @escaping QualityHTTP.Request) async -> [QualityRouteReport] {
         let reports = await withTaskGroup(of: (Int, QualityRouteReport).self) { group in
-            for (index, target) in targets.enumerated() {
+            for (index, target) in targets.enumerated() where hosts?.contains(target.host) != false {
                 group.addTask { await QualityDatagrams.background { (index, measure(target)) } }
             }
             var results: [(Int, QualityRouteReport)] = []
@@ -55,7 +55,7 @@ struct QualityRoutes {
         let checkedAt = Date.now
         var address: String?
         var sent = 0
-        var received = 0
+        var delays: [Double] = []
         var hops: [QualityRouteReport.Hop] = []
         var reached = false
         var issue: QualityIssue?
@@ -72,10 +72,11 @@ struct QualityRoutes {
             try setTTL(64, socket: socket)
             for sequence in 1...5 {
                 let request = echo(identifier: identifier, sequence: UInt16(sequence), nonce: nonce)
+                let started = ContinuousClock.now
                 try QualityDatagrams.send(request, to: endpoint, socket: socket)
                 sent += 1
                 if try probeReply(request, socket: socket, destination: ip, timeout: .milliseconds(450))?.atDestination == true {
-                    received += 1
+                    delays.append(milliseconds(since: started))
                 }
             }
             for hop in 1...24 {
@@ -84,8 +85,7 @@ struct QualityRoutes {
                 let started = ContinuousClock.now
                 try QualityDatagrams.send(request, to: endpoint, socket: socket)
                 let reply = try probeReply(request, socket: socket, destination: ip, timeout: .milliseconds(350))
-                let elapsed = started.duration(to: .now).components
-                let ms = Double(elapsed.seconds) * 1_000 + Double(elapsed.attoseconds) / 1e15
+                let ms = milliseconds(since: started)
                 hops.append(.init(number: hop, address: reply?.address, milliseconds: reply == nil ? nil : ms))
                 if reply?.atDestination == true {
                     reached = true
@@ -98,8 +98,15 @@ struct QualityRoutes {
         if issue == nil, !reached { issue = .timedOut }
         return QualityRouteReport(
             host: target.host, city: target.city, carrier: target.carrier, family: .ipv4, checkedAt: checkedAt,
-            address: address, sent: sent, received: received, hops: hops, reachedDestination: reached, issue: issue
+            address: address, sent: sent, received: delays.count,
+            averageLatencyMs: delays.isEmpty ? nil : delays.reduce(0, +) / Double(delays.count),
+            hops: hops, reachedDestination: reached, issue: issue
         )
+    }
+
+    private static func milliseconds(since started: ContinuousClock.Instant) -> Double {
+        let elapsed = started.duration(to: .now).components
+        return Double(elapsed.seconds) * 1_000 + Double(elapsed.attoseconds) / 1e15
     }
 
     private static func setTTL(_ value: Int32, socket: Int32) throws {

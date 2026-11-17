@@ -44,8 +44,8 @@ struct DeviceBenchmarkView: View {
             HStack(spacing: 12) {
                 SeekIconTile(symbol: "iphone")
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(UIDevice.current.model + " · iOS " + UIDevice.current.systemVersion).font(.headline).foregroundStyle(Color.seekInk)
-                    Text("温度\(thermal.title)。约 1 分钟，不需要网络；会临时写入 \(QualityFormat.bytes(run.benchmark.scratchBytes)) 文件，结束后删除。")
+                    Text(UIDevice.current.model + "，iOS " + UIDevice.current.systemVersion).font(.headline).foregroundStyle(Color.seekInk)
+                    Text("温度\(thermal.title)。可离线测试，临时使用 \(QualityFormat.bytes(run.benchmark.scratchBytes)) 存储空间。")
                         .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -93,6 +93,7 @@ struct DeviceBenchmarkView: View {
                 VStack(alignment: .leading, spacing: 12) { figures(report) }
             }
             Text(context(report)).font(.footnote).foregroundStyle(.secondary)
+            if let issue = report.cleanupIssue { Text(issue.detail ?? issue.title).font(.footnote).foregroundStyle(.secondary) }
             if report.mayBeThrottled {
                 Text("测试时设备较热，系统可能已降低性能，成绩可能偏低。").font(.footnote).foregroundStyle(.secondary)
             }
@@ -103,7 +104,7 @@ struct DeviceBenchmarkView: View {
 
     @ViewBuilder private func figures(_ report: DeviceBenchmarkReport) -> some View {
         QualityFigure(title: "单核", value: report.cpuSingle.value.map { Double($0.score) }, unit: "分", format: Self.score)
-        QualityFigure(title: report.cpuMulti.value.map { "多核 · \($0.threads) 线程" } ?? "多核", value: report.cpuMulti.value.map { Double($0.score) }, unit: "分", format: Self.score)
+        QualityFigure(title: report.cpuMulti.value.map { "多核，\($0.threads) 线程" } ?? "多核", value: report.cpuMulti.value.map { Double($0.score) }, unit: "分", format: Self.score)
     }
 
     private static func score(_ value: Double) -> String { Int(value).formatted(.number.grouping(.never)) }
@@ -111,7 +112,8 @@ struct DeviceBenchmarkView: View {
     private func context(_ report: DeviceBenchmarkReport) -> String {
         [report.device.model, "iOS \(report.device.systemVersion)",
          "温度\(report.thermalAtStart.title)" + (report.thermalAtEnd.map { $0 == report.thermalAtStart ? "" : " → \($0.title)" } ?? ""),
-         report.startedAt.formatted(date: .omitted, time: .shortened)].joined(separator: " · ")
+         report.lowPowerMode == true ? "低电量模式" : nil,
+         report.startedAt.formatted(date: .omitted, time: .shortened)].compactMap { $0 }.joined(separator: "，")
     }
 
     // MARK: Results
@@ -126,11 +128,11 @@ struct DeviceBenchmarkView: View {
             }
         }
         Section {
-            storageRows("顺序读写", subtitle: "1 MB 块", report?.storageSequential, iops: false)
-            storageRows("随机读写", subtitle: "4 KB 块", report?.storageRandom, iops: true)
+            storageRows("顺序读写", subtitle: "1 MiB 块", report?.storageSequential, iops: false)
+            storageRows("随机读写", subtitle: "4 KiB 块", report?.storageRandom, iops: true)
         } header: { Text("存储") } footer: {
-            if let report, report.finishedAt != nil {
-                Text("CPU 用固定工作量计算每秒完成的次数，同一测试版本（\(report.method)）的成绩可以直接比较。存储在 App 自己的文件夹里读写，测试文件已删除。")
+            if let report, report.finishedAt != nil, report.cpuSingle.value != nil {
+                Text("CPU 分数为每秒完成的 1 MiB SHA-256 计算次数。比较成绩时请使用同一测试版本（\(report.method)）。")
             }
         }
         .environment(\.qualityIdle, report == nil)
@@ -146,7 +148,7 @@ struct DeviceBenchmarkView: View {
         QualityRow(title: title, subtitle: subtitle, status: result?.status ?? .pending) {
             if let value = result?.value {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("读 \(Self.mbps(value.readMBps)) · 写 \(Self.mbps(value.writeMBps))").foregroundStyle(.secondary).monospacedDigit()
+                    Text("读 \(Self.mbps(value.readMBps))，写 \(Self.mbps(value.writeMBps))").foregroundStyle(.secondary).monospacedDigit()
                     if iops, let read = value.readIOPS, let write = value.writeIOPS {
                         Text("\(Self.count(read)) / \(Self.count(write)) IOPS").font(.caption).foregroundStyle(.secondary).monospacedDigit()
                     }
@@ -166,14 +168,14 @@ struct DeviceBenchmarkView: View {
             ForEach(run.history) { past in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text("单核 \(past.cpuSingle.value.map { Self.score(Double($0.score)) } ?? "—") · 多核 \(past.cpuMulti.value.map { Self.score(Double($0.score)) } ?? "—")")
+                        Text("单核 \(past.cpuSingle.value.map { Self.score(Double($0.score)) } ?? "—")，多核 \(past.cpuMulti.value.map { Self.score(Double($0.score)) } ?? "—")")
                             .foregroundStyle(Color.seekInk).monospacedDigit()
                         Spacer(minLength: 8)
                         if past.id == run.report?.id { Text("本次").font(.caption.weight(.medium)).foregroundStyle(.secondary) }
                     }
                     Text([past.startedAt.formatted(date: .abbreviated, time: .shortened),
                           past.storageSequential.value.map { "读 \(Self.mbps($0.readMBps))" },
-                          past.mayBeThrottled ? "较热" : nil].compactMap { $0 }.joined(separator: " · "))
+                          past.mayBeThrottled ? "较热" : nil].compactMap { $0 }.joined(separator: "，"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
