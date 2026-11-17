@@ -78,10 +78,7 @@ public final class InboxService {
         try await website.markMessagesRead(ids: ids.sorted(), peerID: peerID, userID: userID)
         try confirmMessageChange(version, peerID: peerID)
         updateConversation(peerID: peerID, userID: userID, ids: ids)
-        Task { [weak self] in
-            guard let self, self.session == version else { return }
-            await self.refreshUnread()
-        }
+        refreshUnreadInBackground(session: version)
     }
 
     public func markAllMessagesRead(userID: Int) async throws {
@@ -98,6 +95,33 @@ public final class InboxService {
     }
 
     public func markNoticesRead(_ kind: NoticeKind, ids: [Int]?, userID: Int) async throws {
+        let version = session
+        try await markNotices(kind, ids: ids, userID: userID)
+        refreshUnreadInBackground(session: version)
+    }
+
+    public func markAllNoticesRead(userID: Int) async throws {
+        try checkOwner(userID)
+        let version = session
+        var didMark = false
+        var failure: (any Error)?
+        defer { if didMark { refreshUnreadInBackground(session: version) } }
+        for kind in NoticeKind.allCases {
+            try Task.checkCancellation()
+            try checkSession(version)
+            do {
+                try await markNotices(kind, ids: nil, userID: userID)
+                didMark = true
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                failure = error
+            }
+        }
+        if let failure { throw failure }
+    }
+
+    private func markNotices(_ kind: NoticeKind, ids: [Int]?, userID: Int) async throws {
         try checkOwner(userID)
         let version = session
         let affected = Set(ids ?? notices[kind]?.items.map(\.id) ?? [])
@@ -111,8 +135,13 @@ public final class InboxService {
                 return notice
             }, hasNext: page.hasNext, cursor: page.cursor)
         }
-        await refreshUnread()
-        try checkSession(version)
+    }
+
+    private func refreshUnreadInBackground(session version: Int) {
+        Task { [weak self] in
+            guard let self, self.session == version else { return }
+            await self.refreshUnread()
+        }
     }
 
     public func send(_ content: String, markdown: Bool, peerID: Int, userID: Int) async throws {
