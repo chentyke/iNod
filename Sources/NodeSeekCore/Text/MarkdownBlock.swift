@@ -9,6 +9,7 @@ public enum MarkdownBlock: Equatable, Sendable {
     case vote(Int)
     case stardust(StardustRequest)
     case tabs([MarkdownTab])
+    case callout(MarkdownCallout)
 
     public static func parse(_ markdown: String) -> [MarkdownBlock] {
         let lines = markdown.components(separatedBy: .newlines)
@@ -41,11 +42,14 @@ public enum MarkdownBlock: Equatable, Sendable {
             } else if trimmed == "---" || trimmed == "***" || trimmed == "___" {
                 flush(); result.append(.divider)
             } else if trimmed.hasPrefix(">") {
-                flush(); var quote: [String] = []
+                flush(); var quote: [Substring] = []
                 while index < lines.count && lines[index].trimmingCharacters(in: .whitespaces).hasPrefix(">") {
-                    quote.append(String(lines[index].trimmingCharacters(in: .whitespaces).dropFirst()).trimmingCharacters(in: .whitespaces)); index += 1
+                    let content = lines[index].drop(while: \.isWhitespace).dropFirst()
+                    quote.append(content.first == " " ? content.dropFirst() : content); index += 1
                 }
-                result.append(.quote(quote.joined(separator: "\n"))); continue
+                if let callout = MarkdownCallout(quoteLines: quote.map(String.init)) { result.append(.callout(callout)) }
+                else { result.append(.quote(quote.map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: "\n"))) }
+                continue
             } else if index + 1 < lines.count, line.contains("|"), cells(lines[index + 1]).count > 1,
                       cells(lines[index + 1]).allSatisfy({ $0.firstMatch(of: tableDividerRule) != nil }) {
                 flush(); var rows = [cells(line)]; index += 2

@@ -75,6 +75,8 @@ struct MarkdownContent<Embedded: View>: View {
         case .vote, .stardust: embedded(block)
         case .tabs(let tabs):
             MarkdownTabsView(tabs: tabs, loadsBlocksOnScroll: loadsBlocksOnScroll, onOpenImages: openImages, embedded: embedded)
+        case .callout(let callout):
+            MarkdownCalloutView(callout: callout, loadsBlocksOnScroll: loadsBlocksOnScroll, onOpenImages: openImages, embedded: embedded)
         }
     }
 }

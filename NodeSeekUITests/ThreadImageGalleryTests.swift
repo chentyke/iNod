@@ -44,6 +44,47 @@ final class ThreadImageGalleryTests: XCTestCase {
         assertPicture("第二条评论第一张", position: "第 3 张，共 3 张", in: app)
     }
 
+    func testCollapsedCalloutsShowImagesAfterOpening() throws {
+        continueAfterFailure = false
+        let server = try imageServer()
+        defer { server.cancel() }
+        let port = try XCTUnwrap(server.port).rawValue
+        let opening = """
+        >[!note]- 选项1
+        > ![选项一截图](http://127.0.0.1:\(port)/0)
+
+        >[!note]- 选项2
+        >![选项二截图](http://127.0.0.1:\(port)/1)
+
+        猜猜哪个是对的
+        """
+        let app = XCUIApplication()
+        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture(port: port, opening: opening)
+        app.launch()
+        let post = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "周末照片")).firstMatch
+        XCTAssertTrue(post.waitForExistence(timeout: 8))
+        post.tap()
+
+        let first = app.buttons["选项1"]
+        XCTAssertTrue(first.waitForExistence(timeout: 8))
+        XCTAssertEqual(first.value as? String, "已收起")
+        XCTAssertTrue(app.buttons["选项2"].exists)
+        XCTAssertTrue(app.staticTexts["猜猜哪个是对的"].exists)
+        let marker = NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "[!note]", "127.0.0.1")
+        XCTAssertFalse(app.staticTexts.matching(marker).firstMatch.exists, "The callout syntax should not show as text.")
+        XCTAssertFalse(app.buttons["选项一截图"].exists, "A collapsed callout should hide its image.")
+
+        first.tap()
+        XCTAssertEqual(first.value as? String, "已展开")
+        let picture = app.buttons["选项一截图"]
+        XCTAssertTrue(picture.wait(for: \.isHittable, toEqual: true, timeout: 8))
+        XCTAssertFalse(app.buttons["选项二截图"].exists, "Opening one callout should leave the other folded.")
+        picture.tap()
+        assertPicture("选项一截图", position: "第 1 张，共 2 张", in: app)
+        swipeGallery(in: app, forward: true)
+        assertPicture("选项二截图", position: "第 2 张，共 2 张", in: app)
+    }
+
     private func swipeGallery(in app: XCUIApplication, forward: Bool) {
         let left = app.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.55))
         let right = app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.55))
@@ -100,7 +141,7 @@ final class ThreadImageGalleryTests: XCTestCase {
         return listener
     }
 
-    private func websiteFixture(port: UInt16) throws -> String {
+    private func websiteFixture(port: UInt16, opening: String? = nil) throws -> String {
         let author: [String: Any] = ["uid": 101, "name": "楼主"]
         let reader: [String: Any] = ["uid": 102, "name": "读者"]
         let timestamp = "2025-01-04T12:00:00.000Z"
@@ -110,7 +151,7 @@ final class ThreadImageGalleryTests: XCTestCase {
              "time": ["createdDate": timestamp], "markdown": markdown, "likeCount": 0, "upvoteCount": 0, "blocked": blocked]
         }
         let comments = [
-            comment(0, image("正文第一张", 0) + "\n正文\n" + image("正文第二张", 1)),
+            comment(0, opening ?? image("正文第一张", 0) + "\n正文\n" + image("正文第二张", 1)),
             comment(1, image("第一条评论第一张", 2) + "\n" + image("第一条评论第二张", 3)),
             comment(2, image("被屏蔽的评论图片", 4), blocked: true),
             comment(3, image("第二条评论第一张", 4))
