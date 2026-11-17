@@ -98,18 +98,51 @@ final class DesignChecklistTests: XCTestCase {
         throw XCTSkip("Only the Mac delivers a test's pointer hover to the app.")
         #else
         let app = launchThread()
-        let first = app.otherElements["comment-2"]
-        let second = app.otherElements["comment-3"]
+        let first = ForumFixture.element("comment-2", in: app)
+        let second = ForumFixture.element("comment-3", in: app)
+        let outside = first.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
+        outside.hover()
+        outside.click()
         XCTAssertTrue(foldedDock(in: first).waitForExistence(timeout: 5))
 
         foldedDock(in: first).hover()
         XCTAssertTrue(first.buttons["回复"].waitForExistence(timeout: 3), "Hovering over the folded dock should open it.")
+
+        first.buttons["0 个赞，点赞"].hover()
+        XCTAssertTrue(first.buttons["回复"].exists, "Moving inside the dock should keep it open.")
+        outside.hover()
+        XCTAssertTrue(foldedDock(in: first).waitForExistence(timeout: 3), "Moving away without clicking should fold the dock.")
+
+        foldedDock(in: first).hover()
+        XCTAssertTrue(first.buttons["回复"].waitForExistence(timeout: 3))
 
         foldedDock(in: second).hover()
         XCTAssertTrue(second.buttons["回复"].waitForExistence(timeout: 3), "Hovering over another dock should open it.")
         XCTAssertTrue(foldedDock(in: first).waitForExistence(timeout: 3), "Only one dock should be open at a time.")
         #endif
     }
+
+    #if targetEnvironment(macCatalyst)
+    func testPointerCanReachMoreReplyActions() {
+        let app = ForumFixture.launchThread(signedInAsAuthor: true)
+        let card = ForumFixture.element("comment-2", in: app)
+        let outside = card.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
+        outside.hover()
+        outside.click()
+        let folded = foldedDock(in: card)
+        XCTAssertTrue(folded.waitForExistence(timeout: 5))
+        folded.hover()
+
+        let more = moreButton(in: card)
+        XCTAssertTrue(more.wait(for: \.isHittable, toEqual: true, timeout: 3), card.debugDescription)
+        more.click()
+        let quote = app.menuItems["引用回复"]
+        XCTAssertTrue(quote.waitForExistence(timeout: 3), app.debugDescription)
+        quote.hover()
+        XCTAssertTrue(quote.exists, "Moving onto the menu should keep it open.")
+        app.typeKey(.escape, modifierFlags: [])
+    }
+    #endif
 
     func testFeedSearchFoldsOnScrollAndStaysFoldedAfterAPost() throws {
         let app = launchThread(opensPost: false)

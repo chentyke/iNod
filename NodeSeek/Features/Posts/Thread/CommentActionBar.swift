@@ -103,10 +103,14 @@ struct CommentActionBar: View {
         // The folded dock is small; let taps just around it open it too.
         .contentShape(Rectangle().inset(by: -9))
         .gesture(TapGesture().onEnded { setExpanded(true) }, including: isExpanded ? .subviews : .all)
-        // With a pointer (iPad, Mac), resting on the dock opens it. It folds the way a tapped one does: on a click
-        // outside, a scroll, or another dock opening. Folding as the pointer leaves would also fold it while the
-        // pointer moves onto the "more" menu, taking the menu away with it.
-        .onHover { isInside in if isInside { setExpanded(true) } }
+        .onHover { isInside in
+            #if targetEnvironment(macCatalyst)
+            // The native More menu handles pointer movement separately while it is open.
+            setExpanded(isInside)
+            #else
+            if isInside { setExpanded(true) }
+            #endif
+        }
     }
 
     private var foldedDock: some View {
