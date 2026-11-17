@@ -1,3 +1,5 @@
+import Foundation
+import NodeSeekCore
 import Testing
 @testable import NodeSeekClient
 
@@ -17,6 +19,35 @@ struct CollectionsServiceTests {
         #expect(collections.status(12) == true)
         #expect(collections.status(13) == nil)
         #expect(collections.updating.isEmpty)
+    }
+
+    @Test func changingABookmarkOnlyRemovesItsPostAndTheOwnersCollectionPagesFromCache() {
+        let website = SiteDataStore(persistsResponses: false)
+        let owner = 4
+        let post = 10
+        let affected = [
+            website.key(for: .content(.collections, userID: owner, page: 1), viewerID: owner),
+            website.key(for: .content(.collections, userID: owner, page: 2), viewerID: owner),
+            website.threadKey(id: post, page: 1, includeBlocked: false, viewerID: owner),
+            website.threadKey(id: post, page: 2, includeBlocked: true, viewerID: owner)
+        ]
+        let retained = [
+            website.threadKey(id: 100, page: 1, includeBlocked: false, viewerID: owner),
+            website.threadKey(id: post, page: 1, includeBlocked: false, viewerID: 5),
+            website.key(for: .content(.collections, userID: 5, page: 1), viewerID: 5),
+            website.key(for: .profile(owner), viewerID: owner),
+            website.feedKey(.home, includeBlocked: false, viewerID: owner)
+        ]
+
+        var cache = ResponseCache<SiteRequestKey>()
+        let now = Date.now
+        for key in affected + retained {
+            cache.insert(Data([1]), for: key, lifetime: 30, now: now)
+        }
+        cache.remove { SiteDataStore.collectionChangeAffects($0, userID: owner, postID: post) }
+
+        for key in affected { #expect(cache.value(for: key, now: now) == nil) }
+        for key in retained { #expect(cache.value(for: key, now: now) != nil) }
     }
 
     @Test func oldBookmarkWriteCannotEnterANewSessionForTheSameUser() async throws {

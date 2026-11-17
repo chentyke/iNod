@@ -45,7 +45,7 @@ struct AccountPostsView: View {
         .navigationTitle(account.user?.id == userID ? kind.title : (kind == .replies ? "回复" : "主题"))
         .navigationBarTitleDisplayMode(.inline)
         .task(id: revision) {
-            if loadedRevision != revision { await load(force: kind == .collections) }
+            if loadedRevision != revision { await load() }
         }
         .refreshable { await load(force: true) }
         .confirmationDialog("取消这篇帖子的收藏？", isPresented: $confirmsRemoval, titleVisibility: .visible) {

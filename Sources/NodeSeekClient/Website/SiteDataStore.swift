@@ -138,7 +138,7 @@ public final class SiteDataStore {
         guard revision == identityRevision, auth.user?.id == userID else { throw CancellationError() }
         let result: Value = try await reader.json(path: path, method: "POST", body: body, userID: userID, headers: headers)
         guard revision == identityRevision else { throw CancellationError() }
-        if changesData { invalidate(after: path) }
+        if changesData { invalidate(after: path, userID: userID, postID: body?["postId"] as? Int) }
         return result
     }
 
@@ -218,11 +218,11 @@ public final class SiteDataStore {
         guard revision == identityRevision, auth.user?.id == userID else { throw CancellationError() }
         let result = try await reader.accountAction(path: path, body: body, userID: userID, headers: headers)
         guard revision == identityRevision else { throw CancellationError() }
-        invalidate(after: path, messagePeerID: messagePeerID)
+        invalidate(after: path, userID: userID, postID: body["postId"] as? Int, messagePeerID: messagePeerID)
         return result
     }
 
-    private func invalidate(after path: String, messagePeerID: Int? = nil) {
+    private func invalidate(after path: String, userID: Int, postID: Int?, messagePeerID: Int? = nil) {
         if path.hasPrefix("/api/notification/message/") {
             let conversationPath = messagePeerID.map { AccountResource.conversation($0).path }
             invalidate { key in
@@ -234,8 +234,8 @@ public final class SiteDataStore {
             invalidate { $0.path.hasPrefix("/\(prefix)/") || $0.path == Self.unreadCountPath }
         } else if path.hasPrefix("/api/fans/") {
             invalidate { $0.kind == "profile" || $0.path.hasPrefix("/api/fans/") }
-        } else if path.hasPrefix("/api/statistics/collection") {
-            invalidate { $0.kind.hasPrefix("thread") || ["collections", "profile"].contains($0.kind) }
+        } else if path == "/api/statistics/collection", let postID {
+            invalidate { Self.collectionChangeAffects($0, userID: userID, postID: postID) }
         } else if path.hasPrefix("/api/attendance") {
             invalidate { ["attendance", "credit", "profile"].contains($0.kind) || $0.path.hasPrefix("/api/progress/") }
         } else if path.hasPrefix("/api/content/") {
@@ -243,6 +243,12 @@ public final class SiteDataStore {
         } else {
             invalidate()
         }
+    }
+
+    static func collectionChangeAffects(_ key: SiteRequestKey, userID: Int, postID: Int) -> Bool {
+        guard key.userID == userID else { return false }
+        return key.kind == AccountContentKind.collections.rawValue
+            || (key.kind.hasPrefix("thread") && URL(string: key.path)?.path.hasPrefix("/post-\(postID)-") == true)
     }
 
     func invalidateThread(id: Int) {
