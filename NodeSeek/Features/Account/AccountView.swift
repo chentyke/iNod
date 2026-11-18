@@ -24,9 +24,23 @@ struct AccountView: View {
                     NavigationLink(value: AppDestination.connections(follows: false, userID: user.id)) { SeekRowLabel(title: "我的粉丝", symbol: "person.2") }
                 } header: { SeekSectionTitle(title: "社区记录") }
                 Section {
-                    AccountBalances(user: user).listRowInsets(EdgeInsets()).listRowSeparator(.hidden)
-                    AccountNavigationRow(title: "签到", symbol: "calendar.badge.checkmark", destination: .attendance)
-                    NavigationLink(value: AccountDestination.progress) { SeekRowLabel(title: "等级与进度", symbol: "chart.bar") }
+                    AccountBalances(user: user)
+                        .listRowInsets(AccountBalanceMetrics.balancesRowInsets)
+                        .listRowSeparator(.hidden)
+                    AccountBalanceNavigationRow(
+                        title: "签到",
+                        symbol: "calendar.badge.checkmark",
+                        destination: .attendance
+                    )
+                    .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] + AccountBalanceMetrics.separatorLeading }
+                    .listRowInsets(AccountBalanceMetrics.middleRowInsets)
+                    AccountBalanceNavigationRow(
+                        title: "等级与进度",
+                        symbol: "chart.bar",
+                        progress: AccountLevel.progress(forCoins: user.coins),
+                        destination: .progress
+                    )
+                    .listRowInsets(AccountBalanceMetrics.lastRowInsets)
                 } header: { SeekSectionTitle(title: "鸡腿与星尘") }
                 .listRowBackground(Color.seekCard)
                 Section {
@@ -97,6 +111,7 @@ struct AccountView: View {
         .navigationTitle("我的")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await account.refresh(force: true) }
+        .menuRefreshable { await account.refresh(force: true) }
         .task { await account.refresh() }
         .sheet(isPresented: $showsVerification) { WebsiteView(initialURL: NodeSeekRoute.home.url) }
         .sheet(isPresented: $showsSignIn) { SignInView() }

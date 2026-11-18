@@ -23,7 +23,12 @@ struct ResourceContent<Value: Decodable, Content: View>: View {
             } else {
                 ProgressView("正在读取").frame(maxWidth:.infinity,maxHeight:.infinity)
             }
-        }.seekCanvas().navigationBarTitleDisplayMode(.inline).toolbar(.visible,for:.navigationBar).hidesTabBarWhenPushed()
+        }
+        .seekCanvas()
+        .menuRefreshable(retry)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .hidesTabBarWhenPushed()
         .sheet(isPresented:$showsVerification,onDismiss:{ Task { await retry() } }) { WebsiteView(initialURL: websiteURL) }
     }
 }

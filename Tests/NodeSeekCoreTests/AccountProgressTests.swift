@@ -64,6 +64,26 @@ func accountLevelUsesTheHighestTierTheBalanceReaches(coins: Int, level: Int) {
     #expect(beyondMax.fraction == 1)
 }
 
+@Test func accountLevelProgressFormatsCompactAndAccessibilitySummaries() throws {
+    let levelZero = try #require(AccountLevel.progress(forCoins: 0))
+    #expect(levelZero.compactSummary == "Lv 0 · 还差 \((100).formatted())")
+    #expect(levelZero.accessibilitySummary == "Lv 0，距离 Lv 1 还差 \((100).formatted()) 个鸡腿")
+
+    let levelTwo = try #require(AccountLevel.progress(forCoins: 630))
+    #expect(levelTwo.level == 2)
+    #expect(levelTwo.compactSummary == "Lv 2 · 还差 \((270).formatted())")
+    #expect(levelTwo.accessibilitySummary == "Lv 2，距离 Lv 3 还差 \((270).formatted()) 个鸡腿")
+
+    let levelFive = try #require(AccountLevel.progress(forCoins: 2500))
+    #expect(levelFive.level == 5)
+    #expect(levelFive.compactSummary == "Lv 5 · 还差 \((1100).formatted())")
+    #expect(levelFive.accessibilitySummary == "Lv 5，距离 Lv 6 还差 \((1100).formatted()) 个鸡腿")
+
+    let maxLevel = try #require(AccountLevel.progress(forCoins: 3600))
+    #expect(maxLevel.compactSummary == "Lv 6 · 已满级")
+    #expect(maxLevel.accessibilitySummary == "Lv 6，已达最高等级")
+}
+
 @Test func dailyProgressDecodesAndClampsQuotasSafely() throws {
     let raw = #"""
     {

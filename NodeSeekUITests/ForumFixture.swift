@@ -6,18 +6,22 @@ enum ForumFixture {
     static let threadTitle = "周末的读书计划"
     static let threadID = 123
     static let announcementTitle = "本月读书会公告"
+    static let peerID = 102
+    static let peerName = "读者"
     private static let timestamp = "2025-01-04T12:00:00.000Z"
 
     /// Launches the app on the fixture's feed, in dark mode when `dark` is set,
     /// signed in as the thread's author when `signedInAsAuthor` is set.
     @MainActor static func launch(dark: Bool = false, opensThread: Bool = false, opensSidebar: Bool = false,
-                                  signedInAsAuthor: Bool = false, openingMarkdown: String = "周六下午两点开始读书。",
+                                  opensConversation: Bool = false, signedInAsAuthor: Bool = false,
+                                  openingMarkdown: String = "周六下午两点开始读书。",
                                   assetResponses: [String: Data] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor,
                                                                     openingMarkdown: openingMarkdown, assetResponses: assetResponses)
         if opensThread { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "\(threadID)" }
         if opensSidebar { app.launchArguments.append("--ui-test-open-sidebar") }
+        if opensConversation { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_CONVERSATION"] = "\(peerID):\(peerName)" }
         // `appearance` is the in-app appearance setting; an argument sets it for this launch only.
         app.launchArguments += ["-appearance", dark ? "dark" : "light"]
         app.launch()
@@ -37,6 +41,26 @@ enum ForumFixture {
         post.tap()
         #endif
         XCTAssertTrue(element("comment-2", in: app).waitForExistence(timeout: 8))
+        return app
+    }
+
+    /// Launches the app signed in and opens the fixture's private conversation.
+    @MainActor static func launchConversation(dark: Bool = false) -> XCUIApplication {
+        #if targetEnvironment(macCatalyst)
+        let app = launch(dark: dark, opensConversation: true, signedInAsAuthor: true)
+        #else
+        let app = launch(dark: dark, signedInAsAuthor: true)
+        let notifications = tab("通知", in: app)
+        XCTAssertTrue(notifications.waitForExistence(timeout: 10))
+        notifications.tap()
+        let messagesSegment = app.buttons["私聊"]
+        XCTAssertTrue(messagesSegment.waitForExistence(timeout: 5))
+        messagesSegment.tap()
+        let row = app.cells.containing(.staticText, identifier: peerName).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+        #endif
+        XCTAssertTrue(element("message-704", in: app).waitForExistence(timeout: 8))
         return app
     }
 
@@ -135,9 +159,32 @@ enum ForumFixture {
              "likeCount": 0, "upvoteCount": 0, "blocked": false]
         }
         let posts = [post(threadID, threadTitle)] + (1...8).map { post(200 + $0, $0 == 1 ? announcementTitle : "读书笔记第 \($0) 篇") }
+        let messages: [[String: Any]] = [
+            ["id": 701, "senderID": peerID, "receiverID": 101, "content": "周六的读书会还有空位吗？我想带两本笔记过来一起交流。",
+             "createdAt": "2025-01-04T12:01:00.000Z", "isMarkdown": false, "viewed": true],
+            ["id": 702, "senderID": 101, "receiverID": peerID, "content": "有的，下午两点在老地方见，直接过来就好。",
+             "createdAt": "2025-01-04T12:03:00.000Z", "isMarkdown": false, "viewed": true],
+            ["id": 703, "senderID": peerID, "receiverID": 101, "content": "太好了，那我准时到。",
+             "createdAt": "2025-01-04T12:04:00.000Z", "isMarkdown": false, "viewed": true],
+            ["id": 704, "senderID": 101, "receiverID": peerID, "content": "路上注意安全，到了群里或者私信说一声。",
+             "createdAt": "2025-01-04T12:05:00.000Z", "isMarkdown": false, "viewed": true]
+        ]
         let responses: [String: [String: Any]] = [
             "https://www.nodeseek.com/?sortBy=replyTime": ["posts": posts, "hasNextPage": false],
             "/api/content/list-categories": ["success": true, "data": []],
+            "/api/notification/unread-count": ["unreadCount": ["all": 0]],
+            "/api/notification/reply-to-me/list": ["items": [], "hasNext": false],
+            "/api/notification/at-me/list": ["items": [], "hasNext": false],
+            "/api/notification/message/list": [
+                "items": [["id": peerID, "latestMessageID": 704, "name": peerName,
+                           "preview": "路上注意安全，到了群里或者私信说一声。", "isMarkdown": false,
+                           "createdAt": "2025-01-04T12:05:00.000Z", "viewed": true]],
+                "hasNext": false
+            ],
+            "/api/notification/message/with/\(peerID)": [
+                "peer": ["id": peerID, "name": peerName],
+                "items": messages
+            ],
             "https://www.nodeseek.com/post-123-1": ["postId": 123, "title": threadTitle, "categoryWord": "日常",
                 "views": "100", "postPage": 1, "postPageCount": 1, "collectionCount": 0, "op": author,
                 "comments": replies],

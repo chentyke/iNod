@@ -56,8 +56,8 @@ struct MessageComposer: View {
                 .glassEffect(.regular.tint(canSend ? Color.seekInk : nil).interactive(canSend), in: .circle)
             }
         }
-        .frame(maxWidth: 680)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, SeekLayout.gutter)
         .padding(.vertical, 8)
+        .readableColumn()
     }
 }

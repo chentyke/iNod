@@ -5,9 +5,12 @@ import SwiftUI
 struct NoticesListView: View {
     let userID: Int
     @Environment(AccountSession.self) private var account
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openAccountPost) private var openPost
     @Environment(\.openMemberDestination) private var openMember
     @State private var isLoading = false
+    @State private var hasLoadedOnce = false
+    @State private var isVisible = false
     @State private var isUpdating = false
     @State private var loadErrors: [NoticeKind: LoadFailure] = [:]
     @State private var updateError: LoadFailure?
@@ -44,7 +47,22 @@ struct NoticesListView: View {
                 }
             }
         }
-        .task { await load() }
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
+        .task {
+            await load()
+            hasLoadedOnce = true
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                guard !Task.isCancelled, scenePhase.isPollingActive else { continue }
+                await load(force: true)
+            }
+        }
+        .onChange(of: scenePhase) { previous, phase in
+            if previous != .active, phase == .active, isVisible, hasLoadedOnce {
+                Task { await load(force: true) }
+            }
+        }
     }
 
     private var activity: [InboxNotice]? {

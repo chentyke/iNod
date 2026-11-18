@@ -6,24 +6,32 @@ struct AccountDataView<Value: Decodable, Content: View>: View {
     let value: Value?
     let error: LoadFailure?
     let isBusy: Bool
+    let margins: ReadableMargin
+    let scroller: ReadableScroller
     let retry: () async -> Void
     @ViewBuilder var content: (Value) -> Content
     @State private var showsVerification = false
     @Environment(AccountSession.self) private var account
 
-    init(value: Value?, error: LoadFailure?, isBusy: Bool, retry: @escaping () async -> Void,
+    init(value: Value?, error: LoadFailure?, isBusy: Bool,
+         margins: ReadableMargin = .replacesInset, in scroller: ReadableScroller = .list,
+         retry: @escaping () async -> Void,
          @ViewBuilder content: @escaping (Value) -> Content) {
         self.value = value
         self.error = error
         self.isBusy = isBusy
+        self.margins = margins
+        self.scroller = scroller
         self.retry = retry
         self.content = content
     }
 
-    init(loader: AccountLoader<Value>, retry: @escaping () async -> Void,
+    init(loader: AccountLoader<Value>,
+         margins: ReadableMargin = .replacesInset, in scroller: ReadableScroller = .list,
+         retry: @escaping () async -> Void,
          @ViewBuilder content: @escaping (Value) -> Content) {
         self.init(value: loader.value, error: loader.error, isBusy: loader.isLoading || loader.isUpdating,
-                  retry: retry, content: content)
+                  margins: margins, in: scroller, retry: retry, content: content)
     }
 
     var body: some View {
@@ -43,7 +51,8 @@ struct AccountDataView<Value: Decodable, Content: View>: View {
                 ProgressView("正在读取").frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .seekCanvas()
+        .seekCanvas(margins: margins, in: scroller)
+        .menuRefreshable(retry)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .hidesTabBarWhenPushed()

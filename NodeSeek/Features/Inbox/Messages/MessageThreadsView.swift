@@ -5,7 +5,10 @@ import SwiftUI
 struct MessageThreadsView: View {
     let userID: Int
     @Environment(AccountSession.self) private var account
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isLoading = false
+    @State private var hasLoadedOnce = false
+    @State private var isVisible = false
     @State private var error: LoadFailure?
     @State private var query = ""
     @FocusState private var searchFocused: Bool
@@ -38,7 +41,22 @@ struct MessageThreadsView: View {
             .navigationLinkIndicatorVisibility(.hidden)
         }
         .scrollDismissesKeyboard(.interactively)
-        .task { await load() }
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
+        .task {
+            await load()
+            hasLoadedOnce = true
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                guard !Task.isCancelled, scenePhase.isPollingActive else { continue }
+                await load(force: true)
+            }
+        }
+        .onChange(of: scenePhase) { previous, phase in
+            if previous != .active, phase == .active, isVisible, hasLoadedOnce {
+                Task { await load(force: true) }
+            }
+        }
         .task(id: search) {
             memberSearch = nil
             guard !search.isEmpty else { return }
