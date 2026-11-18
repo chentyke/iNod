@@ -1,8 +1,10 @@
+#if canImport(AppKit)
 import AppKit
+#endif
 import Foundation
 import ImageIO
-import UniformTypeIdentifiers
 import Testing
+import UniformTypeIdentifiers
 @testable import NodeSeekClient
 
 private final class RequestCounts: @unchecked Sendable {
@@ -120,7 +122,9 @@ struct AvatarImageLoaderTests {
     }
 
     @Test func svgServedAtAPNGAddressIsRasterizedAndCachedAtThumbnailSize() async throws {
+        #if canImport(AppKit)
         _ = NSApplication.shared
+        #endif
         let session = makeSession()
         defer { session.invalidateAndCancel() }
         let loader = AvatarImageLoader(session: session)

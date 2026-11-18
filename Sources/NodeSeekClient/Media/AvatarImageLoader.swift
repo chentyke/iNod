@@ -92,8 +92,13 @@ public final class AvatarImageLoader {
             const canvas = document.createElement("canvas");
             canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
             canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-            canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
-            return canvas.toDataURL("image/png").split(",")[1];
+            // The thumbnail is read straight back into Swift; draw in CPU memory even without a visible window.
+            const context = canvas.getContext("2d", { willReadFrequently: true });
+            if (!context) throw new Error("Could not create the avatar canvas");
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            const png = canvas.toDataURL("image/png").split(",")[1];
+            if (!png) throw new Error("The avatar canvas returned no PNG");
+            return png;
             """, arguments: ["svg": base64, "maxPixelSize": Self.maxPixelSize], in: nil, contentWorld: .defaultClient)
         guard let base64PNG = result as? String, let png = Data(base64Encoded: base64PNG) else {
             throw SiteError.message("头像暂时无法加载。")
