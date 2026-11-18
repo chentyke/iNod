@@ -74,12 +74,14 @@ jobs:
             results: NodeSeekUITests
             # Allow for a slow build as well as the full UI suite on hosted runners.
             timeout-minutes: 60
+            parallel-options: -parallel-testing-enabled YES -parallel-testing-worker-count 2
             tests: ''
             retries: ''
           - check: iPad UI tests
             device: iPad Pro 13-inch (M5)
             results: NodeSeekUITests-iPad
             timeout-minutes: 40
+            parallel-options: -parallel-testing-enabled NO
             tests: >-
               -only-testing:NodeSeekUITests/AdaptiveLayoutTests
               -only-testing:NodeSeekUITests/ThreadHistoryTests
@@ -118,13 +120,14 @@ jobs:
         shell: bash
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+          PARALLEL_OPTIONS: ${{ matrix.parallel-options }}
           TESTS: ${{ matrix.tests }}
           RETRIES: ${{ matrix.retries }}
         run: |
-          read -ra args <<< "$TESTS $RETRIES"
+          read -ra args <<< "$PARALLEL_OPTIONS $TESTS $RETRIES"
           xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -parallel-testing-enabled NO "${args[@]}" \
+            "${args[@]}" \
             -resultBundlePath "$RUNNER_TEMP/${{ matrix.results }}.xcresult" \
             CODE_SIGN_IDENTITY=- test
       - name: Upload failed test results
