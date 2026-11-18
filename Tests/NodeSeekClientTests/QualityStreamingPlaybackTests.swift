@@ -55,6 +55,12 @@ struct QualityStreamingPlaybackTests {
         )
         #expect(youtube.result.value == .autoplayBlocked)
         #expect(tiktok.result.value == .autoplayBlocked)
+        var retry = try #require(streaming.playbackCheck(for: .tikTok))
+        retry.receiveTikTokMessage(
+            Data(#"{"x-tiktok-player":true,"type":"onPlayerError","value":{"errorCode":3001}}"#.utf8),
+            origin: "https://www.tiktok.com"
+        )
+        #expect(retry.result.value == .playerError(code: 3001))
         #expect(streaming.playbackCheck(for: .netflix) == nil)
         #expect(streaming.playbackCheck(for: .disneyPlus) == nil)
         #expect(streaming.playbackCheck(for: .primeVideo) == nil)
