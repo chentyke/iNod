@@ -62,6 +62,50 @@ final class QualityToolsTests: XCTestCase {
         XCTAssertTrue(upload.exists)
     }
 
+    private func openCarrierSpeed(sample: String = "complete", pace: String = "0.05") -> XCUIApplication {
+        let app = open("网络检测", sample: sample, pace: pace)
+        let entry = app.buttons["quality.carrierSpeed"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        entry.tap()
+        XCTAssertTrue(ForumFixture.title("运营商测速", in: app).waitForExistence(timeout: 5))
+        return app
+    }
+
+    func testCarrierSpeedRunsToAResult() {
+        let app = openCarrierSpeed()
+        // Carriers without a verified node are named in the footer rather than shown as dead rows.
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS '电信和移动节点验证后加入'")).firstMatch.exists)
+        app.buttons["carrierSpeed.start"].tap()
+
+        XCTAssertTrue(app.buttons["carrierSpeed.restart"].waitForExistence(timeout: 20))
+        let download = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", "下载", "312 Mbps")).firstMatch
+        XCTAssertTrue(download.exists)
+        let latency = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '延迟 39 ms' AND label CONTAINS 'SpeedTest.cn'")).firstMatch
+        XCTAssertTrue(latency.exists, "The latency line and the node's provider read together")
+    }
+
+    func testCarrierSpeedSaysWhichDirectionFailed() {
+        let app = openCarrierSpeed(sample: "partialFailure")
+        app.buttons["carrierSpeed.start"].tap()
+        XCTAssertTrue(app.buttons["carrierSpeed.restart"].waitForExistence(timeout: 20))
+        let upload = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '上传未测得：25 秒内未完成'")).firstMatch
+        XCTAssertTrue(upload.exists)
+    }
+
+    func testLeavingCarrierSpeedStopsTheRun() {
+        let app = openCarrierSpeed(pace: "0.9")
+        app.buttons["carrierSpeed.start"].tap()
+        XCTAssertTrue(app.buttons["carrierSpeed.cancel"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+
+        // Back on the network check, nothing is left running, and the page opens fresh.
+        let entry = app.buttons["quality.carrierSpeed"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["quality.start"].isEnabled)
+        entry.tap()
+        XCTAssertTrue(app.buttons["carrierSpeed.start"].waitForExistence(timeout: 5))
+    }
+
     func testDeviceBenchmarkRunsOffline() {
         let app = open("本机性能")
         app.buttons["benchmark.start"].tap()

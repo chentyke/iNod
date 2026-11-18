@@ -38,6 +38,8 @@ Cloudflare 的 HTTP 时延和抖动算法可在同节点上复测。iNod 使用�
 
 公开节点 `QualityCarrierSpeedNode.taiyuanUnicom` 对应太原联通。该节点的下载最小为 10 MiB，服务发一次 10 MiB 下载和两次 4 MiB 上传，测试数据总量仍为 18 MiB。只有握手返回测速标记、下载收到约定字节数、上传收到相符的字节数确认，才记录对应结果。电信、移动的默认节点仍待确认。
 
+App 在网络检测的“速度”一节提供“按运营商测速”入口，页面通过 `CarrierSpeedTesting` 取得节点列表和测速报告，`LiveCarrierSpeedTester` 把服务结果换成 `SpeedMeasurement`。同一时间只测一个节点，离开页面即取消。界面测试用 `SampleCarrierSpeedTester`。
+
 [SpeedTest.cn 公开候选清单](https://github.com/spiritLHLS/speedtest.cn-CN-ID) / [太原节点路由数据](https://stat.ripe.net/data/network-info/data.json?resource=218.26.162.114) / [LibreSpeed 节点格式](https://github.com/librespeed/speedtest-cli#use-a-custom-backend-server-list)
 
 ## 首版对照方法

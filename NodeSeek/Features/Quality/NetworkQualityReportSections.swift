@@ -46,6 +46,11 @@ struct NetworkQualityReportSections: View {
                 QualityRow("测试节点", status: .measured, value: "\(speed.server.provider) \(speed.server.location)")
                 QualityRow("测速数据量", status: .measured, value: QualityFormat.bytes(speed.bytesTransferred))
             }
+            // A separate test on its own page; hidden while the main check is using the line.
+            if retry != nil {
+                NavigationLink { CarrierSpeedView() } label: { Text("按运营商测速").foregroundStyle(Color.seekInk) }
+                    .accessibilityIdentifier("quality.carrierSpeed")
+            }
         }
         .retryMenu(.speed, retryable: retryable.contains(.speed), retry: retry)
     }
