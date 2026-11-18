@@ -43,11 +43,3 @@ import Testing
     #expect(MessageDraft.key(ownerID: 12, peerID: 9) != MessageDraft.key(ownerID: 12, peerID: 10))
     #expect(MessageDraft.key(ownerID: 12, peerID: 9) != MessageDraft.key(ownerID: 9, peerID: 12))
 }
-
-@Test func oldBookmarksDecodeWithoutAuthorIdentifier() throws {
-    let json = #"{"id":123,"title":"example","author":"author","avatar":"","category":"","categoryKey":"","views":0,"replies":0,"activityDate":"","pinned":false}"#
-    let post = try JSONDecoder().decode(PostSummary.self, from: Data(json.utf8))
-    #expect(post.authorID == nil)
-    let updated = json.replacingOccurrences(of: "\"author\":\"author\"", with: "\"author\":\"author\",\"authorID\":9")
-    #expect(try JSONDecoder().decode(PostSummary.self, from: Data(updated.utf8)).authorID == 9)
-}

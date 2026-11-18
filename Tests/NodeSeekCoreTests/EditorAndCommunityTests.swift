@@ -44,15 +44,6 @@ import Testing
     #expect(EditorDraft.replyReference(postID:123,floor:21,name:"朋友",quote:"第一行\n第二行").contains("> 第一行\n> 第二行"))
 }
 
-@Test func postLinksStayOnTheOfficialSite() {
-    #expect(PostAddress("/post-123-2#11")?.floor == 11)
-    #expect(PostAddress("https://www.nodeseek.com/post-123-2")?.page == 2)
-    #expect(PostAddress("https://nodeseek.com.evil.test/post-123-2") == nil)
-    #expect(PostAddress("https://www.nodeseek.com@evil.test/post-123-2") == nil)
-    #expect(PostAddress("javascript:alert(1)") == nil)
-    #expect(PostAddress("/post-0-1") == nil)
-}
-
 @Test func markdownSupportsDiscussionFormattingWithoutExecutingHTML() {
     #expect(MarkdownBlock.parse("> 一行\n> 二行\n\n- A\n- B\n\n---") == [.quote("一行\n二行"),.list(items:["A","B"],ordered:false),.divider])
     #expect(MarkdownBlock.parse("| A | B |\n| --- | :---: |\n| 1 | 2 |") == [.table([["A","B"],["1","2"]])])

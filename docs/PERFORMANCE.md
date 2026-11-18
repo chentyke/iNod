@@ -42,4 +42,4 @@
 - 图片读取和解码在后台执行，长边最多 384 像素，覆盖当前最大 100 点头像在 3 倍屏幕上的显示。失败后 30 秒内避免反复请求；修改自己的头像仍通过 URL 版本参数立即更新。
 - 参考 [tyrad/nodeseek 的头像加载器](https://github.com/tyrad/nodeseek/blob/cd7c12e0346de70bfa90003ccc0435c0a691aa14/nodeseek/AppRuntime/Images/Avatar/Loader/AvatarImageLoader.swift)和[图片数据加载器](https://github.com/tyrad/nodeseek/blob/cd7c12e0346de70bfa90003ccc0435c0a691aa14/nodeseek/AppRuntime/Images/Loading/ImageDataLoader.swift)的缓存与请求复用方式，使用系统库实现。
 
-在仓库根目录运行 `python3 scripts/verify-avatar-cache.py`，可以检查重复请求、头像更新、页面关闭和请求失败时的缓存行为。
+在仓库根目录运行 `xcrun swift test --filter AvatarImageLoaderTests`，可以检查重复请求、头像更新、页面关闭和请求失败时的缓存行为，以及 SVG 头像的缩略图。这些检查也会随 CI 的 Swift 单元测试运行。

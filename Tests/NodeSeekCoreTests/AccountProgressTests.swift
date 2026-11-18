@@ -9,6 +9,12 @@ import Testing
     #expect(AccountLevel.requiredCoins(for: 9) == 3600)
 }
 
+@Test(arguments: [(-1, 0), (0, 0), (99, 0), (100, 1), (399, 1), (400, 2),
+                  (900, 3), (1600, 4), (2500, 5), (3599, 5), (3600, 6), (10_000, 6)])
+func accountLevelUsesTheHighestTierTheBalanceReaches(coins: Int, level: Int) {
+    #expect(AccountLevel.from(coins: coins) == level)
+}
+
 @Test func accountLevelProgressComputesFloorTargetRemainingAndFraction() throws {
     #expect(AccountLevel.progress(forCoins: nil) == nil)
 

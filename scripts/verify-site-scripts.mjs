@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash, webcrypto} from 'node:crypto';
-const source = readFileSync(new URL('../Sources/NodeSeekClient/Website/AccountScripts.swift',import.meta.url),'utf8');
-const script = source.match(/static let request = #"""\n([\s\S]*?)\n    """#/)[1];
+const account = '../Sources/NodeSeekClient/Website/AccountScripts.swift';
+function extract(name, path = account) {
+  const source = readFileSync(new URL(path, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const declaration = new RegExp(String.raw`^[ \t]*static[ \t]+let[ \t]+${name}[ \t]*=[ \t]*#"""\n([\s\S]*?)\n([ \t]*)"""#`, 'm');
+  const match = source.match(declaration);
+  assert.ok(match, `Could not find Swift script "${name}" in ${path}`);
+  const [, script, indentation] = match;
+  return script.split('\n').map(line => line.startsWith(indentation) ? line.slice(indentation.length) : line).join('\n');
+}
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-const run = new AsyncFunction('path','method','body','headers','fetch','location','navigator','localStorage','crypto',script);
+const run = new AsyncFunction('path','method','body','headers','fetch','location','navigator','localStorage','crypto',extract('request'));
 const storage = new Map();
 const localStorage = {getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)};
 const origin = 'https://www.nodeseek.com';
@@ -32,7 +39,6 @@ status=200;reply={success:false,message:'尚未开放'};
 assert.equal((await request('/api/account/example')).__error,'尚未开放');
 const htmlChallenge=JSON.parse(await run('/api/vote/info/456','GET','',{},async()=>({ok:false,status:403,headers:{get:()=>null},json:async()=>{throw new SyntaxError('HTML challenge');}}),{origin},{userAgent:agent},localStorage,webcrypto));
 assert.equal(htmlChallenge.__needsWebsite,true);
-const extract = (name, text = source) => text.match(new RegExp('static let '+name+' = #"""\\n([\\s\\S]*?)\\n    """#'))[1];
 const action = new AsyncFunction('path','body','headers','fetch',extract('action'));
 for (const code of [400,403,500]) {
   status=code;reply={success:false,message:'具体拒绝原因'};
@@ -54,13 +60,13 @@ assert.equal(captured.options.body.get('token'),'123456798');
 assert.equal(captured.options.body.get('name'),'avatar');
 assert.equal(captured.options.body.get('img').type,'image/png');
 assert.equal(captured.options.headers['x-csrf-challenge'],'simple-token');
-const site=readFileSync(new URL('../Sources/NodeSeekClient/Website/SiteScripts.swift',import.meta.url),'utf8');
+const site='../Sources/NodeSeekClient/Website/SiteScripts.swift';
 status=400;reply={success:false,message:'鸡腿不足'};
 const post=new AsyncFunction('path','body','token','fetch',extract('post',site));
 assert.equal(JSON.parse(await post('/api/statistics/like','{}','',fetch)).__error,'鸡腿不足');
 const get=new AsyncFunction('path','fetch',extract('get',site));
 assert.equal(JSON.parse(await get('/api/progress/today',fetch)).__error,'鸡腿不足');
-const loginSource=readFileSync(new URL('../Sources/NodeSeekClient/Session/SignInScripts.swift',import.meta.url),'utf8');
+const loginSource='../Sources/NodeSeekClient/Session/SignInScripts.swift';
 const login=new AsyncFunction('body','token','fetch','location',extract('submit',loginSource));
 status=200;reply={success:true,need2FA:true,otpSession:'example-session'};
 const first=JSON.parse(await login('{"username":"example","password":"sample"}','example-verification',fetch,{origin}));

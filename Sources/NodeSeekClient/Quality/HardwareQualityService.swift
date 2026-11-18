@@ -7,7 +7,15 @@ public actor HardwareQualityService {
     public static let storageBytes = 64 * 1_048_576
     static let blockBytes = 1_048_576
     static let randomBlockBytes = 4096
-    private static let randomOperations = 4096
+    struct Workload: Sendable {
+        let cpuBytes: Int
+        let storageBytes: Int
+        let randomOperations: Int
+
+        static let device = Self(
+            cpuBytes: HardwareQualityService.cpuBytes, storageBytes: HardwareQualityService.storageBytes, randomOperations: 4096
+        )
+    }
     private static let shared = HardwareQualityService()
     private var running = false
 
@@ -37,9 +45,12 @@ public actor HardwareQualityService {
     }
 
     static func benchmark(
-        _ initial: HardwareQualityReport, in directory: URL,
+        _ initial: HardwareQualityReport, in directory: URL, workload: Workload = .device,
         onProgress: @Sendable (HardwareQualityReport) async -> Void = { _ in }
     ) async -> HardwareQualityReport {
+        let cpuBytes = workload.cpuBytes
+        let storageBytes = workload.storageBytes
+        let randomOperations = workload.randomOperations
         var report = initial
         let file = directory.appending(path: "iNod-Quality-\(initial.id).tmp")
         var createdFile = false
@@ -54,7 +65,7 @@ public actor HardwareQualityService {
             report.currentStep = .cpuMulti
             report.cpuMulti = .running
             await onProgress(report)
-            report.cpuMulti = await measureMulticore(cpuBlock, processors: report.processorCount)
+            report.cpuMulti = await measureMulticore(cpuBlock, bytes: cpuBytes, processors: report.processorCount)
         }
         let storageBlock = Task.isCancelled ? Data() : makeStorageBlock()
         if !Task.isCancelled {
@@ -62,7 +73,7 @@ public actor HardwareQualityService {
             report.write = .running
             await onProgress(report)
             report.write = measure(bytes: storageBytes) {
-                try write(storageBlock, to: file, createdFile: &createdFile)
+                try write(storageBlock, to: file, bytes: storageBytes, createdFile: &createdFile)
             }
         }
         if !Task.isCancelled {
@@ -70,7 +81,7 @@ public actor HardwareQualityService {
                 report.currentStep = .read
                 report.read = .running
                 await onProgress(report)
-                report.read = measure(bytes: storageBytes) { try read(from: file) }
+                report.read = measure(bytes: storageBytes) { try read(from: file, bytes: storageBytes) }
             } else {
                 report.read = .unavailable(.prerequisiteFailed)
             }
@@ -82,14 +93,14 @@ public actor HardwareQualityService {
                 report.randomWrite = .running
                 await onProgress(report)
                 report.randomWrite = measure(bytes: randomBlockBytes * randomOperations) {
-                    try randomAccess(file, writing: block)
+                    try randomAccess(file, writing: block, fileBytes: storageBytes, operations: randomOperations)
                 }
                 if !Task.isCancelled, case .measured = report.randomWrite {
                     report.currentStep = .randomRead
                     report.randomRead = .running
                     await onProgress(report)
                     report.randomRead = measure(bytes: randomBlockBytes * randomOperations) {
-                        try randomAccess(file, writing: nil)
+                        try randomAccess(file, writing: nil, fileBytes: storageBytes, operations: randomOperations)
                     }
                 } else if !Task.isCancelled {
                     report.randomRead = .unavailable(.prerequisiteFailed)
@@ -168,8 +179,8 @@ public actor HardwareQualityService {
         }
     }
 
-    private static func measureMulticore(_ block: Data, processors: Int) async -> QualityCheck<HardwareQualityMeasurement> {
-        let iterations = cpuBytes / blockBytes
+    private static func measureMulticore(_ block: Data, bytes: Int, processors: Int) async -> QualityCheck<HardwareQualityMeasurement> {
+        let iterations = bytes / block.count
         let workers = min(max(1, processors), iterations)
         let thermal = thermalState()
         let start = ContinuousClock.now
@@ -182,7 +193,7 @@ public actor HardwareQualityService {
                 try await group.waitForAll()
             }
             try Task.checkCancellation()
-            return measurement(bytes: cpuBytes, since: start, thermal: thermal)
+            return measurement(bytes: bytes, since: start, thermal: thermal)
         } catch { return .cancelled }
     }
 
@@ -193,14 +204,14 @@ public actor HardwareQualityService {
         return words.withUnsafeBytes { Data($0) }
     }
 
-    private static func randomAccess(_ url: URL, writing block: Data?) throws {
+    private static func randomAccess(_ url: URL, writing block: Data?, fileBytes: Int, operations: Int) throws {
         let descriptor = open(url.path, block == nil ? O_RDONLY : O_WRONLY)
         guard descriptor >= 0 else { throw QualityIssue.fileError }
         defer { close(descriptor) }
         guard fcntl(descriptor, F_NOCACHE, 1) == 0 else { throw QualityIssue.fileError }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
-        let blockCount = storageBytes / randomBlockBytes
-        for index in 0..<randomOperations {
+        let blockCount = fileBytes / randomBlockBytes
+        for index in 0..<operations {
             try Task.checkCancellation()
             // A fixed permutation of 4 KiB-aligned positions, without repeating a position.
             let slot = (index * 4051 + 97) % blockCount
@@ -211,14 +222,14 @@ public actor HardwareQualityService {
         if block != nil { try handle.synchronize() }
     }
 
-    private static func write(_ block: Data, to url: URL, createdFile: inout Bool) throws {
+    private static func write(_ block: Data, to url: URL, bytes: Int, createdFile: inout Bool) throws {
         let descriptor = open(url.path, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR)
         guard descriptor >= 0 else { throw QualityIssue.fileError }
         createdFile = true
         defer { close(descriptor) }
         guard fcntl(descriptor, F_NOCACHE, 1) == 0 else { throw QualityIssue.fileError }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
-        for _ in 0..<(storageBytes / block.count) {
+        for _ in 0..<(bytes / block.count) {
             try Task.checkCancellation()
             try handle.write(contentsOf: block)
         }
@@ -226,13 +237,13 @@ public actor HardwareQualityService {
         try handle.synchronize()
     }
 
-    private static func read(from url: URL) throws {
+    private static func read(from url: URL, bytes: Int) throws {
         let descriptor = open(url.path, O_RDONLY)
         guard descriptor >= 0 else { throw QualityIssue.fileError }
         defer { close(descriptor) }
         guard fcntl(descriptor, F_NOCACHE, 1) == 0 else { throw QualityIssue.fileError }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
-        var remaining = storageBytes
+        var remaining = bytes
         while remaining > 0 {
             try Task.checkCancellation()
             guard let data = try handle.read(upToCount: min(blockBytes, remaining)), !data.isEmpty else {

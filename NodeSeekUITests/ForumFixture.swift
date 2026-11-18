@@ -73,6 +73,20 @@ enum ForumFixture {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
     }
 
+    @MainActor static func assertReadableRow(
+        _ row: XCUIElement, in list: XCUIElement, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        XCTAssertTrue(row.waitForExistence(timeout: 5), file: file, line: line)
+        let rowFrame = row.frame
+        let listFrame = list.frame
+        let readableWidth = 760 * pointScale
+        let sideGap = max(16 * pointScale, ((listFrame.width - readableWidth) / 2).rounded(.down))
+        let tolerance: CGFloat = 2
+        XCTAssertLessThanOrEqual(rowFrame.width, readableWidth + tolerance, file: file, line: line)
+        XCTAssertEqual(rowFrame.minX - listFrame.minX, sideGap, accuracy: tolerance, file: file, line: line)
+        XCTAssertEqual(listFrame.maxX - rowFrame.maxX, sideGap, accuracy: tolerance, file: file, line: line)
+    }
+
     /// How far apart the darkest and lightest parts of an image are, from 0 (one flat colour) to 1 (black on white).
     /// It skips the darkest and lightest 1% of pixels, so stray specks don't count; a short label covers only a few percent of its row.
     static func contrast(of image: UIImage) -> CGFloat? {

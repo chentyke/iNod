@@ -10,6 +10,8 @@ import Testing
         #expect(address.floor == 11)
     }
     #expect(PostAddress("https://www.nodeseek.com/post-123")?.page == 1)
+    #expect(PostAddress("https://www.nodeseek.com/post-123-2")?.page == 2)
+    #expect(PostAddress("/post-0-1") == nil)
     #expect(ForumLink.parse("/space/9#comments") == .native(.member(id:9,section:"comments")))
     #expect(ForumLink.parse("http://nodeseek.com/space/9#comments") == .native(.member(id:9,section:"comments")))
 }
@@ -17,6 +19,7 @@ import Testing
 @Test func forumLinksRejectImpersonatingHostsAndCredentials() {
     for value in ["https://www.nodeseek.com.evil.test/post-1-1","https://nodeseek.com@evil.test/post-1-1","https://someone@nodeseek.com/post-1-1","https://nodeseek.com:8443/post-1-1","javascript:alert(1)","https://example.com/post-1-1"] {
         #expect(ForumLink.parse(value) == nil)
+        #expect(PostAddress(value) == nil)
     }
 }
 

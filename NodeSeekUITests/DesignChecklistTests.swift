@@ -89,14 +89,12 @@ final class DesignChecklistTests: XCTestCase {
         XCTAssertTrue(app.buttons["回复"].waitForNonExistence(timeout: 3), "Scrolling should fold the dock.")
     }
 
+    #if targetEnvironment(macCatalyst)
     /// With a pointer, resting on a folded dock opens it, and resting on another one moves the opening there.
     ///
     /// Only the Mac runs it: the iPad simulator's synthesized hover never reaches the app's hover handlers,
     /// and on GitHub's Mac runner no input reaches the app, so it runs on a Mac at hand.
-    func testPointerHoverOpensTheDock() throws {
-        #if !targetEnvironment(macCatalyst)
-        throw XCTSkip("Only the Mac delivers a test's pointer hover to the app.")
-        #else
+    func testPointerHoverOpensTheDock() {
         let app = launchThread()
         let first = ForumFixture.element("comment-2", in: app)
         let second = ForumFixture.element("comment-3", in: app)
@@ -119,10 +117,8 @@ final class DesignChecklistTests: XCTestCase {
         foldedDock(in: second).hover()
         XCTAssertTrue(second.buttons["回复"].waitForExistence(timeout: 3), "Hovering over another dock should open it.")
         XCTAssertTrue(foldedDock(in: first).waitForExistence(timeout: 3), "Only one dock should be open at a time.")
-        #endif
     }
 
-    #if targetEnvironment(macCatalyst)
     func testPointerCanReachMoreReplyActions() {
         let app = ForumFixture.launchThread(signedInAsAuthor: true)
         let card = ForumFixture.element("comment-2", in: app)

@@ -26,6 +26,12 @@ import Testing
     #expect(!WebsiteResource.vote(5).requiresLogin)
 }
 
+@Test func dailyProgressResourceTargetsTodayEndpointAndRequiresSignIn() {
+    let resource = WebsiteResource.dailyProgress
+    #expect(resource.path == "/api/progress/today")
+    #expect(resource.requiresLogin)
+}
+
 @Test func websiteActionsKeepTheExistingWriteFormats() throws {
     let categories = try JSONDecoder().decode([HomepageCategory].self, from: Data(#"[{"id":"tech","title":"技术","enabled":true}]"#.utf8))
     let homepage = WebsiteAction.saveHomepage(categories).request

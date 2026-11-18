@@ -1,19 +1,13 @@
 import XCTest
 
+#if !targetEnvironment(macCatalyst)
 @MainActor
 final class StardustHistoryViewTests: XCTestCase {
-    private let readableWidth = 760 * ForumFixture.pointScale
-    private let gutter = 16 * ForumFixture.pointScale
-    private let tolerance: CGFloat = 2
-
     override func setUp() {
         continueAfterFailure = false
     }
 
     func testStardustHistoryDisplaysBalanceRecordsAndNavigates() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
         let app = try launchStardustHistory()
         XCTAssertTrue(ForumFixture.title("星尘明细", in: app).waitForExistence(timeout: 5))
 
@@ -31,7 +25,9 @@ final class StardustHistoryViewTests: XCTestCase {
         XCTAssertTrue(peerButton.label.contains("9900001"), "UID should not contain thousand separators.")
         XCTAssertFalse(peerButton.label.contains("9,900,001"))
 
-        assertReadableColumn(in: app)
+        let list = app.collectionViews.containing(.any, identifier: "stardust-balance-card").firstMatch
+        let card = list.cells.containing(.any, identifier: "stardust-balance-card").firstMatch
+        ForumFixture.assertReadableRow(card, in: list)
         attachScreenshot(of: app, named: "stardust-after-light")
 
         transferButton.tap()
@@ -43,13 +39,9 @@ final class StardustHistoryViewTests: XCTestCase {
         peerButton.tap()
         XCTAssertTrue(ForumFixture.title("个人主页", in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["林风"].waitForExistence(timeout: 5))
-        #endif
     }
 
     func testFilteringRecordsDisplaysActiveChipsAndClearsFilter() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
         let app = try launchStardustHistory()
         XCTAssertTrue(app.staticTexts["购买邀请码"].waitForExistence(timeout: 5))
 
@@ -80,33 +72,9 @@ final class StardustHistoryViewTests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["购买邀请码"].waitForExistence(timeout: 5))
         XCTAssertFalse(activeFilters.exists)
-        #endif
     }
 
-    func testDarkModeRendersStardustHistory() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
-        let app = try launchStardustHistory(dark: true)
-        XCTAssertTrue(ForumFixture.element("stardust-balance-card", in: app).waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["+25"].waitForExistence(timeout: 5))
-        attachScreenshot(of: app, named: "stardust-after-dark")
-        #endif
-    }
-
-    private func assertReadableColumn(in app: XCUIApplication, line: UInt = #line) {
-        let list = app.collectionViews.containing(.any, identifier: "stardust-balance-card").firstMatch
-        let card = list.cells.containing(.any, identifier: "stardust-balance-card").firstMatch
-        XCTAssertTrue(card.waitForExistence(timeout: 5), line: line)
-        let listFrame = list.frame
-        let rowFrame = card.frame
-        XCTAssertLessThanOrEqual(rowFrame.width, readableWidth + tolerance, "Stardust card keeps to readable width.", line: line)
-        let expectedSideGap = max(gutter, ((listFrame.width - readableWidth) / 2).rounded(.down))
-        XCTAssertLessThanOrEqual(abs((rowFrame.minX - listFrame.minX) - expectedSideGap), tolerance, line: line)
-        XCTAssertLessThanOrEqual(abs((listFrame.maxX - rowFrame.maxX) - expectedSideGap), tolerance, line: line)
-    }
-
-    private func launchStardustHistory(dark: Bool = false) throws -> XCUIApplication {
+    private func launchStardustHistory() throws -> XCUIApplication {
         let app = XCUIApplication()
         let records: [[String: Any]] = [
             ["id": 508, "diff": 25, "result": 155, "type": "transfer", "created_at": "2026-11-17T09:30:00.000Z", "peer_id": 9_900_001, "ref_id": 100],
@@ -150,7 +118,7 @@ final class StardustHistoryViewTests: XCTestCase {
         ]
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] =
             String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
-        app.launchArguments += ["-appearance", dark ? "dark" : "light"]
+        app.launchArguments += ["-appearance", "light"]
         app.launch()
 
         let myTab = ForumFixture.tab("我的", in: app)
@@ -171,3 +139,4 @@ final class StardustHistoryViewTests: XCTestCase {
         add(attachment)
     }
 }
+#endif

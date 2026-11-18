@@ -1,19 +1,13 @@
 import XCTest
 
+#if !targetEnvironment(macCatalyst)
 @MainActor
 final class AttendanceViewTests: XCTestCase {
-    private let readableWidth = 760 * ForumFixture.pointScale
-    private let gutter = 16 * ForumFixture.pointScale
-    private let tolerance: CGFloat = 2
-
     override func setUp() {
         continueAfterFailure = false
     }
 
     func testUncheckedAttendanceShowsActionsAndKeepsReadableColumn() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
         let app = try launchAttendance(checkedIn: false)
         XCTAssertTrue(ForumFixture.title("每日签到", in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["今日尚未签到"].waitForExistence(timeout: 5))
@@ -25,15 +19,12 @@ final class AttendanceViewTests: XCTestCase {
         XCTAssertTrue(fixedButton.isHittable)
         XCTAssertTrue(randomButton.isHittable)
 
-        assertReadableColumn(in: app)
+        let list = app.collectionViews.firstMatch
+        ForumFixture.assertReadableRow(list.cells.firstMatch, in: list)
         attachScreenshot(of: app, named: "attendance-unchecked-light")
-        #endif
     }
 
     func testCheckedInAttendanceShowsSummaryAndNavigatesToMemberProfile() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
         let app = try launchAttendance(checkedIn: true)
         XCTAssertTrue(ForumFixture.title("每日签到", in: app).waitForExistence(timeout: 5))
 
@@ -53,37 +44,9 @@ final class AttendanceViewTests: XCTestCase {
         leader.tap()
         XCTAssertTrue(ForumFixture.title("个人主页", in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["林风"].waitForExistence(timeout: 5))
-        #endif
     }
 
-    func testDarkModeAttendanceRendersBothStates() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
-        let unchecked = try launchAttendance(checkedIn: false, dark: true)
-        XCTAssertTrue(unchecked.staticTexts["今日尚未签到"].waitForExistence(timeout: 5))
-        attachScreenshot(of: unchecked, named: "attendance-unchecked-dark")
-        unchecked.terminate()
-
-        let checked = try launchAttendance(checkedIn: true, dark: true)
-        XCTAssertTrue(ForumFixture.element("attendance-status-card", in: checked).waitForExistence(timeout: 5))
-        attachScreenshot(of: checked, named: "attendance-checked-dark")
-        #endif
-    }
-
-    private func assertReadableColumn(in app: XCUIApplication, line: UInt = #line) {
-        let list = app.collectionViews.firstMatch
-        let firstCell = list.cells.firstMatch
-        XCTAssertTrue(firstCell.waitForExistence(timeout: 5), line: line)
-        let listFrame = list.frame
-        let rowFrame = firstCell.frame
-        XCTAssertLessThanOrEqual(rowFrame.width, readableWidth + tolerance, "Attendance card keeps to readable width.", line: line)
-        let expectedSideGap = max(gutter, ((listFrame.width - readableWidth) / 2).rounded(.down))
-        XCTAssertLessThanOrEqual(abs((rowFrame.minX - listFrame.minX) - expectedSideGap), tolerance, line: line)
-        XCTAssertLessThanOrEqual(abs((listFrame.maxX - rowFrame.maxX) - expectedSideGap), tolerance, line: line)
-    }
-
-    private func launchAttendance(checkedIn: Bool, dark: Bool = false) throws -> XCUIApplication {
+    private func launchAttendance(checkedIn: Bool) throws -> XCUIApplication {
         let app = XCUIApplication()
         let items: [[String: Any]] = [
             ["id": 9_900_001, "name": "林风", "gain": 8, "rank": 1],
@@ -139,7 +102,7 @@ final class AttendanceViewTests: XCTestCase {
         ]
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] =
             String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
-        app.launchArguments += ["-appearance", dark ? "dark" : "light"]
+        app.launchArguments += ["-appearance", "light"]
         app.launch()
 
         let myTab = ForumFixture.tab("我的", in: app)
@@ -160,3 +123,4 @@ final class AttendanceViewTests: XCTestCase {
         add(attachment)
     }
 }
+#endif

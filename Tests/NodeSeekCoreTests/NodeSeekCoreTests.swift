@@ -35,14 +35,17 @@ import Testing
     #expect(detail.comments.first?.markdown.isEmpty == false)
 }
 
-@Test func postSummariesKeepReadingLevelAndReadOlderSavedPosts() throws {
-    let saved = #"{"id":1,"title":"测试","author":"","avatar":"","category":"","categoryKey":"","views":0,"replies":0,"activityDate":"","pinned":false}"#
+@Test func postSummariesKeepReadingLevelAndAuthorWhenDecodingSavedPosts() throws {
+    let saved = #"{"id":1,"title":"测试","author":"author","avatar":"","category":"","categoryKey":"","views":0,"replies":0,"activityDate":"","pinned":false}"#
     let decoder = JSONDecoder()
     var post = try decoder.decode(PostSummary.self, from: Data(saved.utf8))
     #expect(post.rank == nil)
+    #expect(post.authorID == nil)
     post.rank = 3
     let encoded = try JSONEncoder().encode(post)
     #expect(try decoder.decode(PostSummary.self, from: encoded).rank == 3)
+    let withAuthor = saved.replacingOccurrences(of: #""author":"author""#, with: #""author":"author","authorID":9"#)
+    #expect(try decoder.decode(PostSummary.self, from: Data(withAuthor.utf8)).authorID == 9)
 }
 
 @Test(arguments: [
@@ -117,16 +120,14 @@ func postActivityDateKeepsWebsiteTimestampRules(_ rawDate: String, _ expectedTim
     }
 }
 
-@Test func accountLevelsMatchWebsiteAndLinksKeepSections() throws {
+@Test func accountModelsDeriveTheirLevelAndKeepSpaceLinkSections() throws {
+    let data = Data(#"{"id":123,"name":"test-user","coins":400}"#.utf8)
     let decoder = JSONDecoder()
-    for (coins, level) in [(-1, 0), (0, 0), (99, 0), (100, 1), (399, 1), (400, 2), (900, 3), (1600, 4), (2500, 5), (3599, 5), (3600, 6), (10000, 6)] {
-        let data = Data("{\"id\":123,\"name\":\"test-user\",\"coins\":\(coins)}".utf8)
-        let user = try decoder.decode(SignedInUser.self, from: data)
-        let profile = try decoder.decode(AccountProfile.self, from: data)
-        #expect(user.level == level)
-        #expect(profile.level == level)
-        #expect(user.spaceURL(section: "collections").absoluteString == "https://www.nodeseek.com/space/123#collections")
-    }
+    let user = try decoder.decode(SignedInUser.self, from: data)
+    let profile = try decoder.decode(AccountProfile.self, from: data)
+    #expect(user.level == 2)
+    #expect(profile.level == 2)
+    #expect(user.spaceURL(section: "collections").absoluteString == "https://www.nodeseek.com/space/123#collections")
 }
 
 @Test func chickenCostUsesRemainingFreeQuota() throws {
