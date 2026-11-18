@@ -82,3 +82,13 @@ iPhone 17，iOS 27.3，2026-11-17。手机离线时，网络检测返回 `offlin
 Mac 在 2026-11-18 用同一份代码经 Wi-Fi 测得 TPE 节点下载 4.48 Mbps、上传 4.56 Mbps、时延 376.52 ms、抖动 401.32 ms，五个时延样本均有效。IPv4 和归属返回成功，IPv6 请求在建立加密连接时失败。TCP 25 可连接。两个 IP 名单先前一次请求成功，本次均超时。Nextcloud 返回了映射地址和端口，服务器给出的备用地址与主地址相同，小米请求超时，本次未取得 NAT 分类。三网均有目的地址回应，逐跳结果仍待真机确认。
 
 待测场景包括 iPhone 与电脑在同一 Wi-Fi 上对照、蜂窝网络、只有一种 IP 可用、VPN 分流和真机测速时换网。
+
+## 流媒体样片检查
+
+`QualityStreamingService.run()` 从当前网络请求五个平台的公开样片。Netflix、Disney+ 和 Prime Video 检查页面是否明确对应请求的片名。YouTube 和 TikTok 检查嵌入接口是否为指定视频返回元数据。每项记录样片、请求地址、时间、HTTP 状态和可取得的连接地址类型。各平台独立返回结果。
+
+HTTP 401、451、重定向和超时分别记录。403、404、返回首页或挑战页面时保留无法判断。公共片名和嵌入元数据只说明本次取得了哪种信息。付费内容实际播放和地区目录还需要测试账号、可复现的受限样片或平台提供的播放结果。当前一键检测仍使用已有的网站访问检查。
+
+另外，调用方提供 YouTube Data API 密钥、视频编号和国家代码时，`checkYouTubeRegion(videoID:countryCode:apiKey:)` 可以查该片已发布的允许或限制规则。未发布地区规则和找不到视频应分别记录。国家代码由调用方提供，结果说明规则对该国家的判断。密钥仅随请求头传给 Google。
+
+[YouTube 地区规则](https://developers.google.com/youtube/data/reference/rest/v3/videos#contentDetails.regionRestriction) / [Netflix 地区说明](https://help.netflix.com/en/node/125345) / [YouTube 嵌入播放器规则](https://developers.google.com/youtube/terms/required-minimum-functionality) / [TikTok 嵌入接口](https://developers.tiktok.com/docs/en/embed-videos)
