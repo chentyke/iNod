@@ -41,6 +41,23 @@ public extension NetworkQualityReport {
         }
         if !addressLines.isEmpty { section("公网地址", addressLines) }
 
+        if ipDetails != .notIncluded {
+            if let profiles = ipDetails.value {
+                section("IP 类型与路由", profiles.flatMap { profile in
+                    let name = profile.family == .v4 ? "IPv4" : "IPv6"
+                    let usage: String = if let value = profile.usage.result.value {
+                        ([value.tagsTitle] + [value.scoreTitle].compactMap { $0 }).joined(separator: "，") + "（\(profile.usage.source)）"
+                    } else { line(profile.usage.result.status) ?? "" }
+                    let route: String = if let value = profile.route.result.value {
+                        // A prefix narrows the address down further than the masked form, so only the network is shared.
+                        value.prefix == nil ? "未见 BGP 公告"
+                            : ([hidingAddresses ? nil : value.prefix, value.originsTitle].compactMap { $0 }.joined(separator: "，"))
+                    } else { line(profile.route.result.status) ?? "" }
+                    return ["\(name) 类型 \(usage)", "\(name) 路由 \(route)"]
+                })
+            } else if let text = line(ipDetails.status) { section("IP 类型与路由", [text]) }
+        }
+
         if routes != .notIncluded {
             if let traces = routes.value {
                 section("三网线路", traces.map { trace in

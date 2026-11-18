@@ -5,11 +5,11 @@ public enum NetworkQualityStep: String, Sendable, Codable, CaseIterable, Identif
     // First release
     case speed, ipv4, ipv6
     // Advanced
-    case routes, nat, mailPort, reputation, services
+    case ipDetails, routes, nat, mailPort, reputation, services
 
     public var id: String { rawValue }
     public static let basic: [Self] = [.speed, .ipv4, .ipv6]
-    public static let advanced: [Self] = [.routes, .nat, .mailPort, .reputation, .services]
+    public static let advanced: [Self] = [.ipDetails, .routes, .nat, .mailPort, .reputation, .services]
 }
 
 /// One network check. The service sends a fresh snapshot after every change and the UI draws the latest.
@@ -21,6 +21,8 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
     public var partialSpeed: SpeedMeasurement?
     public var ipv4: QualityResult<IPEgress>
     public var ipv6: QualityResult<IPEgress>
+    /// BGP route and usage type for each measured address.
+    public var ipDetails: QualityResult<[IPProfile]>
     public var routes: QualityResult<[RouteTrace]>
     public var nat: QualityResult<NATObservation>
     public var mailPort: QualityResult<PortProbe>
@@ -31,12 +33,13 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
         startedAt: Date, finishedAt: Date? = nil, network: NetworkContext,
         speed: QualityResult<SpeedMeasurement> = .pending,
         ipv4: QualityResult<IPEgress> = .pending, ipv6: QualityResult<IPEgress> = .pending,
+        ipDetails: QualityResult<[IPProfile]> = .notIncluded,
         routes: QualityResult<[RouteTrace]> = .notIncluded, nat: QualityResult<NATObservation> = .notIncluded,
         mailPort: QualityResult<PortProbe> = .notIncluded, reputation: QualityResult<[ReputationRecord]> = .notIncluded,
         services: QualityResult<[ServiceProbe]> = .notIncluded
     ) {
         self.startedAt = startedAt; self.finishedAt = finishedAt; self.network = network
-        self.speed = speed; self.ipv4 = ipv4; self.ipv6 = ipv6; self.routes = routes; self.nat = nat
+        self.speed = speed; self.ipv4 = ipv4; self.ipv6 = ipv6; self.ipDetails = ipDetails; self.routes = routes; self.nat = nat
         self.mailPort = mailPort; self.reputation = reputation; self.services = services
     }
 
@@ -45,6 +48,7 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
         case .speed: speed.status
         case .ipv4: ipv4.status
         case .ipv6: ipv6.status
+        case .ipDetails: ipDetails.status
         case .routes: routes.status
         case .nat: nat.status
         case .mailPort: mailPort.status
@@ -62,6 +66,7 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
             case .speed: return speed.value.map { $0.downloadMbps == nil || $0.uploadMbps == nil || $0.latencyMs == nil || $0.jitterMs == nil } ?? false
             case .ipv4: return ipv4.value?.ownerIssue != nil
             case .ipv6: return ipv6.value?.ownerIssue != nil
+            case .ipDetails: return ipDetails.value?.contains { $0.hasFailure } ?? false
             case .routes: return routes.value?.contains { $0.issue != nil } ?? false
             case .reputation: return reputation.value?.contains { $0.issue != nil } ?? false
             case .nat: return nat.value?.issue != nil
@@ -84,7 +89,7 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
     public func cancellingUnfinished(at date: Date = .now) -> Self {
         var copy = self
         copy.speed = partialSpeed.map { .measured($0) } ?? speed.cancellingUnfinished; copy.partialSpeed = nil
-        copy.ipv4 = ipv4.cancellingUnfinished; copy.ipv6 = ipv6.cancellingUnfinished
+        copy.ipv4 = ipv4.cancellingUnfinished; copy.ipv6 = ipv6.cancellingUnfinished; copy.ipDetails = ipDetails.cancellingUnfinished
         copy.routes = routes.cancellingUnfinished; copy.nat = nat.cancellingUnfinished; copy.mailPort = mailPort.cancellingUnfinished
         copy.reputation = reputation.cancellingUnfinished; copy.services = services.cancellingUnfinished
         copy.finishedAt = copy.finishedAt ?? date
@@ -99,6 +104,7 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
             case .speed: copy.speed = .pending; copy.partialSpeed = nil
             case .ipv4: copy.ipv4 = .pending
             case .ipv6: copy.ipv6 = .pending
+            case .ipDetails: copy.ipDetails = .pending
             case .routes: copy.routes = .pending
             case .nat: copy.nat = .pending
             case .mailPort: copy.mailPort = .pending
@@ -114,6 +120,7 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
         case .speed: speed = .running(progress)
         case .ipv4: ipv4 = .running(progress)
         case .ipv6: ipv6 = .running(progress)
+        case .ipDetails: ipDetails = .running(progress)
         case .routes: routes = .running(progress)
         case .nat: nat = .running(progress)
         case .mailPort: mailPort = .running(progress)
@@ -132,6 +139,7 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
             } else { speed = .failed(issue) }
         case .ipv4: ipv4 = .failed(issue)
         case .ipv6: ipv6 = .failed(issue)
+        case .ipDetails: ipDetails = .failed(issue)
         case .routes: routes = .failed(issue)
         case .nat: nat = .failed(issue)
         case .mailPort: mailPort = .failed(issue)
@@ -212,6 +220,56 @@ public struct IPEgress: Sendable, Equatable, Codable {
     public init(family: IPFamily, address: String, echoSource: String, owner: IPOwner?, ownerIssue: QualityIssue? = nil, queriedAt: Date) {
         self.family = family; self.address = address; self.echoSource = echoSource
         self.owner = owner; self.ownerIssue = ownerIssue; self.queriedAt = queriedAt
+    }
+}
+
+// MARK: - IP type and routing
+
+/// One lookup about a public address, with the source that answered it.
+public struct IPLookup<Value: Sendable & Equatable & Codable>: Sendable, Equatable, Codable {
+    public var source: String
+    public var queriedAt: Date
+    public var result: QualityResult<Value>
+
+    public init(source: String, queriedAt: Date, result: QualityResult<Value>) {
+        self.source = source; self.queriedAt = queriedAt; self.result = result
+    }
+}
+
+/// The BGP announcement covering an address, as a route collector saw it.
+public struct BGPRoute: Sendable, Equatable, Codable {
+    /// nil when the collector saw no announcement for the address.
+    public var prefix: String?
+    public var originASNs: [Int]
+
+    public init(prefix: String?, originASNs: [Int] = []) { self.prefix = prefix; self.originASNs = originASNs }
+}
+
+public enum IPUsageTag: String, Sendable, Codable, CaseIterable { case datacenter, vpn, proxy, tor, mobile }
+
+/// How one source classifies an address. Its score is the source's own scale, not an abuse probability.
+public struct IPUsage: Sendable, Equatable, Codable {
+    public var score: Int?
+    /// Tags the source matched.
+    public var tags: [IPUsageTag]
+    /// Tags the source left out of its answer, so they are neither matched nor ruled out.
+    public var unreported: [IPUsageTag]
+
+    public init(score: Int?, tags: [IPUsageTag], unreported: [IPUsageTag] = []) {
+        self.score = score; self.tags = tags; self.unreported = unreported
+    }
+}
+
+/// Routing and usage type for one measured address; each lookup can succeed or fail on its own.
+public struct IPProfile: Sendable, Equatable, Codable, Identifiable {
+    public var family: IPFamily
+    public var route: IPLookup<BGPRoute>
+    public var usage: IPLookup<IPUsage>
+    public var id: String { family.rawValue }
+    public var hasFailure: Bool { !route.result.isMeasured || !usage.result.isMeasured }
+
+    public init(family: IPFamily, route: IPLookup<BGPRoute>, usage: IPLookup<IPUsage>) {
+        self.family = family; self.route = route; self.usage = usage
     }
 }
 
