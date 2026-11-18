@@ -2,6 +2,11 @@ import NodeSeekClient
 import NodeSeekCore
 import SwiftUI
 
+enum NodeImageLibraryLayout: String, CaseIterable, Sendable {
+    case list
+    case grid
+}
+
 struct NodeImageUploadPreferences: DynamicProperty {
     @AppStorage var copyAfterUpload: Bool
     @AppStorage var linkFormat: HostedImageLinkFormat
@@ -12,6 +17,7 @@ struct NodeImageUploadPreferences: DynamicProperty {
     @AppStorage var addWatermark: Bool
     @AppStorage var watermarkWebsite: Bool
     @AppStorage var watermarkUsername: Bool
+    @AppStorage var layoutMode: NodeImageLibraryLayout
 
     init(userID: Int) {
         _copyAfterUpload = AppStorage(wrappedValue: false, "nodeImage.copyAfterUpload.\(userID)")
@@ -23,15 +29,45 @@ struct NodeImageUploadPreferences: DynamicProperty {
         _addWatermark = AppStorage(wrappedValue: false, "nodeImage.addWatermark.\(userID)")
         _watermarkWebsite = AppStorage(wrappedValue: true, "nodeImage.watermarkWebsite.\(userID)")
         _watermarkUsername = AppStorage(wrappedValue: false, "nodeImage.watermarkUsername.\(userID)")
+        _layoutMode = AppStorage(wrappedValue: .list, "nodeImage.layoutMode.\(userID)")
     }
 
-    var deleteAfterDays: Int? { autoDelete ? deleteDays : nil }
+    var config: NodeImageUploadConfig {
+        NodeImageUploadConfig(
+            compressImages: compressImages,
+            compressionQuality: compressionQuality,
+            addWatermark: addWatermark,
+            watermarkWebsite: watermarkWebsite,
+            watermarkUsername: watermarkUsername,
+            copyAfterUpload: copyAfterUpload,
+            linkFormat: linkFormat,
+            autoDelete: autoDelete,
+            deleteDays: deleteDays
+        )
+    }
+
+    var deleteAfterDays: Int? {
+        config.deleteAfterDays
+    }
 
     func imageOptions(username: String?) -> UploadImageOptions {
-        let watermark = addWatermark ? [
-            watermarkWebsite ? "nodeimage.com" : nil,
-            watermarkUsername ? username : nil
-        ].compactMap { $0 }.joined(separator: "  ") : ""
-        return UploadImageOptions(quality: compressImages ? compressionQuality / 100 : nil, watermark: watermark)
+        let current = config
+        return UploadImageOptions(
+            quality: current.normalizedQualityFraction,
+            watermark: current.watermarkText(username: username)
+        )
+    }
+
+    func resetToDefaults() {
+        let defaults = NodeImageUploadConfig()
+        compressImages = defaults.compressImages
+        compressionQuality = defaults.compressionQuality
+        addWatermark = defaults.addWatermark
+        watermarkWebsite = defaults.watermarkWebsite
+        watermarkUsername = defaults.watermarkUsername
+        copyAfterUpload = defaults.copyAfterUpload
+        linkFormat = defaults.linkFormat
+        autoDelete = defaults.autoDelete
+        deleteDays = defaults.deleteDays
     }
 }

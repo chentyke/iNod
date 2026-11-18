@@ -4,13 +4,19 @@ import NodeSeekCore
 
 @MainActor
 public final class NodeImageHistory {
-    public private(set) lazy var client = NodeImageClient()
+    public private(set) var client = NodeImageClient()
     private struct Entry {
         let userID: Int
         let credential: SHA256.Digest
         let images: [HostedImage]
     }
     private var entry: Entry?
+
+    #if DEBUG
+    func configureForUITests(responses: [String: Data]) {
+        client = NodeImageClient(responsesForUITests: responses)
+    }
+    #endif
 
     public func cachedImages(userID: Int, key: String) -> [HostedImage]? {
         guard let entry, entry.userID == userID,

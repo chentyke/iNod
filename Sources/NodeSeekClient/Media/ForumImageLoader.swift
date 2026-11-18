@@ -33,6 +33,12 @@ public actor ForumImageLoader {
     private var cachedBytes = 0
     private var pending: [Key: Download] = [:]
 
+    #if DEBUG
+    private static let fixtureResponses = ProcessInfo.processInfo.environment["NODESEEK_UI_TEST_WEBSITE"].flatMap {
+        try? JSONDecoder().decode(AccountSession.UITestWebsite.self, from: Data($0.utf8)).responses
+    }
+    #endif
+
     init(session: URLSession? = nil) {
         if let session { self.session = session }
         else {
@@ -108,6 +114,9 @@ public actor ForumImageLoader {
 
     private func download(_ key: Key, prioritized: Bool) async throws -> CGImage {
         try await ImageWorkLimiter.load(prioritized: prioritized) { [session] in
+            #if DEBUG
+            if let data = Self.fixtureResponses?[key.url.absoluteString] { return data }
+            #endif
             var request = ForumImageRequest.make(url: key.url)
             request.cachePolicy = .useProtocolCachePolicy
             let (data, response) = try await session.data(for: request)

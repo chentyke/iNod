@@ -1,13 +1,76 @@
-import NodeSeekCore
 import NodeSeekClient
+import NodeSeekCore
 import PhotosUI
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
+
+enum NodeImageMetrics {
+    static let cardPadding: CGFloat = 20
+    /// Trims font line-height air above the disconnected card's title so top and bottom visual margins match.
+    static let topGlyphTrim: CGFloat = 3
+    static let cardSpacing: CGFloat = 16
+    static let blockSpacing: CGFloat = 14
+    static let textSpacing: CGFloat = 6
+
+    static let optionsPillHeight: CGFloat = 32
+    static let sourcePillHeight: CGFloat = 42
+    static let sourceButtonSpacing: CGFloat = 8
+
+    static let pendingTileSize: CGFloat = 88
+    static let pendingTileRadius: CGFloat = 14
+    static let pendingTileSpacing: CGFloat = 10
+    static let pendingRemoveSize: CGFloat = 24
+    static let pendingCornerInset: CGFloat = 6
+
+    static let rowVerticalInset: CGFloat = 10
+    static let rowHorizontalInset: CGFloat = 16
+    static let rowSpacing: CGFloat = 12
+    static let rowLineSpacing: CGFloat = 4
+    static let rowThumbnailWidth: CGFloat = 68
+    static let rowThumbnailHeight: CGFloat = 52
+    static let rowThumbnailRadius: CGFloat = 10
+    static let rowActionSize: CGFloat = 34
+    static let separatorInset: CGFloat = rowThumbnailWidth + rowSpacing
+
+    static let gridSpacing: CGFloat = 8
+    static let gridTileRadius: CGFloat = 12
+    static let gridBadgeInset: CGFloat = 8
+
+    static let connectCardInsets = EdgeInsets(
+        top: cardPadding - topGlyphTrim,
+        leading: cardPadding,
+        bottom: cardPadding,
+        trailing: cardPadding
+    )
+
+    static let uploadCardInsets = EdgeInsets(
+        top: cardPadding,
+        leading: cardPadding,
+        bottom: cardPadding,
+        trailing: cardPadding
+    )
+
+    static let historyRowInsets = EdgeInsets(
+        top: rowVerticalInset,
+        leading: rowHorizontalInset,
+        bottom: rowVerticalInset,
+        trailing: rowHorizontalInset
+    )
+
+    static let gridCardInsets = EdgeInsets(
+        top: 14,
+        leading: 14,
+        bottom: 14,
+        trailing: 14
+    )
+}
 
 struct NodeImageLibraryView: View {
     let userID: Int
 
     @Environment(AccountSession.self) private var account
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var preferences: NodeImageUploadPreferences
 
     @State private var key = ""
@@ -15,32 +78,31 @@ struct NodeImageLibraryView: View {
     @State private var initialized = false
     @State private var images: [HostedImage] = []
     @State private var pickedPhotos: [PhotosPickerItem] = []
-    @State private var pendingUploads: [PendingUpload] = []
+    @State private var pendingUploads: [NodeImagePendingUpload] = []
     @State private var uploaded: [HostedImage] = []
     @State private var uploadedWhileLoading: [HostedImage] = []
+    @State private var totalBatchCount = 0
     @State private var selectedIDs: Set<String>?
     @State private var pendingDeletion: [HostedImage] = []
     @State private var confirmsDelete = false
     @State private var confirmsKeyRotation = false
     @State private var importsFiles = false
     @State private var showsOptions = false
+    @State private var showsKeySheet = false
+    @State private var activeGallery: ImageGallery?
     @State private var loading = false
     @State private var preparing = false
     @State private var mutation: Mutation?
     @State private var error: String?
-    @State private var message: String?
-
-    private struct PendingUpload: Identifiable {
-        let id = UUID()
-        let image: PreparedUploadImage
-    }
+    @State private var toastMessage: String?
+    @State private var toastTask: Task<Void, Never>?
 
     private enum Mutation {
         case upload, delete, saveKey, syncKey, rotateKey
     }
 
     private let uploadLimit = 10
-    private var remainingSlots: Int { uploadLimit - pendingUploads.count }
+    private var remainingSlots: Int { max(0, uploadLimit - pendingUploads.count) }
     private var working: Bool { mutation != nil }
     private var busy: Bool { working || loading || preparing }
     private var uploadBlocked: Bool { working || preparing }
@@ -48,6 +110,7 @@ struct NodeImageLibraryView: View {
     private var ownsLibrary: Bool { account.user?.id == userID }
     private var selectedImages: [HostedImage] { images.filter { selectedIDs?.contains($0.id) == true } }
     private var imageOptions: UploadImageOptions { preferences.imageOptions(username: account.user?.name) }
+    private var trimmedKey: String { key.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     init(userID: Int) {
         self.userID = userID
@@ -56,35 +119,120 @@ struct NodeImageLibraryView: View {
 
     var body: some View {
         List {
-            accountSection
             if let error {
-                Section {
-                    Text(error).foregroundStyle(.red)
-                    if !savedKey.isEmpty {
-                        Button("刷新已上传列表") { Task { await load() } }.disabled(busy)
-                    }
-                }
+                errorSection(error)
             }
-            if let message {
-                Section { Text(message).foregroundStyle(.secondary) }
-            }
-            if !savedKey.isEmpty {
-                uploadSection
-                if !uploaded.isEmpty { uploadResults }
+            if savedKey.isEmpty {
+                disconnectedSections
+            } else {
+                connectedUploadSection
                 historySection
             }
         }
         .seekGroupedList()
+        .contentMargins(.top, 12, for: .scrollContent)
+        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy(duration: 0.24), value: savedKey.isEmpty)
+        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy(duration: 0.22), value: preferences.layoutMode)
         .navigationTitle("图片上传与管理")
         .navigationBarTitleDisplayMode(.inline)
         .interactiveDismissDisabled(working)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if selectedIDs != nil {
+                    Button("完成") {
+                        selectedIDs = nil
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(working)
+                    .accessibilityIdentifier("nodeimage-done-selecting")
+                } else {
+                    Button {
+                        key = ""
+                        showsKeySheet = true
+                    } label: {
+                        Label("密钥管理", systemImage: "key")
+                    }
+                    .disabled(working)
+                    .accessibilityIdentifier("nodeimage-key-button")
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let selectedIDs, !images.isEmpty {
+                NodeImageSelectionBar(
+                    selectedCount: selectedIDs.count,
+                    totalCount: images.count,
+                    isBusy: busy,
+                    isWorking: working,
+                    onToggleAll: {
+                        self.selectedIDs = selectedIDs.count == images.count ? [] : Set(images.map(\.id))
+                    },
+                    onCopy: { format in
+                        copy(selectedImages, as: format)
+                    },
+                    onDelete: {
+                        confirmDelete(selectedImages)
+                    }
+                )
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let toastMessage {
+                Button {
+                    dismissToast()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.seekGreen)
+                            .accessibilityHidden(true)
+                        Text(toastMessage)
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(Color.seekOnInk)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(Color.seekInk, in: .capsule)
+                    .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, selectedIDs != nil ? 76 : 16)
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                .accessibilityIdentifier("nodeimage-toast")
+            }
+        }
         .sheet(isPresented: $showsOptions) {
             NodeImageUploadOptionsView(
-                compressImages: preferences.$compressImages, compressionQuality: preferences.$compressionQuality,
-                addWatermark: preferences.$addWatermark, watermarkWebsite: preferences.$watermarkWebsite,
-                watermarkUsername: preferences.$watermarkUsername, copyAfterUpload: preferences.$copyAfterUpload,
-                linkFormat: preferences.$linkFormat, autoDelete: preferences.$autoDelete, deleteDays: preferences.$deleteDays
+                compressImages: preferences.$compressImages,
+                compressionQuality: preferences.$compressionQuality,
+                addWatermark: preferences.$addWatermark,
+                watermarkWebsite: preferences.$watermarkWebsite,
+                watermarkUsername: preferences.$watermarkUsername,
+                copyAfterUpload: preferences.$copyAfterUpload,
+                linkFormat: preferences.$linkFormat,
+                autoDelete: preferences.$autoDelete,
+                deleteDays: preferences.$deleteDays,
+                onReset: { preferences.resetToDefaults() }
             )
+        }
+        .sheet(isPresented: $showsKeySheet) {
+            NodeImageKeySheet(
+                savedKey: savedKey,
+                draftKey: $key,
+                isSyncing: mutation == .syncKey,
+                isRotating: mutation == .rotateKey,
+                isSaving: mutation == .saveKey,
+                isBusy: busy,
+                ownsLibrary: ownsLibrary,
+                onSync: { Task { await syncKey(regenerating: false, dismissSheetOnSuccess: true) } },
+                onRotate: { Task { await syncKey(regenerating: true, dismissSheetOnSuccess: true) } },
+                onSaveKey: { Task { await saveKey() } },
+                onRemoveKey: { removeKey() }
+            )
+        }
+        .fullScreenCover(item: $activeGallery) { gallery in
+            ImageViewer(gallery: gallery, initialImageIsThumbnail: true)
         }
         .fileImporter(isPresented: $importsFiles, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
             switch result {
@@ -93,6 +241,7 @@ struct NodeImageLibraryView: View {
             }
         }
         .task { await initialize() }
+        .onDisappear { toastTask?.cancel() }
         .onChange(of: pickedPhotos) { _, photos in
             guard !photos.isEmpty else { return }
             pickedPhotos = []
@@ -108,221 +257,340 @@ struct NodeImageLibraryView: View {
         } message: {
             Text("删除后，已发布帖子中的这些图片也会无法显示。")
         }
-    }
-
-    private var accountSection: some View {
-        Section("图床账号") {
-            if mutation == .syncKey || mutation == .rotateKey {
-                ProgressView(mutation == .rotateKey ? "正在更新密钥" : "正在同步密钥")
-            }
-            Button(savedKey.isEmpty ? "连接 NodeImage" : "同步密钥") {
-                Task { await syncKey(regenerating: false) }
-            }
-            .disabled(!ownsLibrary || busy)
-            Button("更新密钥") { confirmsKeyRotation = true }.disabled(!ownsLibrary || busy)
-            DisclosureGroup("手动设置密钥") {
-                SecureField("NodeImage 密钥", text: $key)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .privacySensitive()
-                Button("保存密钥") { Task { await saveKey() } }
-                    .disabled(busy || trimmedKey == savedKey || !NodeImageAPI.validKey(trimmedKey))
-                if !savedKey.isEmpty {
-                    Button("移除本机密钥", role: .destructive) { removeKey() }.disabled(busy)
-                }
-            }
-        }
         .alert("更新 NodeImage 密钥？", isPresented: $confirmsKeyRotation) {
-            Button("更新密钥", role: .destructive) { Task { await syncKey(regenerating: true) } }
+            Button("更新密钥", role: .destructive) { Task { await syncKey(regenerating: true, dismissSheetOnSuccess: false) } }
             Button("取消", role: .cancel) {}
         } message: {
             Text("更新后旧密钥会失效，使用旧密钥的工具也需要换成新密钥。")
         }
     }
 
-    private var uploadSection: some View {
-        Section {
-            HStack(spacing: 24) {
-                PhotosPicker("相册", selection: $pickedPhotos, maxSelectionCount: max(1, remainingSlots),
-                             selectionBehavior: .ordered, matching: .images)
-                    .accessibilityLabel("选择图片")
-                Button("文件", systemImage: "folder") { importsFiles = true }
-                Spacer()
-                PasteButton(supportedContentTypes: [.image]) { providers in
-                    add(providers.map(NodeImageInput.provider))
-                }
-                .labelStyle(.iconOnly)
-                .accessibilityLabel("粘贴图片")
-            }
-            .buttonStyle(.borderless)
-            .disabled(working || preparing || remainingSlots == 0)
-            .onDrop(of: [.image], isTargeted: nil) { providers in
-                guard !working, !preparing, remainingSlots > 0, ownsLibrary else { return false }
-                add(providers.map(NodeImageInput.provider))
-                return true
-            }
+    // MARK: - Sections
 
-            if preparing { ProgressView("正在处理图片") }
-            if !pendingUploads.isEmpty {
-                ForEach(pendingUploads) { item in
-                    HStack {
-                        Image(decorative: UploadImageProcessor.preview(item.image, watermark: imageOptions.watermark), scale: 1)
-                            .resizable().scaledToFit().frame(width: 76, height: 58)
-                        Spacer()
-                        Button("移除待上传图片", systemImage: "xmark.circle") {
-                            pendingUploads.removeAll { $0.id == item.id }
-                        }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
-                        .disabled(working || preparing)
+    private func errorSection(_ text: String) -> some View {
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .padding(.top, 2)
+                        .accessibilityHidden(true)
+                    Text(text)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.seekInk)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        error = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 24)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("关闭错误提示")
                 }
-                let title = pendingUploads.count == 1 ? "上传图片" : "上传 \(pendingUploads.count) 张图片"
-                Button(mutation == .upload ? "上传中…" : title) {
-                    Task { await upload() }
+
+                if !savedKey.isEmpty {
+                    Button("刷新已上传列表") {
+                        Task { await load() }
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .buttonStyle(.borderless)
+                    .disabled(busy)
                 }
-                .disabled(uploadBlocked)
             }
-        } header: {
-            HStack {
-                Text("上传")
-                Spacer()
-                Button("上传选项") { showsOptions = true }.disabled(working)
-            }
-        } footer: {
-            Text("上传的图片可通过公开链接访问。")
+            .padding(.vertical, 2)
+            .listRowBackground(Color.seekCard)
+            .accessibilityIdentifier("nodeimage-error-banner")
         }
     }
 
-    private var uploadResults: some View {
+    @ViewBuilder
+    private var disconnectedSections: some View {
         Section {
-            Text(uploaded.count == 1 ? "图片已上传" : "已上传 \(uploaded.count) 张图片")
-                .foregroundStyle(Color.seekGreen)
-            HStack {
-                copyMenu(uploaded)
-                if uploaded.count == 1, let image = uploaded.first {
-                    Spacer()
-                    ShareLink("分享链接", item: image.url)
+            NodeImageConnectCard(
+                isSyncing: mutation == .syncKey,
+                isDisabled: !ownsLibrary || (busy && mutation != .syncKey),
+                onConnect: { Task { await syncKey(regenerating: false, dismissSheetOnSuccess: false) } }
+            )
+            .listRowInsets(NodeImageMetrics.connectCardInsets)
+            .listRowBackground(Color.seekCard)
+            .listRowSeparator(.hidden)
+        }
+
+        Section {
+            Button {
+                key = ""
+                showsKeySheet = true
+            } label: {
+                SeekRowLabel(title: "手动设置密钥", symbol: "key")
+            }
+            .disabled(!ownsLibrary || busy)
+            .listRowBackground(Color.seekCard)
+            .accessibilityIdentifier("nodeimage-manual-key-row")
+
+            Button {
+                confirmsKeyRotation = true
+            } label: {
+                HStack(spacing: 12) {
+                    SeekRowLabel(title: "更新密钥", symbol: "arrow.triangle.2.circlepath")
+                    Spacer(minLength: 0)
+                    if mutation == .rotateKey {
+                        ProgressView().controlSize(.small)
+                    }
                 }
             }
-            .buttonStyle(.borderless)
+            .disabled(!ownsLibrary || busy)
+            .listRowBackground(Color.seekCard)
+            .accessibilityIdentifier("nodeimage-rotate-key-row")
+        } header: {
+            SeekSectionTitle(title: "其他连接方式")
+        }
+    }
+
+    private var connectedUploadSection: some View {
+        Section {
+            NodeImageUploadCard(
+                pickedPhotos: $pickedPhotos,
+                pendingUploads: pendingUploads,
+                uploadLimit: uploadLimit,
+                config: preferences.config,
+                username: account.user?.name,
+                watermarkText: imageOptions.watermark,
+                isPreparing: preparing,
+                isUploading: mutation == .upload,
+                uploadedInBatchCount: uploaded.count,
+                totalBatchCount: totalBatchCount,
+                ownsLibrary: ownsLibrary,
+                onOpenFiles: { importsFiles = true },
+                onPaste: pasteFromClipboard,
+                onDropProviders: { providers in
+                    guard !working, !preparing, remainingSlots > 0, ownsLibrary else { return false }
+                    add(providers.map(NodeImageInput.provider))
+                    return true
+                },
+                onOpenOptions: { showsOptions = true },
+                onRemovePending: { id in pendingUploads.removeAll { $0.id == id } },
+                onClearPending: { pendingUploads.removeAll() },
+                onUpload: { Task { await upload() } }
+            )
+            .listRowInsets(NodeImageMetrics.uploadCardInsets)
+            .listRowBackground(Color.seekCard)
+
+            if !uploaded.isEmpty && mutation != .upload {
+                NodeImageUploadResultRow(
+                    uploaded: uploaded,
+                    preferredFormat: preferences.linkFormat,
+                    onCopy: { format in copy(uploaded, as: format) },
+                    onDismiss: { uploaded = [] }
+                )
+                .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
+                .listRowBackground(Color.seekCard)
+            }
         }
     }
 
     private var historySection: some View {
         Section {
-            if loading, images.isEmpty { ProgressView("正在读取图片") }
-            if !loading, images.isEmpty, error == nil {
-                ContentUnavailableView("暂无图片", systemImage: "photo.on.rectangle")
-            }
-            if let selectedIDs {
-                HStack {
-                    Button(selectedIDs.count == images.count ? "取消全选" : "全选") {
-                        self.selectedIDs = selectedIDs.count == images.count ? [] : Set(images.map(\.id))
-                    }
-                    Spacer()
-                    Menu("操作 \(selectedIDs.count)") {
-                        copyChoices(selectedImages)
-                        Button("删除", systemImage: "trash", role: .destructive) { confirmDelete(selectedImages) }
-                            .disabled(busy)
-                    }
-                    .disabled(selectedIDs.isEmpty || working)
+            if loading, images.isEmpty {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("正在读取已上传图片…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderless)
-            }
-            ForEach(images) { image in
-                if let selectedIDs {
-                    Button {
-                        if selectedIDs.contains(image.id) { self.selectedIDs?.remove(image.id) }
-                        else { self.selectedIDs?.insert(image.id) }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: selectedIDs.contains(image.id) ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(Color.seekGreen)
-                                .accessibilityHidden(true)
-                            imageDetails(image, selecting: true)
+                .padding(.vertical, 8)
+                .listRowBackground(Color.seekCard)
+                .listRowSeparator(.hidden)
+            } else if !loading, images.isEmpty, error == nil {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("暂无已上传图片")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Color.seekInk)
+                    Text("从上方选择相册、文件或粘贴图片即可上传。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 8)
+                .listRowBackground(Color.seekCard)
+                .listRowSeparator(.hidden)
+                .accessibilityIdentifier("nodeimage-empty-history")
+            } else if preferences.layoutMode == .grid {
+                NodeImageHistoryGrid(
+                    images: images,
+                    preferredFormat: preferences.linkFormat,
+                    selectedIDs: selectedIDs,
+                    isBusy: busy,
+                    isWorking: working,
+                    onToggleSelect: toggleSelection,
+                    onPreview: openGallery,
+                    onCopy: copy,
+                    onDelete: { confirmDelete([$0]) }
+                )
+                .listRowInsets(NodeImageMetrics.gridCardInsets)
+                .listRowBackground(Color.seekCard)
+                .listRowSeparator(.hidden)
+            } else {
+                ForEach(images) { image in
+                    NodeImageHistoryRow(
+                        image: image,
+                        preferredFormat: preferences.linkFormat,
+                        isSelecting: selectedIDs != nil,
+                        isSelected: selectedIDs?.contains(image.id) == true,
+                        isBusy: busy,
+                        isWorking: working,
+                        onToggleSelect: { toggleSelection(image) },
+                        onPreview: { openGallery(for: image, thumbnail: $0) },
+                        onCopy: { copy([image], as: $0) },
+                        onDelete: { confirmDelete([image]) }
+                    )
+                    .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] + NodeImageMetrics.separatorInset }
+                    .listRowInsets(NodeImageMetrics.historyRowInsets)
+                    .listRowBackground(Color.seekCard)
+                    .swipeActions(edge: .leading, allowsFullSwipe: selectedIDs == nil) {
+                        if selectedIDs == nil {
+                            Button {
+                                copy([image], as: preferences.linkFormat)
+                            } label: {
+                                Label("复制", systemImage: "doc.on.doc")
+                            }
+                            .tint(Color.seekInk)
                         }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(working)
-                    .accessibilityAddTraits(selectedIDs.contains(image.id) ? .isSelected : [])
-                } else {
-                    HStack(spacing: 12) {
-                        imageDetails(image, selecting: false)
-                        Menu {
-                            copyChoices([image])
-                            ShareLink(item: image.url)
-                            Button("删除", systemImage: "trash", role: .destructive) { confirmDelete([image]) }.disabled(busy)
-                        } label: {
-                            Image(systemName: "ellipsis").padding(.vertical, 12)
-                        }
-                        .accessibilityLabel("图片操作")
-                        .buttonStyle(.borderless)
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("删除", role: .destructive) { confirmDelete([image]) }.disabled(busy)
+                        if selectedIDs == nil {
+                            Button("删除", role: .destructive) {
+                                confirmDelete([image])
+                            }
+                            .disabled(busy)
+                        }
                     }
                 }
             }
         } header: {
-            HStack {
-                Text("已上传图片")
-                Spacer()
-                if !images.isEmpty {
-                    Button(selectedIDs == nil ? "选择" : "完成选择") {
-                        selectedIDs = selectedIDs == nil ? [] : nil
-                    }
-                    .disabled(working)
+            historyHeader
+        }
+    }
+
+    private var historyHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            SeekSectionTitle(
+                title: "已上传图片",
+                detail: images.isEmpty ? nil : "\(images.count) 张"
+            )
+            if !images.isEmpty {
+                Button {
+                    preferences.layoutMode = preferences.layoutMode == .list ? .grid : .list
+                } label: {
+                    Image(systemName: preferences.layoutMode == .list ? "square.grid.2x2" : "list.bullet")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Color.seekInk)
+                        .frame(width: 30, height: 30)
+                        .background(Color.seekTray, in: .circle)
+                }
+                .buttonStyle(.seekRow)
+                .accessibilityLabel(preferences.layoutMode == .list ? "切换为网格视图" : "切换为列表视图")
+                .accessibilityIdentifier("nodeimage-layout-toggle")
+
+                Button(selectedIDs == nil ? "选择" : "完成选择") {
+                    selectedIDs = selectedIDs == nil ? [] : nil
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Color.seekInk)
+                .buttonStyle(.seekRow)
+                .disabled(working)
+                .fixedSize()
+                .accessibilityIdentifier("nodeimage-select-toggle")
+            }
+        }
+        .textCase(nil)
+    }
+
+    // MARK: - Actions
+
+    private func toggleSelection(_ image: HostedImage) {
+        guard selectedIDs != nil else { return }
+        if selectedIDs?.contains(image.id) == true {
+            selectedIDs?.remove(image.id)
+        } else {
+            selectedIDs?.insert(image.id)
+        }
+    }
+
+    private func openGallery(for target: HostedImage, thumbnail: CGImage?) {
+        guard let startIndex = images.firstIndex(where: { $0.id == target.id }) else { return }
+        let items = images.map { ImageGallery.Item(url: $0.url, alt: $0.filename) }
+        if let thumbnail {
+            activeGallery = ImageGallery(items: items, startIndex: startIndex, initialImage: thumbnail)
+            return
+        }
+        Task {
+            do {
+                let loaded = try await ForumImageLoader.shared.load(target.url, size: .thumbnail, prioritized: true)
+                guard !Task.isCancelled else { return }
+                let latestItems = images.map { ImageGallery.Item(url: $0.url, alt: $0.filename) }
+                let latestIndex = images.firstIndex(where: { $0.id == target.id }) ?? 0
+                activeGallery = ImageGallery(items: latestItems, startIndex: latestIndex, initialImage: loaded)
+            } catch {
+                if !Task.isCancelled {
+                    self.error = SiteError.displayMessage(for: error, service: "NodeImage")
                 }
             }
         }
     }
 
-    private func imageDetails(_ image: HostedImage, selecting: Bool) -> some View {
-        HStack(spacing: 12) {
-            ForumImageView(url: image.url, alt: image.filename, size: .thumbnail)
-                .frame(width: 76, height: 58).clipped()
-                .allowsHitTesting(!selecting).accessibilityHidden(selecting)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(image.filename).lineLimit(1)
-                if let date = image.uploadedAt {
-                    ForumDateText(value: date).font(.subheadline).foregroundStyle(.secondary)
-                }
-            }
-            Spacer(minLength: 0)
+    private func pasteFromClipboard() {
+        guard !working, !preparing, remainingSlots > 0, ownsLibrary else { return }
+        let providers = UIPasteboard.general.itemProviders.filter { provider in
+            provider.registeredContentTypes.contains { $0.conforms(to: .image) }
         }
-        .contentShape(Rectangle())
+        guard !providers.isEmpty else {
+            showToast("剪贴板中没有可粘贴的图片")
+            return
+        }
+        add(providers.map(NodeImageInput.provider))
     }
 
-    private func copyMenu(_ images: [HostedImage]) -> some View {
-        Menu("复制链接", systemImage: "doc.on.doc") { copyChoices(images) }
+    private func copy(_ list: [HostedImage], as format: HostedImageLinkFormat) {
+        guard !list.isEmpty else { return }
+        UIPasteboard.general.string = list.map { format.text(for: $0.url) }.joined(separator: "\n")
+        showToast(list.count == 1 ? "已复制 \(format.title) 链接" : "已复制 \(list.count) 条 \(format.title) 链接")
     }
 
-    @ViewBuilder private func copyChoices(_ images: [HostedImage]) -> some View {
-        ForEach(HostedImageLinkFormat.allCases, id: \.self) { format in
-            Button("复制 \(format.title)") {
-                copy(images, as: format)
-                message = "链接已复制。"
-            }
+    private func showToast(_ text: String) {
+        toastTask?.cancel()
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : .snappy(duration: 0.22)) {
+            toastMessage = text
+        }
+        toastTask = Task {
+            do {
+                try await Task.sleep(for: .milliseconds(2200))
+                guard !Task.isCancelled else { return }
+                dismissToast()
+            } catch {}
         }
     }
 
-    private func copy(_ images: [HostedImage], as format: HostedImageLinkFormat) {
-        guard !images.isEmpty else { return }
-        UIPasteboard.general.string = images.map { format.text(for: $0.url) }.joined(separator: "\n")
+    private func dismissToast() {
+        toastTask?.cancel()
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : .snappy(duration: 0.2)) {
+            toastMessage = nil
+        }
     }
-
-    private var trimmedKey: String { key.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     private func initialize() async {
         guard !initialized else { return }
         initialized = true
         do {
             savedKey = try NodeImageKeyStore.read(userID: userID)
-            key = savedKey
+            key = ""
             images = account.nodeImageHistory.cachedImages(userID: userID, key: savedKey) ?? []
             await load()
-        } catch { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
+        } catch {
+            self.error = SiteError.displayMessage(for: error, service: "NodeImage")
+        }
     }
 
     private func saveKey() async {
@@ -330,29 +598,30 @@ struct NodeImageLibraryView: View {
         guard !busy, ownsLibrary, value != savedKey, NodeImageAPI.validKey(value) else { return }
         mutation = .saveKey
         error = nil
-        message = nil
         defer { mutation = nil }
         do {
             let result = try await client.images(key: value)
             guard !Task.isCancelled, ownsLibrary else { return }
             try NodeImageKeyStore.save(value, userID: userID)
             savedKey = value
-            key = value
+            key = ""
             images = result
             account.nodeImageHistory.store(result, userID: userID, key: value)
             selectedIDs = nil
             uploaded = []
-            message = "密钥已保存。"
+            showsKeySheet = false
+            showToast("密钥已保存")
         } catch {
-            if !Task.isCancelled, ownsLibrary { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
+            if !Task.isCancelled, ownsLibrary {
+                self.error = SiteError.displayMessage(for: error, service: "NodeImage")
+            }
         }
     }
 
-    private func syncKey(regenerating: Bool) async {
+    private func syncKey(regenerating: Bool, dismissSheetOnSuccess: Bool) async {
         guard !busy, ownsLibrary else { return }
         mutation = regenerating ? .rotateKey : .syncKey
         error = nil
-        message = nil
         do {
             let updated = try await account.syncNodeImageKey(userID: userID, regenerating: regenerating)
             mutation = nil
@@ -364,12 +633,17 @@ struct NodeImageLibraryView: View {
                 uploaded = []
             }
             savedKey = updated
-            key = updated
-            message = regenerating ? "密钥已更新。" : "密钥已同步。"
+            key = ""
+            if dismissSheetOnSuccess {
+                showsKeySheet = false
+            }
+            showToast(regenerating ? "密钥已更新" : "已连接并同步密钥")
             await load()
         } catch {
             mutation = nil
-            if !Task.isCancelled, ownsLibrary { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
+            if !Task.isCancelled, ownsLibrary {
+                self.error = SiteError.displayMessage(for: error, service: "NodeImage")
+            }
         }
     }
 
@@ -385,8 +659,10 @@ struct NodeImageLibraryView: View {
             uploaded = []
             selectedIDs = nil
             error = nil
-            message = "本机密钥已移除。"
-        } catch { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
+            showToast("本机密钥已移除")
+        } catch {
+            self.error = SiteError.displayMessage(for: error, service: "NodeImage")
+        }
     }
 
     private func load() async {
@@ -404,8 +680,13 @@ struct NodeImageLibraryView: View {
                 result, recentUploads: uploadedWhileLoading, userID: userID, key: savedKey
             )
             selectedIDs?.formIntersection(images.map(\.id))
+            if selectedIDs?.isEmpty == true, images.isEmpty {
+                selectedIDs = nil
+            }
         } catch {
-            if !Task.isCancelled, ownsLibrary, !working, self.error == nil { self.error = SiteError.displayMessage(for: error, service: "NodeImage") }
+            if !Task.isCancelled, ownsLibrary, !working, self.error == nil {
+                self.error = SiteError.displayMessage(for: error, service: "NodeImage")
+            }
         }
     }
 
@@ -414,7 +695,6 @@ struct NodeImageLibraryView: View {
         let batch = inputs.prefix(remainingSlots)
         preparing = true
         error = nil
-        message = nil
         Task {
             defer { preparing = false }
             var failures = 0
@@ -424,7 +704,7 @@ struct NodeImageLibraryView: View {
                 do {
                     let image = try await input.prepare()
                     guard !Task.isCancelled, ownsLibrary else { return }
-                    pendingUploads.append(PendingUpload(image: image))
+                    pendingUploads.append(NodeImagePendingUpload(image: image))
                 } catch {
                     failures += 1
                     latestError = SiteError.displayMessage(for: error, service: "NodeImage")
@@ -434,7 +714,7 @@ struct NodeImageLibraryView: View {
             if failures > 0 {
                 error = batch.count == 1 ? latestError : "\(failures) 张图片无法处理。\(latestError ?? "")"
             } else if batch.count < inputs.count {
-                message = "一次最多准备 \(uploadLimit) 张图片。"
+                showToast("一次最多准备 \(uploadLimit) 张图片")
             }
         }
     }
@@ -443,9 +723,12 @@ struct NodeImageLibraryView: View {
         guard !pendingUploads.isEmpty, !uploadBlocked, !savedKey.isEmpty, ownsLibrary else { return }
         mutation = .upload
         error = nil
-        message = nil
         uploaded = []
-        defer { mutation = nil }
+        totalBatchCount = pendingUploads.count
+        defer {
+            mutation = nil
+            totalBatchCount = 0
+        }
         let expiration = preferences.deleteAfterDays
         let options = imageOptions
         for item in pendingUploads {
@@ -461,7 +744,9 @@ struct NodeImageLibraryView: View {
             }
             guard !Task.isCancelled, ownsLibrary else { return }
             do {
-                let result = try await client.upload(image: payload.data, format: payload.format, key: savedKey, deleteAfterDays: expiration)
+                let result = try await client.upload(
+                    image: payload.data, format: payload.format, key: savedKey, deleteAfterDays: expiration
+                )
                 guard ownsLibrary else { return }
                 pendingUploads.removeAll { $0.id == item.id }
                 uploaded.append(result)
@@ -482,13 +767,12 @@ struct NodeImageLibraryView: View {
         }
         if preferences.copyAfterUpload, !uploaded.isEmpty {
             copy(uploaded, as: preferences.linkFormat)
-            message = "链接已复制。"
         }
     }
 
-    private func confirmDelete(_ images: [HostedImage]) {
-        guard !images.isEmpty, !busy else { return }
-        pendingDeletion = images
+    private func confirmDelete(_ target: [HostedImage]) {
+        guard !target.isEmpty, !busy else { return }
+        pendingDeletion = target
         confirmsDelete = true
     }
 
@@ -496,7 +780,6 @@ struct NodeImageLibraryView: View {
         guard !pendingDeletion.isEmpty, !busy, ownsLibrary else { return }
         mutation = .delete
         error = nil
-        message = nil
         defer {
             mutation = nil
             pendingDeletion = []
@@ -518,7 +801,9 @@ struct NodeImageLibraryView: View {
                 break
             }
         }
-        if deleted > 0 { message = "已删除 \(deleted) 张图片。" }
+        if deleted > 0 {
+            showToast("已删除 \(deleted) 张图片")
+        }
     }
 
     private func updateCachedHistory() {

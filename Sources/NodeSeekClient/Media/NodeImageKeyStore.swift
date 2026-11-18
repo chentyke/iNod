@@ -1,9 +1,29 @@
 import Foundation
+import os
 import Security
 
 public enum NodeImageKeyStore {
     private static let service = "NodeSeek.NodeImage.APIKey"
+
+    #if DEBUG
+    private static let uiTestStorage = OSAllocatedUnfairLock<[Int: String]?>(initialState: nil)
+
+    static func configureForUITests(userID: Int?, key: String?) {
+        let initial: [Int: String] = if let userID, let key, !key.isEmpty {
+            [userID: key]
+        } else {
+            [:]
+        }
+        uiTestStorage.withLock { $0 = initial }
+    }
+    #endif
+
     public static func read(userID: Int) throws -> String {
+        #if DEBUG
+        if let override = uiTestStorage.withLock({ $0?[userID] ?? ($0 != nil ? "" : nil) }) {
+            return override
+        }
+        #endif
         var query = query(userID: userID)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -15,6 +35,15 @@ public enum NodeImageKeyStore {
     }
 
     public static func save(_ key: String, userID: Int) throws {
+        #if DEBUG
+        let handled = uiTestStorage.withLock { storage -> Bool in
+            guard storage != nil else { return false }
+            if key.isEmpty { storage?.removeValue(forKey: userID) }
+            else { storage?[userID] = key }
+            return true
+        }
+        if handled { return }
+        #endif
         let query = query(userID: userID)
         if key.isEmpty {
             let status = SecItemDelete(query as CFDictionary)
