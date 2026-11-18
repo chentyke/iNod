@@ -110,6 +110,12 @@ struct NetworkQualityReportSections: View {
             } else {
                 QualityRow("电信，联通，移动", status: status(.routes), value: "")
             }
+            // A separate, opt-in test; it publishes its target, so it never joins a run.
+            if retry != nil {
+                NavigationLink { ReturnRouteView(suggestions: [report?.ipv4.value, report?.ipv6.value].compactMap { $0 }) } label: {
+                    QualityRow("回程线路", subtitle: "从三网节点测到你的地址或服务器", status: .measured, value: "")
+                }
+            }
         } header: { Text("三网线路") } footer: {
             if report?.routes.value != nil { Text("点开查看沿途节点和测试包数量。") }
         }

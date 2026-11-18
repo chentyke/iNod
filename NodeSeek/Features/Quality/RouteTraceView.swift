@@ -27,7 +27,7 @@ struct RouteTraceView: View {
     }
 }
 
-private struct HopRow: View {
+struct HopRow: View {
     let hop: RouteHop
 
     var body: some View {
