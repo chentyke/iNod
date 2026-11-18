@@ -6,7 +6,9 @@ struct FeedView: View {
     var isSearch = false
     var recommended = false
     var isLinkedPage = false
+    var selectedPostID: Int? = nil
     @Environment(\.openPost) private var openPost
+    @Environment(\.openMemberDestination) private var openMember
     @Environment(AccountSession.self) private var account
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("showsBlockedContent") private var showsBlocked = false
@@ -40,8 +42,19 @@ struct FeedView: View {
     @State private var newPostError: String?
     @State private var showsNewPostError = false
 
-    init(isSearch: Bool = false,recommended: Bool = false,initialCategory: String = "",initialSort: FeedSort = .replyTime,initialQuery: String = "",isLinkedPage: Bool = false) {
-        self.isSearch = isSearch; self.recommended = recommended; self.isLinkedPage = isLinkedPage
+    init(
+        isSearch: Bool = false,
+        recommended: Bool = false,
+        initialCategory: String = "",
+        initialSort: FeedSort = .replyTime,
+        initialQuery: String = "",
+        isLinkedPage: Bool = false,
+        selectedPostID: Int? = nil
+    ) {
+        self.isSearch = isSearch
+        self.recommended = recommended
+        self.isLinkedPage = isLinkedPage
+        self.selectedPostID = selectedPostID
         _category = State(initialValue:initialCategory); _sort = State(initialValue:initialSort)
         _query = State(initialValue:initialQuery); _submittedQuery = State(initialValue:initialQuery)
     }
@@ -60,10 +73,10 @@ struct FeedView: View {
                     .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索帖子")
                     .navigationTitle("搜索")
                     .toolbar(.visible,for:.navigationBar)
-                    .toolbar(.hidden,for:.tabBar)
+                    .hidesTabBarWhenPushed()
             } else if isLinkedPage {
                 postList.navigationTitle(recommended ? "推荐阅读" : (categories.items.first { $0.id == category }?.title ?? "社区"))
-                    .toolbar(.visible,for:.navigationBar).toolbar(.hidden,for:.tabBar)
+                    .toolbar(.visible,for:.navigationBar).hidesTabBarWhenPushed()
             } else {
                 postList
                     .navigationTitle("社区")
@@ -255,15 +268,25 @@ struct FeedView: View {
             }
     }
 
+    private func selectPost(_ post: PostSummary) {
+        isSearchFocused = false
+        foldSearchIfEmpty()
+        openPost(post)
+    }
+
     private func postButton(_ post: PostSummary) -> some View {
-        Button { openPost(post) } label: { PostRow(post: post) }
+        let isSelected = selectedPostID == post.id
+        return Button { selectPost(post) } label: { PostRow(post: post, isSelected: isSelected) }
             .buttonStyle(.seekCard)
             .hoverEffect(.highlight)
             .postTransitionSource(post)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             .contextMenu {
-                Button("阅读全文", systemImage: "doc.text") { openPost(post) }
+                Button("阅读全文", systemImage: "doc.text") { selectPost(post) }
                 if let id = post.authorID {
-                    NavigationLink(value: MemberDestination.profile(id)) { Label("查看作者主页", systemImage: "person.crop.circle") }
+                    Button { openMember(.profile(id)) } label: {
+                        Label("查看作者主页", systemImage: "person.crop.circle")
+                    }
                 }
                 collectionButton(for: post.id)
                 ShareLink(item: post.url)

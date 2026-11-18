@@ -2,18 +2,45 @@ import NodeSeekCore
 import NodeSeekClient
 import SwiftUI
 
+extension EnvironmentValues {
+    /// True inside a split detail column whose parent tab must keep its tab bar and sidebar visible.
+    @Entry var keepsTabBarVisible = false
+}
+
+extension View {
+    /// Hides the root tab bar on a full-screen push while leaving an iPad split tab's bar visible.
+    func hidesTabBarWhenPushed() -> some View {
+        modifier(PushedTabBarVisibility())
+    }
+}
+
+private struct PushedTabBarVisibility: ViewModifier {
+    @Environment(\.keepsTabBarVisible) private var keepsTabBarVisible
+
+    func body(content: Content) -> some View {
+        content.toolbarVisibility(keepsTabBarVisible ? .automatic : .hidden, for: .tabBar)
+    }
+}
+
 struct ForumNavigationStack<Content: View>: View {
+    var path: Binding<NavigationPath>? = nil
     var restoresTabBarDuringZoom = false
+    var onOpenRootPost: ((PostSummary) -> Void)? = nil
     @ViewBuilder let content: () -> Content
     @Environment(AccountSession.self) private var account
-    @State private var path = NavigationPath()
+    @Environment(\.keepsTabBarVisible) private var keepsTabBarVisible
+    @State private var internalPath = NavigationPath()
     @Namespace private var postTransition
 
+    private var activePath: Binding<NavigationPath> {
+        path ?? $internalPath
+    }
+
     var body: some View {
-        NavigationStack(path:$path) {
+        NavigationStack(path: activePath) {
             content()
                 // Restore the root tab bar after a pop, while letting destinations set their own visibility.
-                .toolbarVisibility(path.isEmpty ? .visible : .automatic, for: .tabBar)
+                .toolbarVisibility(activePath.wrappedValue.isEmpty ? .visible : .automatic, for: .tabBar)
                 .background {
                     if restoresTabBarDuringZoom {
                         FeedTabBarTransition()
@@ -23,8 +50,12 @@ struct ForumNavigationStack<Content: View>: View {
                 .navigationDestination(for: AppDestination.self, destination: destination)
                 .navigationDestination(for: AccountDestination.self, destination: accountDestination)
                 .navigationDestination(for: PostSummary.self) { post in
-                    ThreadView(post: post, usesZoomTransition: true)
-                        .navigationTransition(.zoom(sourceID: post.id, in: postTransition))
+                    if keepsTabBarVisible {
+                        ThreadView(post: post)
+                    } else {
+                        ThreadView(post: post, usesZoomTransition: true)
+                            .navigationTransition(.zoom(sourceID: post.id, in: postTransition))
+                    }
                 }
                 .navigationDestination(for:AccountPost.self) { ThreadView(post:$0.summary,initialPage:$0.page,initialFloor:$0.floor) }
                 .navigationDestination(for:ForumLinkDestination.self) { destination in
@@ -47,22 +78,25 @@ struct ForumNavigationStack<Content: View>: View {
         }
         .scrollEdgeEffectStyle(.soft, for: .top)
         .tint(Color.seekGreen)
-        .environment(\.openMemberDestination, MemberNavigationAction { path.append($0) })
-        .environment(\.openAccountPost, AccountPostNavigationAction { path.append($0) })
-        .environment(\.openPost, PostNavigationAction { path.append($0) })
+        .environment(\.openMemberDestination, MemberNavigationAction { activePath.wrappedValue.append($0) })
+        .environment(\.openAccountPost, AccountPostNavigationAction { activePath.wrappedValue.append($0) })
+        .environment(\.openPost, PostNavigationAction { post in
+            if activePath.wrappedValue.isEmpty { onOpenRootPost?(post) }
+            activePath.wrappedValue.append(post)
+        })
         .environment(\.postTransitionNamespace, postTransition)
-        .environment(\.openAccountDestination, AccountNavigationAction { path.append($0) })
-        .environment(\.openAppDestination, AppNavigationAction { path.append($0) })
+        .environment(\.openAccountDestination, AccountNavigationAction { activePath.wrappedValue.append($0) })
+        .environment(\.openAppDestination, AppNavigationAction { activePath.wrappedValue.append($0) })
         .environment(\.openURL,OpenURLAction { url in
             switch ForumLink.parse(url.absoluteString) {
-            case .native(let destination): path.append(destination); return .handled
+            case .native(let destination): activePath.wrappedValue.append(destination); return .handled
             // A page the app has no screen for opens in the reader's browser.
             case .website(let url): return .systemAction(url)
             case nil: return .systemAction
             }
         })
         .onChange(of: account.user?.id) { previous, current in
-            if previous != nil, previous != current { path = NavigationPath() }
+            if previous != nil, previous != current { activePath.wrappedValue = NavigationPath() }
         }
     }
 
@@ -75,7 +109,7 @@ struct ForumNavigationStack<Content: View>: View {
         case .luckyDraw: LuckyView()
         case .networkQuality: NetworkQualityView()
         case .deviceBenchmark: DeviceBenchmarkView()
-        case .rulings(let recordID): RulingsView(recordID: recordID) { path.append($0) }
+        case .rulings(let recordID): RulingsView(recordID: recordID) { activePath.wrappedValue.append($0) }
         case .directory(let providers): DirectoryView(providers: providers)
         case .siteArticle(let path, let title): SiteArticleView(path: path, title: title)
         case .connections(let follows, let userID): ConnectionsView(follows: follows, userID: userID)
