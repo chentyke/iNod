@@ -13,6 +13,8 @@ struct YouTubeRegionView: View {
     @State private var keyError: String?
     @State private var result: YouTubeRegionCheck?
     @State private var checking: Task<Void, Never>?
+    @FocusState private var editing: Field?
+    private enum Field { case video, country, key }
     private let prefilledCountry: Bool
 
     init(checker: any StreamingChecking, countryCode: String?) {
@@ -33,14 +35,14 @@ struct YouTubeRegionView: View {
                     TextField("11 位编号", text: $videoID)
                         .font(.body.monospaced()).multilineTextAlignment(.trailing)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .accessibilityIdentifier("region.video")
+                        .focused($editing, equals: .video).accessibilityIdentifier("region.video")
                 }
                 LabeledContent("国家代码") {
                     TextField("例如 US", text: $country)
                         .font(.body.monospaced()).multilineTextAlignment(.trailing)
                         .textInputAutocapitalization(.characters).autocorrectionDisabled()
                         .onChange(of: country) { _, value in if value.count > 2 { country = String(value.prefix(2)) } }
-                        .accessibilityIdentifier("region.country")
+                        .focused($editing, equals: .country).accessibilityIdentifier("region.country")
                 }
             } footer: {
                 Text(prefilledCountry ? "国家代码取自网络检测的出口归属，可以改成其他国家。默认视频是 YouTube 的公开样片。"
@@ -49,7 +51,7 @@ struct YouTubeRegionView: View {
             Section {
                 SecureField("YouTube Data API 密钥", text: $apiKey)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .accessibilityIdentifier("region.key")
+                    .focused($editing, equals: .key).accessibilityIdentifier("region.key")
                 if hasSavedKey {
                     Button("移除已保存的密钥", role: .destructive) { removeKey() }
                 }
@@ -83,6 +85,7 @@ struct YouTubeRegionView: View {
             }
         }
         .seekGroupedList()
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("YouTube 地区规则").navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: loadKey)
         .onDisappear { checking?.cancel() }
@@ -112,6 +115,8 @@ struct YouTubeRegionView: View {
 
     private func check() {
         let key = apiKey, id = videoID, code = country.uppercased()
+        // The answer appears below the form; the keyboard would cover it.
+        editing = nil
         do {
             try YouTubeAPIKeyStore.save(key)
             hasSavedKey = true; keyError = nil

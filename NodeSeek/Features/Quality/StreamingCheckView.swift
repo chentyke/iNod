@@ -79,6 +79,8 @@ struct StreamingCheckView: View {
             Section {
                 ForEach(StreamingPlatform.playable.filter(run.checker.platforms.contains)) { platform in
                     Button { start(platform) } label: { PlaybackRow(platform: platform, result: run.playback[platform]) }
+                        // Without this the separator lines up with the trailing "试播" text instead of the title.
+                        .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
                         .disabled(run.checker.playbackCheck(for: platform) == nil)
                         .accessibilityIdentifier("streaming.play.\(platform.rawValue)")
                 }
@@ -179,8 +181,9 @@ private struct SampleRow: View {
 
     var body: some View {
         QualityRow(title: check.platform.title, subtitle: subtitle, status: check.result.status) {
+            // The verdict stays on one line; a long sample title wraps instead.
             if let evidence = check.result.value {
-                HStack(spacing: 6) { QualityDot(tint: evidence.tint); Text(evidence.title).foregroundStyle(.secondary) }
+                HStack(spacing: 6) { QualityDot(tint: evidence.tint); Text(evidence.title).foregroundStyle(.secondary) }.fixedSize()
             }
         }
     }
@@ -202,11 +205,14 @@ private struct PlaybackRow: View {
         // A row with no attempt yet shows what tapping it does.
         QualityRow(title: platform.title, subtitle: "官方播放器，静音", status: result?.status ?? .measured) {
             if let outcome = result?.value {
-                HStack(spacing: 6) { QualityDot(tint: outcome.tint); Text(outcome.title).foregroundStyle(.secondary) }
+                HStack(spacing: 6) { QualityDot(tint: outcome.tint); Text(outcome.title).foregroundStyle(.secondary) }.fixedSize()
             } else {
-                Label("试播", systemImage: "play.circle").foregroundStyle(.secondary)
+                HStack(spacing: 4) { Image(systemName: "play.fill").font(.caption2); Text("试播") }
+                    .foregroundStyle(.secondary).fixedSize()
             }
         }
+        // A button row would tint every secondary text; this row reads like the others.
+        .foregroundStyle(Color.seekInk)
     }
 }
 

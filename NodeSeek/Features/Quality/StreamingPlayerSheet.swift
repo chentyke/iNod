@@ -77,7 +77,7 @@ struct StreamingPlayerSheet: View {
         var lines = ["使用 \(source)，开始于 \(startedAt.formatted(date: .omitted, time: .standard))。"]
         switch check.result {
         case .measured(.played): lines.append("播放器进入播放状态，播放时间持续前进。")
-        case .measured(.autoplayBlocked): lines.append("播放器报告自动播放被阻止，可以在播放器上点播放再试。")
+        case .measured(.autoplayBlocked): lines.append("播放器报告自动播放被阻止，需要在播放器上点按才会开始播放。")
         case .measured(.playerError): lines.append("错误码由播放器给出，含义见平台的播放器文档。")
         case .unavailable: lines.append("30 秒内没有看到播放时间前进。")
         default: lines.append("播放时间持续前进后记为已播放，30 秒内没有前进记为超时。")
