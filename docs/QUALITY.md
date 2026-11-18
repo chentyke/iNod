@@ -32,11 +32,13 @@ Cloudflare 的 HTTP 时延和抖动算法可在同节点上复测。iNod 使用�
 
 ## 运营商节点测速
 
-`QualityCarrierSpeedService.run(at:)` 接收一个由调用方提供的 LibreSpeed 节点，附带运营商和城市。延迟、下载和上传均发往同一 HTTPS 来源。服务复用基础测速的时间统计和网络变化处理，分别保留三项结果。基础 Cloudflare 测速继续使用原有节点。
+`QualityCarrierSpeedService.run(at:)` 接收一个可调用的 LibreSpeed 或 SpeedTest.cn 节点，附带运营商和城市。延迟、下载和上传均发往同一 HTTPS 来源。服务复用基础测速的时间统计和网络变化处理，分别保留三项结果。基础 Cloudflare 测速继续使用原有节点。
 
-延迟请求先预热一次，再测五次。每个方向发送或接收 1、4、4 MiB 的测试数据，每节点合计 18 MiB，另有小量协议开销。下载必须收到约定的字节数，响应超过允许大小时结束请求。请求失败和节点限流按原样记录。
+延迟请求先预热一次，再测五次。LibreSpeed 模式下，每个方向发送或接收 1、4、4 MiB 的测试数据，每节点合计 18 MiB，另有小量协议开销。下载必须收到约定的字节数，响应超过允许大小时结束请求。请求失败和节点限流按原样记录。
 
-当前还需提供已确认的电信、联通、移动节点。调用方可参考 [LibreSpeed 节点格式](https://github.com/librespeed/speedtest-cli#use-a-custom-backend-server-list) 配置地址。
+公开节点 `QualityCarrierSpeedNode.taiyuanUnicom` 对应太原联通。该节点的下载最小为 10 MiB，服务发一次 10 MiB 下载和两次 4 MiB 上传，测试数据总量仍为 18 MiB。只有握手返回测速标记、下载收到约定字节数、上传收到相符的字节数确认，才记录对应结果。电信、移动的默认节点仍待确认。
+
+[SpeedTest.cn 公开候选清单](https://github.com/spiritLHLS/speedtest.cn-CN-ID) / [太原节点路由数据](https://stat.ripe.net/data/network-info/data.json?resource=218.26.162.114) / [LibreSpeed 节点格式](https://github.com/librespeed/speedtest-cli#use-a-custom-backend-server-list)
 
 ## 首版对照方法
 

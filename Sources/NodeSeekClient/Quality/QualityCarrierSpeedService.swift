@@ -1,20 +1,36 @@
 import Foundation
 import NodeSeekCore
 
-/// One operator's LibreSpeed-compatible endpoints, supplied by the caller.
+/// One operator's speed test endpoints.
 public struct QualityCarrierSpeedNode: Codable, Equatable, Sendable {
+    public enum Format: String, Codable, Sendable {
+        case libreSpeed, speedTestCN
+    }
+
+    public static let taiyuanUnicom = Self(
+        carrier: .unicom, city: "太原",
+        latencyURL: URL(string: "https://node-218-26-162-114.speedtest.cn:51090/hello")!,
+        downloadURL: URL(string: "https://node-218-26-162-114.speedtest.cn:51090/download")!,
+        uploadURL: URL(string: "https://node-218-26-162-114.speedtest.cn:51090/upload")!,
+        format: .speedTestCN
+    )
+
     public let carrier: ChinaCarrier
     public let city: String
     public let latencyURL: URL
     public let downloadURL: URL
     public let uploadURL: URL
+    public let format: Format?
 
-    public init(carrier: ChinaCarrier, city: String, latencyURL: URL, downloadURL: URL, uploadURL: URL) {
+    public init(
+        carrier: ChinaCarrier, city: String, latencyURL: URL, downloadURL: URL, uploadURL: URL, format: Format? = nil
+    ) {
         self.carrier = carrier
         self.city = city
         self.latencyURL = latencyURL
         self.downloadURL = downloadURL
         self.uploadURL = uploadURL
+        self.format = format
     }
 
     fileprivate var isValid: Bool {
@@ -53,9 +69,13 @@ public struct QualityCarrierSpeedService: Sendable {
         onProgress: @escaping @Sendable (NetworkQualityReport) async -> Void = { _ in }
     ) async throws -> QualityCarrierSpeedResult {
         guard node.isValid else { throw QualityIssue.invalidResponse }
+        let isSpeedTestCN = node.format == .speedTestCN
         let target = NetworkQualityService.SpeedTarget(
-            provider: "LibreSpeed", latencyURL: node.latencyURL, downloadURL: node.downloadURL,
-            uploadURL: node.uploadURL, transferSizes: Self.transferSizes, format: .libreSpeed
+            provider: isSpeedTestCN ? "SpeedTest.cn" : "LibreSpeed",
+            latencyURL: node.latencyURL, downloadURL: node.downloadURL, uploadURL: node.uploadURL,
+            downloadSizes: isSpeedTestCN ? [10 * 1_048_576] : Self.transferSizes,
+            uploadSizes: isSpeedTestCN ? [4 * 1_048_576, 4 * 1_048_576] : Self.transferSizes,
+            format: isSpeedTestCN ? .speedTestCN : .libreSpeed
         )
         let report = await NetworkQualityService(request: request, paths: paths, speedTarget: target)
             .run(steps: [.latency, .download, .upload], onProgress: onProgress)

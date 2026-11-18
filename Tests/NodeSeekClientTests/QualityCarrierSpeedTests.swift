@@ -41,6 +41,37 @@ struct QualityCarrierSpeedTests {
         #expect(QualityCarrierSpeedService.maximumTransferBytesPerNode == 18 * 1_048_576)
     }
 
+    @Test func verifiesThePublicNodesProtocolAndUploadAcknowledgement() async throws {
+        let node = QualityCarrierSpeedNode.taiyuanUnicom
+        let service = QualityCarrierSpeedService(request: { request, upload in
+            let url = try #require(request.url)
+            #expect(url.host() == node.downloadURL.host())
+            let query = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+            #expect(query.contains(where: { $0.name == "r" }))
+            switch url.path() {
+            case "/hello":
+                return .init(body: Data("hello v3.5.5".utf8), requestToFirstByte: 0.08)
+            case "/download":
+                #expect(query.contains(where: { $0.name == "size" && $0.value == "10485760" }))
+                return .init(body: Data(count: 10 * 1_048_576), requestToEnd: 2)
+            case "/upload":
+                #expect(request.httpMethod == "POST")
+                #expect(upload?.count == 4 * 1_048_576)
+                // The endpoint acknowledges a smaller amount than the client sent.
+                return .init(body: Data("upload size:65536".utf8), requestToFirstByte: 0.5)
+            default:
+                throw URLError(.badURL)
+            }
+        }, paths: {
+            AsyncStream { $0.yield(.init(network: .wifi)) }
+        })
+        let result = try await service.run(at: node)
+        #expect(result.node.carrier == .unicom)
+        #expect(result.report.latency.value?.milliseconds == 80)
+        #expect(result.report.download.value?.megabitsPerSecond == 41.94304)
+        #expect(result.report.upload == .unavailable(.invalidResponse))
+    }
+
     @Test func rejectsMixedOriginsBeforeSendingRequests() async {
         let service = QualityCarrierSpeedService(request: { _, _ in
             Issue.record("Invalid server configuration should not send requests")
