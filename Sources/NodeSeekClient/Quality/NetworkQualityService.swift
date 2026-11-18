@@ -2,24 +2,58 @@ import Foundation
 import Network
 
 public struct NetworkQualityService: Sendable {
-    public static let maximumTransferBytes = 2 * transferSizes.reduce(0, +)
+    public static let maximumTransferBytes = SpeedTarget.cloudflare.transferSizes.reduce(0, +) * 2
 
-    private static let downloadURL = URL(string: "https://speed.cloudflare.com/__down")!
-    private static let uploadURL = URL(string: "https://speed.cloudflare.com/__up")!
+    struct SpeedTarget: Sendable {
+        static let cloudflare = Self(
+            provider: "Cloudflare",
+            latencyURL: URL(string: "https://speed.cloudflare.com/__down?bytes=0")!,
+            downloadURL: URL(string: "https://speed.cloudflare.com/__down")!,
+            uploadURL: URL(string: "https://speed.cloudflare.com/__up")!,
+            transferSizes: [1_000_000, 10_000_000, 10_000_000],
+            format: .cloudflare
+        )
+
+        enum Format: Sendable { case cloudflare, libreSpeed }
+
+        let provider: String
+        let latencyURL: URL
+        let downloadURL: URL
+        let uploadURL: URL
+        let transferSizes: [Int]
+        let format: Format
+
+        func downloadURL(bytes: Int) -> URL {
+            let size = switch format {
+            case .cloudflare: URLQueryItem(name: "bytes", value: String(bytes))
+            case .libreSpeed: URLQueryItem(name: "ckSize", value: String(bytes / 1_048_576))
+            }
+            return downloadURL.appending(queryItems: [size])
+        }
+
+        func serverTime(_ response: QualityHTTPResponse) -> TimeInterval {
+            format == .cloudflare ? response.serverTime : 0
+        }
+    }
+
     private static let attributionURL = URL(string: "https://ipinfo.io")!
-    private static let transferSizes = [1_000_000, 10_000_000, 10_000_000]
 
     private let request: QualityHTTP.Request?
     private let paths: @Sendable () -> AsyncStream<QualityNetworkPath>
+    private let speedTarget: SpeedTarget
 
     public init() {
-        request = nil
-        paths = QualityNetworkPath.updates
+        self.init(speedTarget: .cloudflare)
     }
 
-    init(request: @escaping QualityHTTP.Request, paths: @escaping @Sendable () -> AsyncStream<QualityNetworkPath>) {
+    init(
+        request: QualityHTTP.Request? = nil,
+        paths: @escaping @Sendable () -> AsyncStream<QualityNetworkPath> = QualityNetworkPath.updates,
+        speedTarget: SpeedTarget = .cloudflare
+    ) {
         self.request = request
         self.paths = paths
+        self.speedTarget = speedTarget
     }
 
     /// Cancel the calling task to stop the run. The returned report keeps completed checks.
@@ -43,12 +77,13 @@ public struct NetworkQualityService: Sendable {
         defer { session?.invalidateAndCancel() }
         let send: QualityHTTP.Request = request ?? { request, upload in
             guard let session else { throw QualityIssue.invalidResponse }
-            return try await QualityHTTP.request(using: session, request: request, upload: upload)
+            let limit = speedTarget.format == .libreSpeed ? Self.responseLimit(for: request, target: speedTarget) : nil
+            return try await QualityHTTP.request(using: session, request: request, upload: upload, maximumResponseBytes: limit)
         }
         let startReport = report
         return await withTaskGroup(of: RunEvent.self) { group in
             group.addTask {
-                .measured(await Self.measure(startReport, steps: steps, send: send, onProgress: onProgress))
+                .measured(await Self.measure(startReport, steps: steps, target: speedTarget, send: send, onProgress: onProgress))
             }
             group.addTask {
                 if let issue = await QualityNetworkPath.interruption(in: updates, after: initial) {
@@ -85,7 +120,7 @@ public struct NetworkQualityService: Sendable {
     }
 
     private static func measure(
-        _ initial: NetworkQualityReport, steps: [NetworkQualityReport.Step], send: QualityHTTP.Request,
+        _ initial: NetworkQualityReport, steps: [NetworkQualityReport.Step], target: SpeedTarget, send: QualityHTTP.Request,
         onProgress: @Sendable (NetworkQualityReport) async -> Void
     ) async -> NetworkQualityReport {
         var report = initial
@@ -101,12 +136,12 @@ public struct NetworkQualityService: Sendable {
                 }
             case .latency:
                 await measure(step, at: \.latency, report: &report, onProgress: onProgress) { _ in
-                    try await latency(send: send)
+                    try await latency(target: target, send: send)
                 }
             case .download, .upload:
                 let keyPath = step == .upload ? \NetworkQualityReport.upload : \.download
                 await measure(step, at: keyPath, report: &report, onProgress: onProgress) { latest in
-                    try await bandwidth(upload: step == .upload, send: send) { sample, fraction in
+                    try await bandwidth(upload: step == .upload, target: target, send: send) { sample, fraction in
                         var progress = latest
                         progress.stepFraction = fraction
                         progress.currentMbps = sample.seconds.map { Double(sample.bytes) * 8 / $0 / 1_000_000 }
@@ -217,9 +252,9 @@ extension NetworkQualityService {
         return QualityIPAttribution(countryCode: info.country, region: info.region, city: info.city, asn: asn, networkName: networkName)
     }
 
-    private static func latency(send: QualityHTTP.Request) async throws -> QualityLatency {
-        let endpoint = downloadURL.appending(queryItems: [URLQueryItem(name: "bytes", value: "0")])
-        let source = QualitySource(provider: "Cloudflare", endpoint: endpoint, checkedAt: .now)
+    private static func latency(target: SpeedTarget, send: QualityHTTP.Request) async throws -> QualityLatency {
+        let endpoint = target.latencyURL
+        let source = QualitySource(provider: target.provider, endpoint: endpoint, checkedAt: .now)
         // Warm up the connection before measuring request-to-first-byte latency.
         if let warmup = try? await send(speedRequest(endpoint, timeout: 4), nil), warmup.statusCode == 429 {
             throw QualityIssue.httpStatus(429)
@@ -233,7 +268,7 @@ extension NetworkQualityService {
                 try response.validateStatus()
                 guard response.body.count <= 1_024, let seconds = response.requestToFirstByte,
                       seconds.isFinite, seconds > 0 else { throw QualityIssue.invalidResponse }
-                let adjusted = seconds - response.serverTime
+                let adjusted = seconds - target.serverTime(response)
                 let latency = (adjusted > 0 ? adjusted : seconds) * 1_000
                 samples.append(.init(
                     checkedAt: started, node: response.node, milliseconds: latency, issue: nil,
@@ -252,16 +287,16 @@ extension NetworkQualityService {
     }
 
     private static func bandwidth(
-        upload: Bool, send: QualityHTTP.Request,
+        upload: Bool, target: SpeedTarget, send: QualityHTTP.Request,
         onSample: (QualityTransferSample, Double) async -> Void
     ) async throws -> QualityBandwidth {
-        let endpoint = upload ? uploadURL : downloadURL
-        let source = QualitySource(provider: "Cloudflare", endpoint: endpoint, checkedAt: .now)
+        let endpoint = upload ? target.uploadURL : target.downloadURL
+        let source = QualitySource(provider: target.provider, endpoint: endpoint, checkedAt: .now)
         var samples: [QualityTransferSample] = []
-        for size in transferSizes {
+        for size in target.transferSizes {
             try Task.checkCancellation()
             let started = Date.now
-            let url = upload ? endpoint : endpoint.appending(queryItems: [URLQueryItem(name: "bytes", value: String(size))])
+            let url = upload ? endpoint : target.downloadURL(bytes: size)
             var request = speedRequest(url, timeout: 8)
             do {
                 var body: Data?
@@ -274,7 +309,7 @@ extension NetworkQualityService {
                 try response.validateStatus()
                 let measured: TimeInterval?
                 if upload { measured = response.requestToFirstByte }
-                else { measured = response.requestToEnd.map { $0 - response.serverTime } }
+                else { measured = response.requestToEnd.map { $0 - target.serverTime(response) } }
                 guard (upload || response.body.count == size), let seconds = measured, seconds.isFinite, seconds > 0 else {
                     throw QualityIssue.invalidResponse
                 }
@@ -288,13 +323,22 @@ extension NetworkQualityService {
                 samples.append(.init(checkedAt: started, node: nil, bytes: size, seconds: nil, issue: issue))
                 if issue == .httpStatus(429) { break }
             }
-            if let sample = samples.last { await onSample(sample, Double(samples.count) / Double(transferSizes.count)) }
+            if let sample = samples.last { await onSample(sample, Double(samples.count) / Double(target.transferSizes.count)) }
         }
         let result = QualityBandwidth(source: source, samples: samples)
         guard result.megabitsPerSecond != nil else {
             throw samples.first?.issue ?? .insufficientSamples
         }
         return result
+    }
+
+    private static func responseLimit(for request: URLRequest, target: SpeedTarget) -> Int {
+        guard request.httpMethod == "GET", let url = request.url,
+              url.path() == target.downloadURL.path(),
+              let chunks = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                  .queryItems?.first(where: { $0.name == "ckSize" })?.value.flatMap(Int.init),
+              (1...4).contains(chunks) else { return 1_024 }
+        return chunks * 1_048_576
     }
 
     private static func speedRequest(_ endpoint: URL, timeout: TimeInterval) -> URLRequest {

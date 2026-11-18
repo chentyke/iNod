@@ -30,6 +30,14 @@ Cloudflare 的 HTTP 时延和抖动算法可在同节点上复测。iNod 使用�
 
 [NodeQuality](https://github.com/LloydAsp/NodeQuality) / [NetQuality](https://github.com/xykt/NetQuality) / [IPQuality](https://github.com/xykt/IPQuality) / [Cloudflare Speedtest](https://github.com/cloudflare/speedtest) / [ipify](https://www.ipify.org/) / [IPinfo](https://support.ipinfo.io/hc/en-us/articles/34121895556242-Legacy-Free-API-vs-IPinfo-Lite)
 
+## 运营商节点测速
+
+`QualityCarrierSpeedService.run(at:)` 接收一个由调用方提供的 LibreSpeed 节点，附带运营商和城市。延迟、下载和上传均发往同一 HTTPS 来源。服务复用基础测速的时间统计和网络变化处理，分别保留三项结果。基础 Cloudflare 测速继续使用原有节点。
+
+延迟请求先预热一次，再测五次。每个方向发送或接收 1、4、4 MiB 的测试数据，每节点合计 18 MiB，另有小量协议开销。下载必须收到约定的字节数，响应超过允许大小时结束请求。请求失败和节点限流按原样记录。
+
+当前还需提供已确认的电信、联通、移动节点。调用方可参考 [LibreSpeed 节点格式](https://github.com/librespeed/speedtest-cli#use-a-custom-backend-server-list) 配置地址。
+
 ## 首版对照方法
 
 1. iPhone 和电脑连同一个 Wi-Fi，在相近时间分别跑检测，每次记录设备、时间、连接方式、是否有 VPN、出口类型和测速节点。只有节点一致的样本用于计算差异。

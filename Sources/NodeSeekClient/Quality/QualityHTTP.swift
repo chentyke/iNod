@@ -61,11 +61,33 @@ struct QualityHTTP {
         return URLSession(configuration: configuration)
     }
 
-    static func request(using session: URLSession, request: URLRequest, upload: Data?) async throws -> QualityHTTPResponse {
-        let capture = MetricsCapture()
+    static func request(
+        using session: URLSession, request: URLRequest, upload: Data?, maximumResponseBytes: Int? = nil
+    ) async throws -> QualityHTTPResponse {
+        let capture = MetricsCapture(maximumResponseBytes: maximumResponseBytes)
         let (data, response): (Data, URLResponse)
-        if let upload {
+        if let limit = maximumResponseBytes, upload != nil {
+            var request = request
+            request.httpBody = upload
+            let (bytes, reply) = try await session.bytes(for: request, delegate: capture)
+            var body = Data()
+            for try await byte in bytes {
+                guard body.count < limit else { throw QualityIssue.invalidResponse }
+                body.append(byte)
+            }
+            (data, response) = (body, reply)
+        } else if let upload {
             (data, response) = try await session.upload(for: request, from: upload, delegate: capture)
+        } else if let limit = maximumResponseBytes {
+            do {
+                let (file, reply) = try await session.download(for: request, delegate: capture)
+                let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize
+                guard let size, size <= limit else { throw QualityIssue.invalidResponse }
+                (data, response) = (try Data(contentsOf: file), reply)
+            } catch {
+                if capture.exceededMaximum.withLock({ $0 }) { throw QualityIssue.invalidResponse }
+                throw error
+            }
         } else {
             (data, response) = try await session.data(for: request, delegate: capture)
         }
@@ -94,7 +116,25 @@ struct QualityHTTP {
             .flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
     }
 
-    private final class MetricsCapture: NSObject, URLSessionTaskDelegate {
+    private final class MetricsCapture: NSObject, URLSessionDownloadDelegate {
+        private let maximumResponseBytes: Int?
+        let exceededMaximum = Mutex(false)
+
+        init(maximumResponseBytes: Int?) {
+            self.maximumResponseBytes = maximumResponseBytes
+        }
+
+        func urlSession(
+            _ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64,
+            totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64
+        ) {
+            guard let maximumResponseBytes,
+                  totalBytesWritten > maximumResponseBytes || totalBytesExpectedToWrite > maximumResponseBytes else { return }
+            exceededMaximum.withLock { $0 = true }
+            downloadTask.cancel()
+        }
+
+        func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {}
         let timing = Mutex<(firstByte: TimeInterval?, end: TimeInterval?, family: QualityIPFamily?)?>(nil)
 
         func urlSession(_ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics) {
