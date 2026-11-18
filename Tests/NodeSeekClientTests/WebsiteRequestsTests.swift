@@ -38,6 +38,41 @@ import Testing
     #expect(WebsiteAction.attend(random: true).request.path == "/api/attendance?random=true")
     #expect(AccountResource.attendance(2).path == "/api/attendance/board?page=2")
     #expect(AccountResource.attendance(0).path == "/api/attendance/board?page=1")
+    #expect(AccountResource.security.path == "/api/account/otp-status")
+    #expect(AccountResource.blocks.path == "/api/block-list/list")
+    #expect(AccountResource.homepage.path == "/api/homepage")
+    #expect(AccountResource.editableProfile(42).path == "/api/account/getInfo/42?readme=1&signature=1")
+    #expect(WebsiteResource.otpStatus.path == "/api/account/otp-status")
+
+    let profileUpdate = WebsiteAction.updateProfile(bio: "简介", signature: "签名", readme: "# 介绍").request
+    #expect(profileUpdate.path == "/api/account/introduction")
+    #expect(profileUpdate.body["bio"] as? String == "简介")
+    #expect(profileUpdate.body["signature"] as? String == "签名")
+    #expect(profileUpdate.body["readme"] as? String == "# 介绍")
+    #expect(profileUpdate.changesData)
+
+    let block = WebsiteAction.block(name: "spammer").request
+    #expect(block.path == "/api/block-list/add")
+    #expect(block.body["block_member_name"] as? String == "spammer")
+    let unblock = WebsiteAction.unblock(memberID: 88).request
+    #expect(unblock.path == "/api/block-list/del")
+    #expect(unblock.body["block_member_id"] as? Int == 88)
+
+    let passwordChange = WebsiteAction.changePassword(old: "old_pass1", new: "new_pass2").request
+    #expect(passwordChange.path == "/api/account/changePassword")
+    #expect(passwordChange.body["oldPassword"] as? String == "old_pass1")
+    #expect(passwordChange.body["password"] as? String == "new_pass2")
+
+    let otpEnable = WebsiteAction.otp(enable: true, password: "secret").request
+    #expect(otpEnable.path == "/api/account/otp")
+    #expect(otpEnable.body["action"] as? String == "create")
+    let otpDisable = WebsiteAction.otp(enable: false, password: "secret").request
+    #expect(otpDisable.body["action"] as? String == "remove")
+
+    #expect(WebsiteAction.unbindTelegram.request.path == "/api/account/unbind-telegram")
+    #expect(!WebsiteAction.readWebsitePreferences.request.changesData)
+    #expect(WebsiteAction.saveFestiveStyle(true).request.body["enable_festivous_style"] as? Bool == true)
+    #expect(WebsiteAction.saveWebsiteStyle("body {}").request.body["style"] as? String == "body {}")
 }
 
 @Test func missingThreadUsesTheListedRankAndConfirmedAccount() throws {
