@@ -82,6 +82,36 @@ struct QualityIntegrationTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
     }
 
+    @Test func ipDetailsMapTypesAndKeepEarlierAnswersOnRetry() async throws {
+        var previous = NodeSeekCore.NetworkQualityReport.sample(.partialFailure)
+        let address = try #require(previous.ipv4.value?.address)
+        // First pass: RIPEstat answers, IPQuery is rate limited.
+        let first = await LiveNetworkQualityTester.measureAdvanced(.ipDetails, in: previous, previous: nil) { request, _ in
+            if request.url?.host() == "stat.ripe.net" {
+                return .init(body: Data(#"{"status":"ok","data":{"asns":["64496"],"prefix":"198.51.100.0/24"}}"#.utf8))
+            }
+            return .init(statusCode: 429)
+        }
+        let profile = try #require(first.ipDetails.value?.first)
+        #expect(first.ipDetails.value?.count == 1, "No IPv6 was measured, so only IPv4 is looked up")
+        #expect(profile.route.result.value == BGPRoute(prefix: "198.51.100.0/24", originASNs: [64496]))
+        #expect(profile.usage.result == .failed(.init(.rateLimited)))
+        #expect(first.retryableSteps.contains(.ipDetails))
+
+        // Retry: RIPEstat now fails, IPQuery answers. The earlier route stays.
+        previous = first
+        let retried = await LiveNetworkQualityTester.measureAdvanced(.ipDetails, in: first.resetting([.ipDetails]), previous: previous) { request, _ in
+            if request.url?.host() == "api.ipquery.io" {
+                return .init(body: Data(#"{"ip":"\#(address)","risk":{"risk_score":12,"is_mobile":true,"is_vpn":false,"is_datacenter":false}}"#.utf8))
+            }
+            throw URLError(.timedOut)
+        }
+        let merged = try #require(retried.ipDetails.value?.first)
+        #expect(merged.route == profile.route)
+        #expect(merged.usage.result.value == IPUsage(score: 12, tags: [.mobile], unreported: [.proxy, .tor]))
+        #expect(!retried.retryableSteps.contains(.ipDetails))
+    }
+
     private func tester(request: @escaping QualityHTTP.Request) -> LiveNetworkQualityTester {
         let paths: @Sendable () -> AsyncStream<QualityNetworkPath> = { AsyncStream { $0.yield(.init(network: .wifi)) } }
         return LiveNetworkQualityTester(basics: NetworkQualityService(request: request, paths: paths), paths: paths)

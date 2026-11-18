@@ -1,8 +1,8 @@
 import XCTest
 
 /// Checks docs/DESIGN.md rule 9 on whatever screen the tests run on — iPhone, iPad or a Mac window:
-/// cards keep to one readable, centred column, the bars above and below them line up with that column,
-/// and the hardware-keyboard shortcuts reach the new-post and reply actions.
+/// iPhone and Mac keep cards in one readable, centred column, iPad splits the community home into a
+/// feed column beside a readable thread column, and hardware-keyboard shortcuts reach new-post and reply.
 @MainActor
 final class AdaptiveLayoutTests: XCTestCase {
     // Element frames are in screen points, so app sizes are scaled by `ForumFixture.pointScale`.
@@ -10,10 +10,21 @@ final class AdaptiveLayoutTests: XCTestCase {
     private let readableWidth = 760 * ForumFixture.pointScale
     /// Matches `SeekLayout.gutter` in the app.
     private let gutter = 16 * ForumFixture.pointScale
+    /// Matches the feed pane limits in `FeedSplitLayout`.
+    private let minimumFeedPaneWidth = 336 * ForumFixture.pointScale
+    private let maximumFeedPaneWidth = 400 * ForumFixture.pointScale
     /// How far the reply bar sits inside the cards.
     private let replyBarInset = 4 * ForumFixture.pointScale
     /// docs/DESIGN.md allows 2 points between gaps that should match.
     private let tolerance: CGFloat = 2
+
+    private var isPadSplit: Bool {
+        #if targetEnvironment(macCatalyst)
+        false
+        #else
+        UIDevice.current.userInterfaceIdiom == .pad
+        #endif
+    }
 
     override func setUp() {
         continueAfterFailure = false
@@ -28,11 +39,11 @@ final class AdaptiveLayoutTests: XCTestCase {
 
     func testFeedKeepsAReadableCentredColumn() throws {
         let app = ForumFixture.launch()
-        assertFeedColumn(in: app)
+        assertFeedLayout(in: app)
         attachScreenshot(of: app, named: "Feed")
     }
 
-    /// Every tab stays on screen: in the tab bar on iPhone and iPad, in the sidebar on a Mac.
+    /// Every tab stays on screen: in the tab bar on iPhone, in the adaptable bar/sidebar on iPad, in the sidebar on a Mac.
     func testAllTabsAreOnScreen() throws {
         let app = ForumFixture.launch()
         for name in ["社区", "通知", "我的"] {
@@ -45,21 +56,103 @@ final class AdaptiveLayoutTests: XCTestCase {
         // Only iPad turns: iPhone keeps to portrait.
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Only iPad supports landscape.")
         let app = ForumFixture.launch()
-        XCTAssertTrue(ForumFixture.postCard(ForumFixture.threadTitle, in: app).waitForExistence(timeout: 10))
+        let post = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
+        XCTAssertTrue(post.waitForExistence(timeout: 10))
         XCUIDevice.shared.orientation = .landscapeLeft
         // Let the rotation settle before measuring.
         Thread.sleep(forTimeInterval: 1)
-        assertFeedColumn(in: app)
+        assertSplitFeed(in: app)
+        attachScreenshot(of: app, named: "Feed in landscape (empty)")
+
+        post.tap()
+        let comment = ForumFixture.element("comment-2", in: app)
+        XCTAssertTrue(comment.waitForExistence(timeout: 8))
+        XCTAssertTrue(post.isSelected, "The opened post card should stay marked as selected in the feed column.")
+        XCTAssertFalse(ForumFixture.element("feed-detail-placeholder", in: app).exists)
+
+        let list = feedListFrame(in: app)
+        let detailScroll = app.scrollViews.containing(.any, identifier: "comment-2").firstMatch.frame
+        XCTAssertGreaterThanOrEqual(detailScroll.minX, list.maxX - tolerance,
+                                    "The thread pane should sit to the right of the feed column.")
+
+        let card = comment.frame
+        assertColumn(card, in: detailScroll, "Landscape split reply card")
+
+        let author = app.buttons["查看 楼主 的主页"]
+        let more = app.buttons["更多"]
+        XCTAssertTrue(author.exists)
+        XCTAssertTrue(more.exists)
+        assertClose(author.frame.minX, card.minX, "Thread author bar leading edge")
+        assertClose(more.frame.maxX, card.maxX, "Thread menu button trailing edge")
+
+        let reply = replyButton(in: app)
+        let share = app.buttons["分享帖子"]
+        XCTAssertTrue(reply.exists)
+        XCTAssertTrue(share.exists)
+        assertClose(reply.frame.minX - card.minX, replyBarInset, "Reply bar leading edge")
+        assertClose(card.maxX - share.frame.maxX, replyBarInset, "Reply bar trailing edge")
         attachScreenshot(of: app, named: "Feed in landscape")
+    }
+
+    func testPadSplitSwitchesAndClosesPosts() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Only iPad splits the feed and thread panes.")
+        let app = ForumFixture.launch()
+        let firstPost = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
+        let secondPost = ForumFixture.postCard(ForumFixture.announcementTitle, in: app)
+        let placeholder = ForumFixture.element("feed-detail-placeholder", in: app)
+        XCTAssertTrue(firstPost.waitForExistence(timeout: 10))
+        XCTAssertTrue(placeholder.exists)
+
+        firstPost.tap()
+        XCTAssertTrue(app.staticTexts["周六下午两点开始读书。"].waitForExistence(timeout: 8))
+        XCTAssertTrue(firstPost.isSelected)
+        XCTAssertFalse(placeholder.exists)
+
+        secondPost.tap()
+        XCTAssertTrue(app.staticTexts[ForumFixture.announcementTitle].waitForExistence(timeout: 8))
+        XCTAssertTrue(secondPost.isSelected)
+        XCTAssertFalse(firstPost.isSelected)
+
+        let more = app.buttons["更多"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        more.tap()
+        let close = app.buttons["关闭帖子"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        close.tap()
+        XCTAssertTrue(placeholder.waitForExistence(timeout: 5))
+        XCTAssertFalse(secondPost.isSelected)
+    }
+
+    func testPadSidebarSelectionIsReadableInDarkMode() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Only iPad uses the adaptable sidebar here.")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        for dark in [false, true] {
+            let app = ForumFixture.launch(dark: dark, opensSidebar: true)
+            let selected = app.cells.matching(NSPredicate(format: "label == %@ AND isSelected == true", "社区")).firstMatch
+            XCTAssertTrue(selected.waitForExistence(timeout: 10), "The feed tab should be selected in the iPad sidebar.")
+            Thread.sleep(forTimeInterval: 0.6)
+            assertSplitFeed(in: app)
+            attachScreenshot(of: app, named: dark ? "iPad sidebar in dark mode" : "iPad sidebar in light mode")
+            let contrast = try XCTUnwrap(ForumFixture.contrast(of: selected.screenshot().image))
+            XCTAssertGreaterThan(contrast, 0.4, "The selected tab's label should stand out from its highlight (dark: \(dark)).")
+            app.terminate()
+        }
     }
     #endif
 
     func testThreadCardsAndReplyBarShareOneColumn() throws {
         let app = ForumFixture.launchThread()
         let comment = ForumFixture.element("comment-2", in: app)
-        let page = besideSidebar(app.scrollViews.containing(.any, identifier: "comment-2").firstMatch.frame, in: app)
+        let scroll = app.scrollViews.containing(.any, identifier: "comment-2").firstMatch.frame
+        let page = isPadSplit ? scroll : besideSidebar(scroll, in: app)
         let card = comment.frame
         assertColumn(card, in: page, "Reply card")
+
+        if isPadSplit {
+            let feedCard = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
+            XCTAssertTrue(feedCard.exists, "The feed column remains visible beside an open thread on iPad.")
+            XCTAssertLessThanOrEqual(feedCard.frame.maxX, scroll.minX + tolerance)
+        }
 
         // The reply bar is inset 4 points inside the cards on every width.
         let reply = replyButton(in: app)
@@ -163,18 +256,49 @@ final class AdaptiveLayoutTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func assertFeedColumn(in app: XCUIApplication, line: UInt = #line) {
+    private func assertFeedLayout(in app: XCUIApplication, line: UInt = #line) {
+        if isPadSplit {
+            assertSplitFeed(in: app, line: line)
+        } else {
+            assertSingleColumnFeed(in: app, line: line)
+        }
+    }
+
+    private func assertSingleColumnFeed(in app: XCUIApplication, line: UInt = #line) {
         let post = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
         XCTAssertTrue(post.waitForExistence(timeout: 10), line: line)
-        let list = app.collectionViews
-            .containing(NSPredicate(format: "label BEGINSWITH %@", ForumFixture.threadTitle)).firstMatch.frame
+        let list = feedListFrame(in: app)
         // A feed card's button reports its whole list row: the card plus a gutter on each side.
         let row = post.frame
         let card = row.insetBy(dx: gutter, dy: 0)
         // A sidebar overlaps the list, so the filter bar below shows where the page beside it is centred.
         assertColumn(card, in: list, "Feed card", centred: !hasSidebar(app), line: line)
+        assertFilterBarAligns(with: card, in: app, line: line)
+    }
 
-        // The filter bar above the cards lines up with them.
+    private func assertSplitFeed(in app: XCUIApplication, line: UInt = #line) {
+        let post = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
+        XCTAssertTrue(post.waitForExistence(timeout: 10), line: line)
+        // When the adaptable sidebar is open, the feed list runs under it in the leading safe area;
+        // measure the visible pane beside the sidebar.
+        let list = besideSidebar(feedListFrame(in: app), in: app)
+        let available = besideSidebar(app.windows.firstMatch.frame, in: app)
+        let expectedFeedWidth = min(maximumFeedPaneWidth, max(minimumFeedPaneWidth, (available.width * 0.38).rounded(.down)))
+        assertClose(list.width, expectedFeedWidth, "iPad feed pane width in a \(available.width)-point area", line: line)
+
+        let card = post.frame.insetBy(dx: gutter, dy: 0)
+        assertClose(card.width, list.width - 2 * gutter, "iPad feed card width", line: line)
+        assertClose(card.minX - list.minX, gutter, "iPad feed card leading gutter", line: line)
+        assertClose(list.maxX - card.maxX, gutter, "iPad feed card trailing gutter", line: line)
+        assertFilterBarAligns(with: card, in: app, line: line)
+
+        let placeholder = ForumFixture.element("feed-detail-placeholder", in: app)
+        XCTAssertTrue(placeholder.waitForExistence(timeout: 5), line: line)
+        XCTAssertGreaterThanOrEqual(placeholder.frame.minX, list.maxX - tolerance,
+                                    "The detail placeholder should sit beside the feed column.", line: line)
+    }
+
+    private func assertFilterBarAligns(with card: CGRect, in app: XCUIApplication, line: UInt = #line) {
         let category = app.buttons["选择版块，当前全部"]
         let newPost = app.buttons["发布帖子"]
         XCTAssertTrue(category.exists, line: line)
@@ -183,8 +307,12 @@ final class AdaptiveLayoutTests: XCTestCase {
         assertClose(newPost.frame.maxX, card.maxX, "New post button and card trailing edges", line: line)
     }
 
-    /// A card fills the width up to `readableWidth` and sits in the middle of the page that scrolls it,
-    /// which is the whole window on iPhone and iPad and the area beside the sidebar on a Mac.
+    private func feedListFrame(in app: XCUIApplication) -> CGRect {
+        app.collectionViews
+            .containing(NSPredicate(format: "label BEGINSWITH %@", ForumFixture.threadTitle)).firstMatch.frame
+    }
+
+    /// A card fills the width up to `readableWidth` and sits in the middle of the pane that scrolls it.
     private func assertColumn(_ card: CGRect, in page: CGRect, _ name: String, centred: Bool = true, line: UInt = #line) {
         if centred {
             let expectedWidth = min(readableWidth, page.width - 2 * gutter)
@@ -195,7 +323,7 @@ final class AdaptiveLayoutTests: XCTestCase {
         }
     }
 
-    /// The Mac lists the tabs in a sidebar beside the page instead of a tab bar.
+    /// Whether the tabs are currently shown in a sidebar beside the page.
     private func hasSidebar(_ app: XCUIApplication) -> Bool {
         sidebarTab(in: app).exists
     }
@@ -205,7 +333,7 @@ final class AdaptiveLayoutTests: XCTestCase {
     }
 
     /// The part of a page that a sidebar leaves free. The page runs on under the sidebar, but its cards
-    /// centre in the area beside it.
+    /// centre or split in the area beside it.
     private func besideSidebar(_ page: CGRect, in app: XCUIApplication) -> CGRect {
         guard hasSidebar(app) else { return page }
         let sidebar = app.collectionViews.containing(.cell, identifier: sidebarTab(in: app).identifier).firstMatch.frame

@@ -29,7 +29,7 @@ struct StardustTransferView: View {
             } header: { Text("转账信息") } footer: { Text("Ref ID 是官网用于区分转账用途的编号，默认 100。转账完成后不能撤回。") }
             Section { Button(busy ? "处理中…" : "核对收款人") { Task { await prepare() } }.disabled(busy || !valid) }
             if let message { Section { Text(message).foregroundStyle(success ? Color.seekGreen : .red) } }
-        }.disabled(busy).seekCanvas().listSectionSpacing(20).navigationTitle("星尘转账").navigationBarTitleDisplayMode(.inline).toolbar(.hidden,for:.tabBar)
+        }.disabled(busy).seekCanvas().listSectionSpacing(20).navigationTitle("星尘转账").navigationBarTitleDisplayMode(.inline).hidesTabBarWhenPushed()
         .task { if let recipient { member = String(recipient.id) }; if let request { member = String(request.memberID); amount = String(request.amount); reference = String(request.reference) } }
         .confirmationDialog("确认转账？",isPresented:$confirmsTransfer,titleVisibility:.visible) {
             Button("转给 \(recipientName ?? "") \(confirmedAmount ?? 0) 个星尘") { Task { await send() } }; Button("取消",role:.cancel) { }

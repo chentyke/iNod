@@ -2,9 +2,19 @@ import NodeSeekCore
 import NodeSeekClient
 import SwiftUI
 
+enum ThreadPresentation {
+    /// Pushed onto a single-column feed with the card zoom transition and floating back bar.
+    case zoom
+    /// Pushed from notifications, a profile or another thread with a standard navigation bar.
+    case pushed
+    /// Shown side by side with the feed on iPad, with a floating author/menu bar and no back arrow.
+    case splitDetail
+}
+
 struct ThreadView: View {
     let post: PostSummary
-    private let usesZoomTransition: Bool
+    private let presentation: ThreadPresentation
+    private let onClose: (() -> Void)?
     @Environment(AccountSession.self) private var account
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -53,10 +63,19 @@ struct ThreadView: View {
     private var accessError: PostAccessError? { error as? PostAccessError }
     private var isCollected: Bool { account.collections.status(post.id) == true }
     private var threadKind: String { showsBlocked ? "thread-including-blocked" : "thread" }
+    private var usesFloatingTopBar: Bool { presentation == .zoom || presentation == .splitDetail }
 
-    init(post: PostSummary, initialPage: Int = 1, initialFloor: Int? = nil, usesZoomTransition: Bool = false) {
+    init(
+        post: PostSummary,
+        initialPage: Int = 1,
+        initialFloor: Int? = nil,
+        usesZoomTransition: Bool = false,
+        presentation: ThreadPresentation? = nil,
+        onClose: (() -> Void)? = nil
+    ) {
         self.post = post
-        self.usesZoomTransition = usesZoomTransition
+        self.presentation = presentation ?? (usesZoomTransition ? .zoom : .pushed)
+        self.onClose = onClose
         _page = State(initialValue: max(1, initialPage))
         _requestedFloor = State(initialValue: initialFloor)
     }
@@ -160,15 +179,17 @@ struct ThreadView: View {
         .id(page)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarVisibility(usesZoomTransition ? .hidden : .visible, for: .navigationBar)
-        .toolbar(.hidden, for: .tabBar)
+        .toolbarVisibility(usesFloatingTopBar ? .hidden : .visible, for: .navigationBar)
+        .hidesTabBarWhenPushed()
         .safeAreaBar(edge: .top, spacing: 0) {
-            if usesZoomTransition {
+            if usesFloatingTopBar {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
-                        ThreadBackButton { dismiss() }
-                        .frame(width: 44, height: 44)
-                        .glassEffect(.regular.interactive(), in: .circle)
+                        if presentation == .zoom {
+                            ThreadBackButton { dismiss() }
+                            .frame(width: 44, height: 44)
+                            .glassEffect(.regular.interactive(), in: .circle)
+                        }
                         ThreadAuthorBar(post: post, detail: detail)
                         Spacer(minLength: 0)
                         Menu {
@@ -183,8 +204,9 @@ struct ThreadView: View {
                         .glassEffect(.regular.interactive(), in: .circle)
                         .accessibilityLabel("更多")
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, SeekLayout.gutter)
+                    .padding(.vertical, presentation == .splitDetail ? 10 : 4)
+                    .readableColumn()
                 }
             }
         }
@@ -208,7 +230,7 @@ struct ThreadView: View {
             .padding(.bottom, 12)
         }
         .toolbar {
-            if !usesZoomTransition {
+            if !usesFloatingTopBar {
                 ToolbarItem(placement: .topBarLeading) {
                     ThreadAuthorBar(post: post, detail: detail)
                 }
@@ -220,7 +242,7 @@ struct ThreadView: View {
                 }
             }
         }
-        .task(id: "\(showsBlocked)|\(page)|\(refreshID)|\(account.revision)") { await load() }
+        .task(id: "\(post.id)|\(showsBlocked)|\(page)|\(refreshID)|\(account.revision)") { await load() }
         .menuRefreshable { await load(force: true) }
         .task(id: requestedCommentPage) {
             if let requestedCommentPage { await loadCommentPage(requestedCommentPage) }
@@ -303,6 +325,10 @@ struct ThreadView: View {
                 .disabled(detail.locked == true || openingEditor)
         }
         Button("在官网查看", systemImage: "globe") { Browser.open(post.url) }
+        if let onClose {
+            Divider()
+            Button("关闭帖子", systemImage: "xmark.circle") { onClose() }
+        }
     }
 
     private func commentView(_ comment: ForumComment, showsHeader: Bool = true) -> some View {

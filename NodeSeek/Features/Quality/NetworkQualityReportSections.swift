@@ -16,6 +16,7 @@ struct NetworkQualityReportSections: View {
         Group {
             if steps.contains(.speed) { speedSection }
             if steps.contains(.ipv4) || steps.contains(.ipv6) { addressSection }
+            if steps.contains(.ipDetails) { ipDetailsSection }
             if steps.contains(.routes) { routeSection }
             if steps.contains(.nat) || steps.contains(.mailPort) { connectionSection }
             if steps.contains(.reputation) { reputationSection }
@@ -63,6 +64,32 @@ struct NetworkQualityReportSections: View {
                 .retryMenu(step, retryable: retryable.contains(step), retry: retry)
             }
         }
+    }
+
+    // MARK: IP type and routing
+
+    private var ipDetailsSection: some View {
+        let profiles = report?.ipDetails.value
+        return Section {
+            if let profiles {
+                ForEach(profiles) { profile in
+                    IPUsageRow(profile: profile)
+                    BGPRouteRow(profile: profile)
+                }
+            } else {
+                QualityRow("类型、BGP 地址段和发布网络", status: status(.ipDetails), value: "")
+            }
+        } header: { Text("IP 类型与路由") } footer: {
+            if let profiles, !profiles.isEmpty { Text(ipDetailsNote(profiles)) }
+        }
+        .retryMenu(.ipDetails, retryable: retryable.contains(.ipDetails), retry: retry)
+    }
+
+    private func ipDetailsNote(_ profiles: [IPProfile]) -> String {
+        var note = "类型和分值由 IPQuery 判定，分值为其自定的 0–100 分，不代表滥用概率。地址段和发布网络来自 RIPE RIS 观察到的 BGP 公告"
+        let times = profiles.flatMap { [$0.route.queriedAt, $0.usage.queriedAt] }
+        if let time = times.max() { note += "。查询于 \(time.formatted(date: .omitted, time: .shortened))" }
+        return note + "。"
     }
 
     // MARK: Routes
@@ -225,6 +252,51 @@ private struct EgressRow: View {
         .accessibilityElement(children: .combine)
         .contextMenu {
             Button("复制地址", systemImage: "doc.on.doc") { UIPasteboard.general.string = egress.address }
+        }
+    }
+}
+
+/// How the source classifies one address: matched types, then its score.
+private struct IPUsageRow: View {
+    let profile: IPProfile
+
+    var body: some View {
+        let lookup = profile.usage, usage = lookup.result.value
+        QualityRow(title: "\(profile.family == .v4 ? "IPv4" : "IPv6") 类型",
+                   subtitle: [lookup.source, usage?.scoreTitle].compactMap { $0 }.joined(separator: "，"),
+                   status: lookup.result.status) {
+            if let usage {
+                HStack(spacing: 6) {
+                    // Only anonymising types get a hint of colour; datacenter and cellular are plain facts.
+                    if usage.tags.contains(where: { [.vpn, .proxy, .tor].contains($0) }) { QualityDot(tint: .orange) }
+                    Text(usage.tagsTitle).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+/// The announced prefix and origin network covering one address.
+private struct BGPRouteRow: View {
+    let profile: IPProfile
+
+    var body: some View {
+        let lookup = profile.route, route = lookup.result.value
+        QualityRow(title: "\(profile.family == .v4 ? "IPv4" : "IPv6") 路由", subtitle: lookup.source, status: lookup.result.status) {
+            if let route {
+                if let prefix = route.prefix {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(prefix.replacingOccurrences(of: ":", with: ":\u{200B}"))
+                            .font(.subheadline.monospaced()).foregroundStyle(Color.seekInk)
+                        if let origins = route.originsTitle { Text(origins).font(.caption).foregroundStyle(.secondary).monospacedDigit() }
+                    }
+                } else {
+                    Text("未见公告").foregroundStyle(.secondary)
+                }
+            }
+        }
+        .contextMenu {
+            if let prefix = route?.prefix { Button("复制地址段", systemImage: "doc.on.doc") { UIPasteboard.general.string = prefix } }
         }
     }
 }

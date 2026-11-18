@@ -55,7 +55,7 @@ struct AccountDataView<Value: Decodable, Content: View>: View {
         .menuRefreshable(retry)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .toolbar(.hidden, for: .tabBar)
+        .hidesTabBarWhenPushed()
         .sheet(isPresented: $showsVerification, onDismiss: { Task { await retry() } }) { WebsiteView(initialURL: NodeSeekRoute.home.url) }
     }
 }

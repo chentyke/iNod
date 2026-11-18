@@ -13,8 +13,8 @@ PR 上的 CI 会测试 GitHub 试合并后的代码，合并时不会另外启�
 | Design checks | 按[界面设计检查](DESIGN.md)扫描 SwiftUI 代码里的渐变、大面积状态色和醒目的彩色描边。 |
 | Screenshots for interface changes | PR 改了界面代码时，检查描述里有没有上传截图或录屏。改完 PR 描述会自动重新检查。 |
 | Swift and website checks | 运行 Swift 单元测试（含离线头像缓存），再检查网页请求格式和 WebKit 解析。 |
-| iOS UI tests | 等待 iPhone 17 模拟器启动完成，再构建 App 并跑所有适用的界面测试。失败时，可在运行页面的 **Artifacts** 下载测试报告，用 Xcode 打开 `.xcresult`。 |
-| iPad UI tests | 在 iPad Pro 13 英寸 (M5) 模拟器检查宽屏、横屏、键盘快捷键、帖子分页，以及签到、等级进度和星尘明细的列宽。GitHub 的 iPad 模拟器很慢，偶尔在两个测试之间关不掉 App，所以失败的测试会重跑一次，两次都失败才算不通过。失败时同样可下载测试报告。 |
+| iOS UI tests | 两台 GitHub Mac 各用一个 iPhone 17 模拟器，分组跑完所有适用的界面测试。两组都通过才算通过。失败时，可在运行页面的 **Artifacts** 下载对应组的 `.xcresult` 测试报告，用 Xcode 打开。 |
+| iPad UI tests | 在 iPad Pro 13 英寸 (M5) 模拟器检查首页双栏、侧边栏的深浅色对比、横屏排版、键盘快捷键、帖子分页，以及签到、等级进度和星尘明细的列宽。GitHub 的 iPad 模拟器很慢，偶尔在两个测试之间关不掉 App，所以失败的测试会重跑一次，两次都失败才算不通过。失败时同样可下载测试报告。 |
 | Mac UI tests | 构建 Mac Catalyst 版 App，检查启动后侧边栏列出全部标签页、深色模式下选中的标签页看得清，首页和帖子页卡片在侧边栏旁居中成一栏。帖子页由 App 在测试时自己打开（`NODESEEK_UI_TEST_OPEN_POST`，只在 Debug 构建生效），不用点击。GitHub 的 Mac 环境里，界面测试发出的点击和按键到不了 App 的内容，所以需要操作的测试只在 iPhone 和 iPad 上跑；Mac 上的点击、切换标签页和快捷键要手动检查。本机跑 Mac 界面测试时，指针悬停能送到 App，点击同样送不到。 |
 
 公开仓库的检查使用 GitHub 提供的 `xcode-27` 环境，选用 Xcode 27.2 和 iOS 27.2 模拟器。测试使用本地样本和模拟响应，无需 Apple 签名、NodeSeek 账号或 GitHub Secrets。[GitHub 提供的 Xcode 和模拟器版本](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
