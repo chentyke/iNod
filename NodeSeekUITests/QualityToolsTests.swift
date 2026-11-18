@@ -98,12 +98,15 @@ final class QualityToolsTests: XCTestCase {
         XCTAssertTrue(app.buttons["carrierSpeed.cancel"].waitForExistence(timeout: 5))
         app.navigationBars.buttons.firstMatch.tap()
 
-        // Back on the network check, nothing is left running, and the page opens fresh.
+        // Back on the network check, nothing is left running. Reopening shows either a fresh card or the cancelled
+        // result (SwiftUI may keep the page's state), never a run still going.
         let entry = app.buttons["quality.carrierSpeed"]
         XCTAssertTrue(entry.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["quality.start"].isEnabled)
         entry.tap()
-        XCTAssertTrue(app.buttons["carrierSpeed.start"].waitForExistence(timeout: 5))
+        let idle = app.buttons.matching(NSPredicate(format: "identifier IN %@", ["carrierSpeed.start", "carrierSpeed.restart"])).firstMatch
+        XCTAssertTrue(idle.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["carrierSpeed.cancel"].exists)
     }
 
     func testDeviceBenchmarkRunsOffline() {

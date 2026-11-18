@@ -112,7 +112,7 @@ public struct SampleCarrierSpeedTester: CarrierSpeedTesting {
                     }
                     for i in 1...5 { report.speed = .running(.init(fraction: Double(i) / 15, stage: .latency)); continuation.yield(report); try await wait(0.12) }
                     var partial = measured
-                    partial.downloadMbps = nil; partial.uploadMbps = nil; partial.issues = []
+                    partial.downloadMbps = nil; partial.uploadMbps = nil; partial.issues = []; partial.bytesTransferred = 0
                     report.partialSpeed = partial
                     let download = measured.downloadMbps ?? 0
                     for i in 1...14 {
@@ -120,7 +120,7 @@ public struct SampleCarrierSpeedTester: CarrierSpeedTesting {
                         report.speed = .running(.init(fraction: 1.0 / 3 + Double(i) / 14 / 3, stage: .download, currentMbps: download * min(1, Double(i) / 5) * wobble))
                         continuation.yield(report); try await wait(0.18)
                     }
-                    report.partialSpeed?.downloadMbps = measured.downloadMbps
+                    report.partialSpeed?.downloadMbps = measured.downloadMbps; report.partialSpeed?.bytesTransferred = 10 * 1_048_576
                     let upload = max(measured.uploadMbps ?? 2, 2)
                     for i in 1...10 {
                         report.speed = .running(.init(fraction: 2.0 / 3 + Double(i) / 10 / 3, stage: .upload, currentMbps: upload * min(1, Double(i) / 4)))
