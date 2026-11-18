@@ -46,6 +46,15 @@ Cloudflare 的 HTTP 时延和抖动算法可在同节点上复测。iNod 使用�
 
 [RFC 5780](https://www.rfc-editor.org/info/rfc5780/) / [Nextcloud STUN](https://github.com/nextcloud/spreed/blob/main/lib/Config.php) / [PortQuiz](http://portquiz.net/) / [Spamhaus DROP](https://www.spamhaus.org/blocklists/do-not-route-or-peer/) / [Blocklist.de](https://www.blocklist.de/en/export.html)
 
+## 公网 IP 风险和 BGP 路由
+
+调用 `QualityIPDetailsService.run(for:)` 可从已有网络报告补查每个已测得的 IPv4、IPv6 出口。每个地址分别返回两个来源的结果和查询时间。没有测到某类地址时，该类地址不发请求。服务供后续报告接入，当前界面的一键检测尚未调用。
+
+- [RIPEstat Network Info](https://stat.ripe.net/docs/data-api/api-endpoints/network-info.html) 返回 RIPE RIS 观察到的匹配地址段和宣布该地址段的 ASN。可有多个 ASN。空结果表示该来源没有看到公告，连接失败会单独返回。查询时间为 App 发请求的时间，RIPE RIS 数据本身按来源更新。
+- [IPQuery](https://ipquery.io/developers/api) 返回它自己的 0–100 分值和网络分类。VPN、代理、Tor、机房和蜂窝为独立标记。未匹配和字段缺失分别保留，分值不是恶意活动的概率。IPQuery 的结果与已有两家黑名单分开。
+
+两家服务都会收到查询目标的完整公网地址。联网对照使用公开测试地址 `1.1.1.1` 和 `2606:4700:4700::1111`，RIPEstat 均返回 AS13335，IPQuery 均返回数据中心分类。
+
 ## 实机验证记录
 
 iPhone 17，iOS 27.3，2026-11-17。手机离线时，网络检测返回 `offline`。连续三轮 CPU 和存储测试均完成，均无文件清理错误。设备温度状态始终为 `fair`，低电量模式关闭。下表数字四舍五入到整数。
