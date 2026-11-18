@@ -151,6 +151,14 @@ struct NetworkQualityReportSections: View {
             } else {
                 QualityRow("网站连通性", status: status(.services), value: "")
             }
+            if retry != nil {
+                NavigationLink {
+                    StreamingCheckView(countryCode: report?.ipv4.value?.owner?.countryCode ?? report?.ipv6.value?.owner?.countryCode)
+                } label: {
+                    QualityRow(title: "流媒体", subtitle: "五个平台的公开样片和官方播放器", status: .measured) { EmptyView() }
+                }
+                .accessibilityIdentifier("quality.streaming")
+            }
         } header: { Text("常用服务") } footer: {
             if let probes, probes.contains(where: { $0.basis == .webPage }) {
                 Text("测试范围为网站首页。")

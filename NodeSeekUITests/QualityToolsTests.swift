@@ -62,6 +62,55 @@ final class QualityToolsTests: XCTestCase {
         XCTAssertTrue(upload.exists)
     }
 
+    func testStreamingChecksRunOffline() {
+        let app = open("网络检测")
+        app.buttons["quality.start"].tap()
+        XCTAssertFalse(app.buttons["quality.streaming"].exists, "The entry stays out of the way while a run is under way")
+        XCTAssertTrue(app.buttons["quality.restart"].waitForExistence(timeout: 20))
+        let entry = app.buttons["quality.streaming"]
+        for _ in 0..<6 where !entry.isHittable { app.swipeUp() }
+        entry.tap()
+        XCTAssertTrue(ForumFixture.title("流媒体", in: app).waitForExistence(timeout: 5))
+
+        app.buttons["streaming.start"].tap()
+        XCTAssertTrue(app.buttons["streaming.restart"].waitForExistence(timeout: 10))
+        func row(_ words: String...) -> XCUIElement {
+            let format = words.map { _ in "label CONTAINS %@" }.joined(separator: " AND ")
+            return app.descendants(matching: .any).matching(NSPredicate(format: format, argumentArray: words)).firstMatch
+        }
+        XCTAssertTrue(row("Netflix", "片名页可访问").exists)
+        XCTAssertTrue(row("Disney+", "HTTP 403", "无法判断").exists)
+        XCTAssertTrue(row("TikTok", "超时").exists)
+
+        // The sample players never load the network; one plays, the other reports blocked autoplay.
+        app.buttons["streaming.play.youTube"].tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '已播放'")).firstMatch.waitForExistence(timeout: 5))
+        app.buttons["streaming.playback.done"].tap()
+        XCTAssertTrue(app.buttons["streaming.play.youTube"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["streaming.play.youTube"].label.contains("已播放"))
+        app.buttons["streaming.play.tikTok"].tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '自动播放被拦'")).firstMatch.waitForExistence(timeout: 5))
+        app.buttons["streaming.playback.done"].tap()
+        XCTAssertTrue(app.buttons["streaming.play.tikTok"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["streaming.play.tikTok"].label.contains("自动播放被拦"))
+
+        // The region form starts from the report's exit country and needs a key before it queries.
+        let region = app.buttons["streaming.region"]
+        for _ in 0..<4 where !region.isHittable { app.swipeUp() }
+        region.tap()
+        let country = app.textFields["region.country"]
+        XCTAssertTrue(country.waitForExistence(timeout: 5))
+        XCTAssertEqual(country.value as? String, "CN")
+        let check = app.buttons["region.check"]
+        XCTAssertFalse(check.isEnabled)
+        let key = app.secureTextFields["region.key"]
+        key.tap()
+        key.typeText("offline-sample-key")
+        XCTAssertTrue(check.isEnabled)
+        check.tap()
+        XCTAssertTrue(row("CN 的规则", "未发布地区规则").waitForExistence(timeout: 5))
+    }
+
     func testDeviceBenchmarkRunsOffline() {
         let app = open("本机性能")
         app.buttons["benchmark.start"].tap()
