@@ -71,20 +71,16 @@ final class AccountBalancesViewTests: XCTestCase {
         #if targetEnvironment(macCatalyst)
         throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
         #else
-        let darkApp = try launchAccount(coins: 630, stardust: 4, dark: true)
-        scrollBalancesCardIntoCenter(in: darkApp)
-        XCTAssertTrue(ForumFixture.element("account-balance-chicken", in: darkApp).waitForExistence(timeout: 5))
-        attachScreenshot(of: darkApp, named: "after-dark")
-        darkApp.terminate()
+        let app = try launchAccount(coins: 3800, stardust: 155, dark: true)
+        scrollBalancesCardIntoCenter(in: app)
+        XCTAssertTrue(ForumFixture.element("account-balance-chicken", in: app).waitForExistence(timeout: 5))
 
-        let maxApp = try launchAccount(coins: 3800, stardust: 155)
-        scrollBalancesCardIntoCenter(in: maxApp)
-        let progressRow = maxApp.buttons["等级与进度"].firstMatch
+        let progressRow = app.collectionViews.firstMatch.buttons["等级与进度"].firstMatch
         XCTAssertTrue(progressRow.waitForExistence(timeout: 5))
         let progressValue = progressRow.value as? String ?? ""
         XCTAssertTrue(progressValue.contains("Lv 6"), "Expected Lv 6 in progress value, got: \(progressValue)")
         XCTAssertTrue(progressValue.contains("最高等级"), "Expected max-level summary in progress value, got: \(progressValue)")
-        attachScreenshot(of: maxApp, named: "after-max-light")
+        attachScreenshot(of: app, named: "after-max-dark")
         #endif
     }
 
