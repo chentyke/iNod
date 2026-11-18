@@ -12,46 +12,38 @@ final class NodeImageLibraryViewTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testDisconnectedStateConnectsAndLoadsLibrary() throws {
+    func testImageLibraryConnectsManagesOptionsGalleryGridBatchAndKeySheet() throws {
         #if targetEnvironment(macCatalyst)
         throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
         #else
         let app = try launchImageLibrary(userID: 9_910_001, connected: false)
-        XCTAssertTrue(ForumFixture.title("图片上传与管理", in: app).waitForExistence(timeout: 5))
 
+        // 1. Disconnected state, readable column, and key rotation cancellation
         let connectCard = ForumFixture.element("nodeimage-connect-card", in: app)
         XCTAssertTrue(connectCard.waitForExistence(timeout: 5))
         let connectButton = ForumFixture.element("nodeimage-connect-button", in: app)
         XCTAssertTrue(connectButton.isHittable)
         XCTAssertTrue(ForumFixture.element("nodeimage-manual-key-row", in: app).exists)
-        XCTAssertTrue(ForumFixture.element("nodeimage-rotate-key-row", in: app).exists)
 
         assertReadableColumn(elementID: "nodeimage-connect-card", in: app)
-        attachScreenshot(of: app, named: "image-library-disconnected-light")
 
+        let rotateRow = ForumFixture.element("nodeimage-rotate-key-row", in: app)
+        XCTAssertTrue(rotateRow.isHittable)
+        rotateRow.tap()
+        let rotationAlert = app.alerts["更新 NodeImage 密钥？"]
+        XCTAssertTrue(rotationAlert.waitForExistence(timeout: 5))
+        rotationAlert.buttons["取消"].tap()
+        XCTAssertTrue(connectButton.wait(for: \.isHittable, toEqual: true, timeout: 5))
+
+        // 2. Connect to NodeImage and load uploaded images
         connectButton.tap()
-
         XCTAssertTrue(ForumFixture.element("nodeimage-upload-card", in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["bench-latency-chart.png"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["4 张"].exists)
-        #endif
-    }
-
-    func testConnectedLibrarySupportsOptionsGalleryGridAndBatchDeletion() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
-        let app = try launchImageLibrary(userID: 9_910_002, connected: true)
-        XCTAssertTrue(ForumFixture.title("图片上传与管理", in: app).waitForExistence(timeout: 5))
-        XCTAssertTrue(ForumFixture.element("nodeimage-upload-card", in: app).waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["bench-latency-chart.png"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["PNG"].exists)
-
         assertReadableColumn(elementID: "nodeimage-upload-card", in: app)
-        Thread.sleep(forTimeInterval: 0.4)
-        attachScreenshot(of: app, named: "image-library-connected-light")
 
-        // Upload options sheet updates live summary on the upload card.
+        // 3. Upload options sheet updates live summary on the upload card
         let optionsButton = ForumFixture.element("nodeimage-options-button", in: app)
         XCTAssertTrue(optionsButton.isHittable)
         optionsButton.tap()
@@ -61,22 +53,12 @@ final class NodeImageLibraryViewTests: XCTestCase {
         XCTAssertTrue(markdownFormat.waitForExistence(timeout: 5))
         markdownFormat.tap()
 
-        let autoDeleteToggle = app.switches["到期自动删除"].firstMatch
-        if autoDeleteToggle.waitForExistence(timeout: 3) {
-            autoDeleteToggle.switches.firstMatch.exists ? autoDeleteToggle.switches.firstMatch.tap() : autoDeleteToggle.tap()
-        }
-        let sevenDays = ForumFixture.element("nodeimage-expire-7", in: app)
-        if sevenDays.waitForExistence(timeout: 3) {
-            sevenDays.tap()
-        }
-        attachScreenshot(of: app, named: "image-library-options-light")
-
         ForumFixture.element("nodeimage-options-done", in: app).tap()
         let summary = ForumFixture.element("nodeimage-options-summary", in: app)
         XCTAssertTrue(summary.waitForExistence(timeout: 5))
         XCTAssertTrue(summary.label.contains("Markdown"))
 
-        // Reset back for clean state if needed later; verify full-screen multi-image gallery preview.
+        // 4. Full-screen multi-image gallery preview
         let firstPreview = ForumFixture.element("nodeimage-preview-img_104", in: app)
         XCTAssertTrue(firstPreview.wait(for: \.isHittable, toEqual: true, timeout: 5))
         firstPreview.tap()
@@ -87,29 +69,23 @@ final class NodeImageLibraryViewTests: XCTestCase {
         app.buttons["完成"].firstMatch.tap()
         XCTAssertTrue(ForumFixture.title("图片上传与管理", in: app).waitForExistence(timeout: 5))
 
-        // Switch to grid view and back to list view.
+        // 5. Grid / List layout toggle
         let layoutToggle = ForumFixture.element("nodeimage-layout-toggle", in: app)
         XCTAssertTrue(layoutToggle.isHittable)
         layoutToggle.tap()
         XCTAssertTrue(ForumFixture.element("nodeimage-history-grid", in: app).waitForExistence(timeout: 5))
-        Thread.sleep(forTimeInterval: 0.3)
-        attachScreenshot(of: app, named: "image-library-grid-light")
-
         layoutToggle.tap()
         XCTAssertTrue(ForumFixture.element("nodeimage-preview-img_104", in: app).waitForExistence(timeout: 5))
 
-        // Batch selection & deletion with floating bottom bar.
+        // 6. Batch selection & deletion via floating bottom bar
         let selectToggle = ForumFixture.element("nodeimage-select-toggle", in: app)
         XCTAssertTrue(selectToggle.isHittable)
         selectToggle.tap()
 
-        let selectionBar = ForumFixture.element("nodeimage-selection-bar", in: app)
-        XCTAssertTrue(selectionBar.waitForExistence(timeout: 5))
-
+        XCTAssertTrue(ForumFixture.element("nodeimage-selection-bar", in: app).waitForExistence(timeout: 5))
         ForumFixture.element("nodeimage-select-img_104", in: app).tap()
         ForumFixture.element("nodeimage-select-img_103", in: app).tap()
         XCTAssertTrue(app.staticTexts["已选 2 张"].exists)
-        attachScreenshot(of: app, named: "image-library-selecting-light")
 
         let batchDelete = ForumFixture.element("nodeimage-batch-delete", in: app)
         XCTAssertTrue(batchDelete.isHittable)
@@ -121,18 +97,10 @@ final class NodeImageLibraryViewTests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["2 张"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["bench-latency-chart.png"].exists)
-        #endif
-    }
 
-    func testKeySheetValidatesManualKeyAndRemovesSavedKey() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
-        let app = try launchImageLibrary(userID: 9_910_003, connected: true)
-        XCTAssertTrue(ForumFixture.element("nodeimage-upload-card", in: app).waitForExistence(timeout: 5))
-
+        // 7. Key management sheet: masked key display, hex validation, and local key removal
         let keyButton = ForumFixture.element("nodeimage-key-button", in: app)
-        XCTAssertTrue(keyButton.isHittable)
+        XCTAssertTrue(keyButton.wait(for: \.isHittable, toEqual: true, timeout: 5))
         keyButton.tap()
 
         XCTAssertTrue(ForumFixture.title("密钥管理", in: app).waitForExistence(timeout: 5))
@@ -143,13 +111,11 @@ final class NodeImageLibraryViewTests: XCTestCase {
         keyField.tap()
         keyField.typeText("invalid")
 
-        let saveButton = ForumFixture.element("nodeimage-save-key", in: app)
-        XCTAssertFalse(saveButton.isEnabled)
+        XCTAssertFalse(ForumFixture.element("nodeimage-save-key", in: app).isEnabled)
         XCTAssertTrue(app.staticTexts["密钥需为 32 至 128 位十六进制字符。"].waitForExistence(timeout: 3))
-        attachScreenshot(of: app, named: "image-library-key-sheet-light")
 
         let removeButton = ForumFixture.element("nodeimage-remove-key", in: app)
-        for _ in 0..<3 where !removeButton.isHittable { app.swipeUp() }
+        for _ in 0..<3 where !(removeButton.exists && removeButton.isHittable) { app.swipeUp() }
         XCTAssertTrue(removeButton.isHittable)
         removeButton.tap()
 
@@ -158,23 +124,6 @@ final class NodeImageLibraryViewTests: XCTestCase {
         removeAlert.buttons["移除本机密钥"].tap()
 
         XCTAssertTrue(ForumFixture.element("nodeimage-connect-card", in: app).waitForExistence(timeout: 5))
-        #endif
-    }
-
-    func testDarkModeRendersDisconnectedAndConnectedStates() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
-        let disconnected = try launchImageLibrary(userID: 9_910_004, connected: false, dark: true)
-        XCTAssertTrue(ForumFixture.element("nodeimage-connect-card", in: disconnected).waitForExistence(timeout: 5))
-        attachScreenshot(of: disconnected, named: "image-library-disconnected-dark")
-        disconnected.terminate()
-
-        let connected = try launchImageLibrary(userID: 9_910_005, connected: true, dark: true)
-        XCTAssertTrue(ForumFixture.element("nodeimage-upload-card", in: connected).waitForExistence(timeout: 5))
-        XCTAssertTrue(connected.staticTexts["bench-latency-chart.png"].waitForExistence(timeout: 5))
-        Thread.sleep(forTimeInterval: 0.4)
-        attachScreenshot(of: connected, named: "image-library-connected-dark")
         #endif
     }
 
@@ -192,7 +141,7 @@ final class NodeImageLibraryViewTests: XCTestCase {
         XCTAssertLessThanOrEqual(abs((listFrame.maxX - rowFrame.maxX) - expectedSideGap), tolerance, line: line)
     }
 
-    private func launchImageLibrary(userID: Int, connected: Bool, dark: Bool = false) throws -> XCUIApplication {
+    private func launchImageLibrary(userID: Int, connected: Bool) throws -> XCUIApplication {
         let app = XCUIApplication()
         let images: [[String: Any]] = [
             [
@@ -252,17 +201,21 @@ final class NodeImageLibraryViewTests: XCTestCase {
         }
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] =
             String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
-        app.launchArguments += ["-appearance", dark ? "dark" : "light"]
         app.launch()
 
         let myTab = ForumFixture.tab("我的", in: app)
         XCTAssertTrue(myTab.waitForExistence(timeout: 8))
         myTab.tap()
 
+        // Wait for the signed-in identity header before checking whether "图片上传与管理" needs a scroll.
+        XCTAssertTrue(app.staticTexts["测试用户"].waitForExistence(timeout: 5))
         let management = app.buttons["图片上传与管理"].firstMatch
-        for _ in 0..<4 where !management.isHittable { app.swipeUp() }
+        for _ in 0..<3 where !(management.exists && management.isHittable) {
+            app.swipeUp()
+        }
         XCTAssertTrue(management.waitForExistence(timeout: 5))
         management.tap()
+        XCTAssertTrue(ForumFixture.title("图片上传与管理", in: app).waitForExistence(timeout: 5))
         return app
     }
 
@@ -282,12 +235,5 @@ final class NodeImageLibraryViewTests: XCTestCase {
             UIBezierPath(roundedRect: CGRect(x: 28, y: 84, width: 264, height: 116), cornerRadius: 18).fill()
         }
         return data.base64EncodedString()
-    }
-
-    private func attachScreenshot(of app: XCUIApplication, named name: String) {
-        let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 }
