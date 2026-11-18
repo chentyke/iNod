@@ -15,6 +15,17 @@ public enum WebsiteResource {
     case voteVoters(itemID: Int, page: Int)
     case luckyFloors(LuckyDraw)
 
+    public static func stardust(memberID: Int, filter: StardustFilter, beforeID: Int? = nil) -> Self {
+        let clean = filter.normalized() ?? StardustFilter()
+        return .stardust(
+            memberID: memberID,
+            type: clean.type,
+            reference: clean.reference,
+            peer: clean.peer,
+            beforeID: beforeID
+        )
+    }
+
     var requiresLogin: Bool {
         switch self { case .vote, .voteVoters, .luckyFloors: false; default: true }
     }

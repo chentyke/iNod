@@ -12,6 +12,17 @@ import Testing
         "member_id": "4", "count": "10", "type": "transfer", "ref_id": "002", "peer_id": "7", "before_id": "80"
     ])
     #expect(resource.requiresLogin)
+    let unfiltered = WebsiteResource.stardust(memberID: 4, filter: StardustFilter())
+    #expect(unfiltered.path == "/api/stardust/list?member_id=4&count=10")
+    let filteredFromSpaceLink = WebsiteResource.stardust(
+        memberID: 4,
+        filter: StardustFilter(type: "upvote", peer: "https://www.nodeseek.com/space/99", reference: " 108 "),
+        beforeID: 42
+    )
+    let filteredQuery = try #require(URLComponents(string: filteredFromSpaceLink.path)?.queryItems)
+    #expect(Dictionary(uniqueKeysWithValues: filteredQuery.map { ($0.name, $0.value) }) == [
+        "member_id": "4", "count": "10", "type": "upvote", "ref_id": "108", "peer_id": "99", "before_id": "42"
+    ])
     #expect(!WebsiteResource.vote(5).requiresLogin)
 }
 
