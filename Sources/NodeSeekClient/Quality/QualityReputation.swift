@@ -92,8 +92,8 @@ struct QualityReputation {
         return verdict
     }
 
-    private static func matches(cidr: String, address: [UInt8]) -> Bool? {
-        let parts = cidr.split(separator: "/")
+    static func matches(cidr: String, address: [UInt8]) -> Bool? {
+        let parts = cidr.split(separator: "/", omittingEmptySubsequences: false)
         guard parts.count == 2, let prefix = addressBytes(String(parts[0])), prefix.count == address.count,
               let bits = Int(parts[1]), (0...(8 * address.count)).contains(bits) else { return nil }
         let bytes = bits / 8
@@ -104,7 +104,7 @@ struct QualityReputation {
         return (prefix[bytes] & mask) == (address[bytes] & mask)
     }
 
-    private static func addressBytes(_ address: String) -> [UInt8]? {
+    static func addressBytes(_ address: String) -> [UInt8]? {
         if let ip = IPv4Address(address) { return Array(ip.rawValue) }
         if let ip = IPv6Address(address) { return Array(ip.rawValue) }
         return nil
