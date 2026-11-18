@@ -165,7 +165,7 @@ struct QualityRoutes {
         return packet
     }
 
-    private static func isPublic(_ address: String) -> Bool {
+    static func isPublic(_ address: String) -> Bool {
         guard let ip = IPv4Address(address) else { return false }
         let bytes = Array(ip.rawValue)
         return !ip.isLoopback && !ip.isLinkLocal && !ip.isMulticast && bytes[0] != 0 && bytes[0] < 224 &&
