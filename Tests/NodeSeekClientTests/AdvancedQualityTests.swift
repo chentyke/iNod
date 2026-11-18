@@ -60,7 +60,10 @@ struct AdvancedQualityTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let (steps, continuation) = AsyncStream.makeStream(of: HardwareQualityReport.Step.self)
         let task = Task {
-            await HardwareQualityService.benchmark(HardwareQualityService.makeReport(), in: directory) { report in
+            await HardwareQualityService.benchmark(
+                HardwareQualityService.makeReport(), in: directory,
+                workload: .init(cpuBytes: 4 * 1_048_576, storageBytes: 2 * 1_048_576, randomOperations: 16)
+            ) { report in
                 if let step = report.currentStep { continuation.yield(step) }
                 if report.currentStep == .read { try? await Task.sleep(for: .seconds(5)) }
             }

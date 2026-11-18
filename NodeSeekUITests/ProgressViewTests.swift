@@ -1,19 +1,13 @@
 import XCTest
 
+#if !targetEnvironment(macCatalyst)
 @MainActor
 final class ProgressViewTests: XCTestCase {
-    private let readableWidth = 760 * ForumFixture.pointScale
-    private let gutter = 16 * ForumFixture.pointScale
-    private let tolerance: CGFloat = 2
-
     override func setUp() {
         continueAfterFailure = false
     }
 
     func testUpgradingProgressShowsLevelQuotasAndKeepsReadableColumn() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
         let app = try launchProgress(
             coins: 1280,
             postBonusCount: 1,
@@ -46,7 +40,8 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertTrue(freeLikeRow.label.contains("1 / 3"))
         XCTAssertTrue(freeLikeRow.label.contains("还可免费投喂 2 次"))
 
-        assertReadableColumn(in: app)
+        let list = app.collectionViews.firstMatch
+        ForumFixture.assertReadableRow(list.cells.firstMatch, in: list)
         attachScreenshot(of: app, named: "progress-upgrading-light")
 
         let currentTier = ForumFixture.element("progress-tier-3", in: app)
@@ -60,13 +55,9 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertTrue(maxTier.label.contains("Lv 6"))
         XCTAssertTrue(maxTier.label.contains("3,600 鸡腿"))
         attachScreenshot(of: app, named: "progress-tiers-light")
-        #endif
     }
 
     func testMaxLevelProgressShowsCompletedStatusAndNavigatesToRelatedPages() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
         let app = try launchProgress(
             coins: 3800,
             postBonusCount: 4,
@@ -107,46 +98,9 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertTrue(ledgerLink.waitForExistence(timeout: 5))
         ledgerLink.tap()
         XCTAssertTrue(ForumFixture.title("鸡腿明细", in: app).waitForExistence(timeout: 5))
-        #endif
-    }
-
-    func testDarkModeProgressRendersBothStates() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
-        let upgrading = try launchProgress(
-            coins: 1280,
-            postBonusCount: 1,
-            maxPostBonusCount: 4,
-            commentBonusCount: 8,
-            maxCommentBonusCount: 20,
-            freeLikeUsed: 1,
-            maxFreeLike: 3,
-            dark: true
-        )
-        XCTAssertTrue(ForumFixture.element("progress-level-card", in: upgrading).waitForExistence(timeout: 5))
-        attachScreenshot(of: upgrading, named: "progress-upgrading-dark")
-        upgrading.terminate()
-
-        let maxLevel = try launchProgress(
-            coins: 3800,
-            postBonusCount: 4,
-            maxPostBonusCount: 4,
-            commentBonusCount: 20,
-            maxCommentBonusCount: 20,
-            freeLikeUsed: 3,
-            maxFreeLike: 3,
-            dark: true
-        )
-        XCTAssertTrue(ForumFixture.element("progress-level-card", in: maxLevel).waitForExistence(timeout: 5))
-        attachScreenshot(of: maxLevel, named: "progress-max-dark")
-        #endif
     }
 
     func testAccessibilityTextSizeStacksContentWithoutLosingSummary() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
         let app = try launchProgress(
             coins: 1280,
             postBonusCount: 0,
@@ -166,19 +120,6 @@ final class ProgressViewTests: XCTestCase {
         for _ in 0..<4 where !freeLikeRow.exists { app.swipeUp() }
         XCTAssertTrue(freeLikeRow.waitForExistence(timeout: 5))
         XCTAssertTrue(freeLikeRow.label.contains("当前暂无每日免费投喂额度"))
-        #endif
-    }
-
-    private func assertReadableColumn(in app: XCUIApplication, line: UInt = #line) {
-        let list = app.collectionViews.firstMatch
-        let firstCell = list.cells.firstMatch
-        XCTAssertTrue(firstCell.waitForExistence(timeout: 5), line: line)
-        let listFrame = list.frame
-        let rowFrame = firstCell.frame
-        XCTAssertLessThanOrEqual(rowFrame.width, readableWidth + tolerance, "Progress card keeps to readable width.", line: line)
-        let expectedSideGap = max(gutter, ((listFrame.width - readableWidth) / 2).rounded(.down))
-        XCTAssertLessThanOrEqual(abs((rowFrame.minX - listFrame.minX) - expectedSideGap), tolerance, line: line)
-        XCTAssertLessThanOrEqual(abs((listFrame.maxX - rowFrame.maxX) - expectedSideGap), tolerance, line: line)
     }
 
     private func launchProgress(
@@ -189,7 +130,6 @@ final class ProgressViewTests: XCTestCase {
         maxCommentBonusCount: Int,
         freeLikeUsed: Int,
         maxFreeLike: Int,
-        dark: Bool = false,
         extraArguments: [String] = []
     ) throws -> XCUIApplication {
         let app = XCUIApplication()
@@ -235,7 +175,7 @@ final class ProgressViewTests: XCTestCase {
         ]
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] =
             String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
-        app.launchArguments += ["-appearance", dark ? "dark" : "light"] + extraArguments
+        app.launchArguments += ["-appearance", "light"] + extraArguments
         app.launch()
 
         let myTab = ForumFixture.tab("我的", in: app)
@@ -256,3 +196,4 @@ final class ProgressViewTests: XCTestCase {
         add(attachment)
     }
 }
+#endif

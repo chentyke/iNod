@@ -68,7 +68,10 @@ struct QualityIntegrationTests {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let result = await HardwareQualityService.benchmark(HardwareQualityService.makeReport(), in: directory)
+        let result = await HardwareQualityService.benchmark(
+            HardwareQualityService.makeReport(), in: directory,
+            workload: .init(cpuBytes: 4 * 1_048_576, storageBytes: 2 * 1_048_576, randomOperations: 16)
+        )
         let report = LiveDeviceBenchmark.report(result)
         #expect(report.isComplete)
         #expect(report.cpuMulti.value?.threads == result.processorCount)

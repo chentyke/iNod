@@ -10,30 +10,7 @@ final class OfflineNavigationTests: XCTestCase {
         return app
     }
 
-    func testSelectCategoryFromFeed() {
-        let app = launchOffline()
-        let category = app.buttons["选择版块，当前全部"]
-        XCTAssertTrue(category.waitForExistence(timeout: 10))
-        category.tap()
-
-        let daily = app.buttons["日常"]
-        XCTAssertTrue(daily.waitForExistence(timeout: 5))
-        daily.tap()
-        XCTAssertTrue(app.buttons["选择版块，当前日常"].waitForExistence(timeout: 5))
-    }
-
-    func testNotificationsOfferRetryWhenOffline() {
-        let app = launchOffline()
-        let notifications = ForumFixture.tab("通知", in: app)
-        XCTAssertTrue(notifications.waitForExistence(timeout: 10))
-        notifications.tap()
-
-        XCTAssertTrue(app.staticTexts["网络未连接"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["重试"].isHittable)
-        assertNoSystemErrorText(in: app)
-    }
-
-    func testFeedExplainsOfflineState() {
+    func testOfflineFeedCanRetryAndSelectACategory() {
         let app = launchOffline()
         let failure = ForumFixture.element("load-failure", in: app)
         XCTAssertTrue(failure.waitForExistence(timeout: 10))
@@ -50,10 +27,27 @@ final class OfflineNavigationTests: XCTestCase {
         retry.tap()
         XCTAssertTrue(app.staticTexts["网络未连接"].waitForExistence(timeout: 10))
         assertNoSystemErrorText(in: app)
+
+        let category = app.buttons["选择版块，当前全部"]
+        XCTAssertTrue(category.waitForExistence(timeout: 10))
+        category.tap()
+
+        let daily = app.buttons["日常"]
+        XCTAssertTrue(daily.waitForExistence(timeout: 5))
+        daily.tap()
+        XCTAssertTrue(app.buttons["选择版块，当前日常"].waitForExistence(timeout: 5))
     }
 
-    func testAccountExplainsOfflineState() {
+    func testOfflineTabsOfferRetryAndAccountOpensCommunityTools() {
         let app = launchOffline()
+        let notifications = ForumFixture.tab("通知", in: app)
+        XCTAssertTrue(notifications.waitForExistence(timeout: 10))
+        notifications.tap()
+
+        XCTAssertTrue(app.staticTexts["网络未连接"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["重试"].isHittable)
+        assertNoSystemErrorText(in: app)
+
         let account = ForumFixture.tab("我的", in: app)
         XCTAssertTrue(account.waitForExistence(timeout: 10))
         account.tap()
@@ -61,19 +55,6 @@ final class OfflineNavigationTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["网络未连接"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["重试"].exists)
         assertNoSystemErrorText(in: app)
-    }
-
-    /// The system's own error text, such as "NSURLErrorDomain 错误 -1009", must never reach the reader.
-    private func assertNoSystemErrorText(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        let raw = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'ErrorDomain' OR label CONTAINS '未能完成操作'"))
-        XCTAssertEqual(raw.count, 0, "Raw system error text is on screen", file: file, line: line)
-    }
-
-    func testOpenCommunityToolsFromAccount() {
-        let app = launchOffline()
-        let account = ForumFixture.tab("我的", in: app)
-        XCTAssertTrue(account.waitForExistence(timeout: 10))
-        account.tap()
 
         let tools = app.staticTexts["社区工具"]
         XCTAssertTrue(tools.waitForExistence(timeout: 5))
@@ -81,5 +62,11 @@ final class OfflineNavigationTests: XCTestCase {
 
         XCTAssertTrue(ForumFixture.title("社区工具", in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["查找用户"].exists)
+    }
+
+    /// The system's own error text, such as "NSURLErrorDomain 错误 -1009", must never reach the reader.
+    private func assertNoSystemErrorText(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let raw = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'ErrorDomain' OR label CONTAINS '未能完成操作'"))
+        XCTAssertEqual(raw.count, 0, "Raw system error text is on screen", file: file, line: line)
     }
 }

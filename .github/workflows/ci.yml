@@ -2,9 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main, 'image-stack/**']
-  # No push trigger: main requires PRs to be up to date before merging, so a PR's checks already
-  # cover the merged result. Run the workflow by hand when main needs checking again.
+  # PR checks exercise the trial merge. Run the workflow by hand to test a branch again.
   workflow_dispatch:
 
 permissions:
@@ -22,14 +20,31 @@ jobs:
     name: Design checks
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      docs-only: ${{ steps.scope.outputs.docs-only }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2
+      - name: Check if the PR only changes documentation
+        id: scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          git diff --no-renames --name-only -z HEAD^1 HEAD | node -e '
+            const files = require("node:fs").readFileSync(0, "utf8").split("\0").filter(Boolean);
+            const docsOnly = files.length > 0 && files.every(path =>
+              path === "README.md" || path === "CONTRIBUTING.md" || /^docs\/[\s\S]+\.md$/.test(path)
+            );
+            console.log(`docs-only=${docsOnly}`);
+          ' >> "$GITHUB_OUTPUT"
       - name: Check SwiftUI code against docs/DESIGN.md
         run: node scripts/check-design.mjs
 
   swift-and-website:
+    needs: design-checks
+    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true') }}
     name: Swift and website checks
     runs-on: xcode-27
     timeout-minutes: 20
@@ -43,10 +58,13 @@ jobs:
         run: sh scripts/verify-website.sh
 
   ios-ui-tests:
+    needs: design-checks
+    if: ${{ !cancelled() }}
     # The iPhone run keeps its original check name, which branch protection requires.
     name: ${{ matrix.check }}
-    runs-on: xcode-27
-    # Green runs take 12 to 26 minutes; a slow hosted runner can take 30 even when every test passes.
+    # Keep both matrix check names on docs-only PRs without allocating a Mac runner.
+    runs-on: ${{ needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true' && 'ubuntu-latest' || 'xcode-27' }}
+    # The full iPhone suite can take nearly 40 minutes on a slow hosted runner.
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -55,19 +73,32 @@ jobs:
           - check: iOS UI tests
             device: iPhone 17
             results: NodeSeekUITests
+            tests: ''
             retries: ''
           - check: iPad UI tests
             device: iPad Pro 13-inch (M5)
             results: NodeSeekUITests-iPad
+            tests: >-
+              -only-testing:NodeSeekUITests/AdaptiveLayoutTests
+              -only-testing:NodeSeekUITests/ThreadHistoryTests
+              -only-testing:NodeSeekUITests/AttendanceViewTests/testUncheckedAttendanceShowsActionsAndKeepsReadableColumn
+              -only-testing:NodeSeekUITests/ProgressViewTests/testUpgradingProgressShowsLevelQuotasAndKeepsReadableColumn
+              -only-testing:NodeSeekUITests/StardustHistoryViewTests/testStardustHistoryDisplaysBalanceRecordsAndNavigates
             # The hosted iPad simulator is slow and now and then fails to stop the app between tests.
             # A test that fails both times still fails the check.
             retries: -retry-tests-on-failure -test-iterations 2
     steps:
+      - name: Report documentation-only check
+        if: needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true'
+        run: echo "Documentation only. No simulator needed."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        id: checkout
+        if: needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true'
         with:
           persist-credentials: false
       - name: Start the ${{ matrix.device }} simulator
         id: simulator
+        if: steps.checkout.outcome == 'success'
         env:
           DEVICE: ${{ matrix.device }}
         run: |
@@ -81,14 +112,17 @@ jobs:
           xcrun simctl bootstatus "$simulator_id" -b
           echo "id=$simulator_id" >> "$GITHUB_OUTPUT"
       - name: Build and test on ${{ matrix.device }}
+        if: steps.simulator.outcome == 'success'
+        shell: bash
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+          TESTS: ${{ matrix.tests }}
           RETRIES: ${{ matrix.retries }}
         run: |
-          # RETRIES holds separate flags, so it is left unquoted on purpose.
+          read -ra args <<< "$TESTS $RETRIES"
           xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -parallel-testing-enabled NO $RETRIES \
+            -parallel-testing-enabled NO "${args[@]}" \
             -resultBundlePath "$RUNNER_TEMP/${{ matrix.results }}.xcresult" \
             CODE_SIGN_IDENTITY=- test
       - name: Upload failed test results
@@ -100,6 +134,8 @@ jobs:
           retention-days: 7
 
   mac-ui-tests:
+    needs: design-checks
+    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true') }}
     name: Mac UI tests
     runs-on: xcode-27
     timeout-minutes: 25

@@ -2,22 +2,24 @@
 
 ## GitHub Actions
 
-[CI 工作流程](../.github/workflows/ci.yml)会在以 `main` 或 `image-stack/` 系列分支为目标的 PR 新建或推送提交时运行，也可以在 **Actions → CI → Run workflow** 手动启动。
+[CI 工作流程](../.github/workflows/ci.yml)会在 PR 新建、推送提交或重新打开时运行，不限目标分支。也可以在 **Actions → CI → Run workflow** 手动跑完整检查。
 
-合并到 `main` 后不会再跑一遍：`main` 要求 PR 先更新到最新再合并，PR 上的检查已经覆盖合并后的代码。只改 PR 标题或描述时，也只会重跑[描述检查](../.github/workflows/pr-description.yml)。把一组有依赖的 PR 改为合入 `main` 后，如果 GitHub 提示分支落后，点 **Update branch** 就会重新检查；分支没有落后时，可以在 PR 的 **Checks** 页面点 **Re-run all jobs**。
+PR 上的 CI 会测试 GitHub 试合并后的代码，合并时不会另外启动一轮。只改 PR 标题或描述时，也只会重跑[描述检查](../.github/workflows/pr-description.yml)。把一组有依赖的 PR 改为合入 `main` 后，如果 GitHub 提示分支落后，点 **Update branch** 就会重新检查；分支没有落后时，可以在 PR 的 **Checks** 页面点 **Re-run all jobs**。
+
+如果试合并只改了 `README.md`、`CONTRIBUTING.md` 或 `docs/` 下的 Markdown，CI 仍会报告原有检查，但只运行设计检查，不启动 Xcode 或模拟器。手动启动 CI 时会跑全部检查。
 
 | 检查名称 | 运行内容 |
 | --- | --- |
 | Design checks | 按[界面设计检查](DESIGN.md)扫描 SwiftUI 代码里的渐变、大面积状态色和醒目的彩色描边。 |
 | Screenshots for interface changes | PR 改了界面代码时，检查描述里有没有上传截图或录屏。改完 PR 描述会自动重新检查。 |
-| Swift and website checks | 运行 Swift 单元测试，再检查网页请求格式和 WebKit 解析。 |
-| iOS UI tests | 等待 iPhone 17 模拟器启动完成，再构建 App 并跑界面测试。失败时，可在运行页面的 **Artifacts** 下载测试报告，用 Xcode 打开 `.xcresult`。 |
-| iPad UI tests | 在 iPad Pro 13 英寸 (M5) 模拟器跑同一套界面测试，并检查宽屏和横屏的排版。GitHub 的 iPad 模拟器很慢，偶尔在两个测试之间关不掉 App，所以失败的测试会重跑一次，两次都失败才算不通过。失败时同样可下载测试报告。 |
+| Swift and website checks | 运行 Swift 单元测试（含离线头像缓存），再检查网页请求格式和 WebKit 解析。 |
+| iOS UI tests | 等待 iPhone 17 模拟器启动完成，再构建 App 并跑所有适用的界面测试。失败时，可在运行页面的 **Artifacts** 下载测试报告，用 Xcode 打开 `.xcresult`。 |
+| iPad UI tests | 在 iPad Pro 13 英寸 (M5) 模拟器检查宽屏、横屏、键盘快捷键、帖子分页，以及签到、等级进度和星尘明细的列宽。GitHub 的 iPad 模拟器很慢，偶尔在两个测试之间关不掉 App，所以失败的测试会重跑一次，两次都失败才算不通过。失败时同样可下载测试报告。 |
 | Mac UI tests | 构建 Mac Catalyst 版 App，检查启动后侧边栏列出全部标签页、深色模式下选中的标签页看得清，首页和帖子页卡片在侧边栏旁居中成一栏。帖子页由 App 在测试时自己打开（`NODESEEK_UI_TEST_OPEN_POST`，只在 Debug 构建生效），不用点击。GitHub 的 Mac 环境里，界面测试发出的点击和按键到不了 App 的内容，所以需要操作的测试只在 iPhone 和 iPad 上跑；Mac 上的点击、切换标签页和快捷键要手动检查。本机跑 Mac 界面测试时，指针悬停能送到 App，点击同样送不到。 |
 
 公开仓库的检查使用 GitHub 提供的 `xcode-27` 环境，选用 Xcode 27.2 和 iOS 27.2 模拟器。测试使用本地样本和模拟响应，无需 Apple 签名、NodeSeek 账号或 GitHub Secrets。[GitHub 提供的 Xcode 和模拟器版本](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
 
-`main` 的改动必须通过 PR 合并，合并前需要通过上面的检查。如果 `main` 有新提交，请先更新 PR 分支，再等 CI 跑完。来自 Fork 的首次 PR 可能需要维护者在 PR 页面点 **Approve workflows to run**。[GitHub 对外部贡献者工作流程的说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
+`main` 的改动必须通过 PR 合并，合并前必须通过 Swift and website checks 和 iOS UI tests。来自 Fork 的首次 PR 可能需要维护者在 PR 页面点 **Approve workflows to run**。[GitHub 对外部贡献者工作流程的说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
 
 ## 打包 Release
 
@@ -42,6 +44,11 @@ xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
   -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- test
 xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
   -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.2' \
+  -only-testing:NodeSeekUITests/AdaptiveLayoutTests \
+  -only-testing:NodeSeekUITests/ThreadHistoryTests \
+  -only-testing:NodeSeekUITests/AttendanceViewTests/testUncheckedAttendanceShowsActionsAndKeepsReadableColumn \
+  -only-testing:NodeSeekUITests/ProgressViewTests/testUpgradingProgressShowsLevelQuotasAndKeepsReadableColumn \
+  -only-testing:NodeSeekUITests/StardustHistoryViewTests/testStardustHistoryDisplaysBalanceRecordsAndNavigates \
   -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- test
 xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
   -destination 'platform=macOS,variant=Mac Catalyst' \
@@ -52,7 +59,7 @@ xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
   -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- ENABLE_HARDENED_RUNTIME=NO test
 ```
 
-本机用临时签名跑 Mac 界面测试时加上 `ENABLE_HARDENED_RUNTIME=NO`，否则测试包会因签名不一致载入失败。Mac 的界面测试会接管鼠标和键盘，跑的时候别动电脑。本机模拟器不同的话，把 `name` 和 `OS` 改成已安装的型号和版本。也可以在 Xcode 里选择模拟器，按 `⌘U` 跑界面测试。只想跑账号状态的 Swift 单元测试时，可以执行 `xcrun swift test --filter AccountSessionTests`。
+本机用临时签名跑 Mac 界面测试时加上 `ENABLE_HARDENED_RUNTIME=NO`，否则测试包会因签名不一致载入失败。Mac 的界面测试会接管鼠标和键盘，跑的时候别动电脑。检查本机指针悬停时，用 `-only-testing:NodeSeekUITests/DesignChecklistTests/testPointerHoverOpensTheDock` 替换上面 Mac 命令里的四个测试选项。本机模拟器不同的话，把 `name` 和 `OS` 改成已安装的型号和版本。也可以在 Xcode 里选择模拟器，按 `⌘U` 跑界面测试。只想跑账号状态的 Swift 单元测试时，可以执行 `xcrun swift test --filter AccountSessionTests`。
 
 ## 测试写在哪里
 

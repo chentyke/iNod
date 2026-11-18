@@ -40,10 +40,8 @@ final class AdaptiveLayoutTests: XCTestCase {
         }
     }
 
+    #if !targetEnvironment(macCatalyst)
     func testFeedKeepsItsColumnInLandscape() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("A Mac window has no orientation; the other tests cover its width.")
-        #else
         // Only iPad turns: iPhone keeps to portrait.
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Only iPad supports landscape.")
         let app = ForumFixture.launch()
@@ -53,8 +51,8 @@ final class AdaptiveLayoutTests: XCTestCase {
         Thread.sleep(forTimeInterval: 1)
         assertFeedColumn(in: app)
         attachScreenshot(of: app, named: "Feed in landscape")
-        #endif
     }
+    #endif
 
     func testThreadCardsAndReplyBarShareOneColumn() throws {
         let app = ForumFixture.launchThread()
@@ -73,10 +71,10 @@ final class AdaptiveLayoutTests: XCTestCase {
         attachScreenshot(of: app, named: "Thread")
     }
 
+    #if targetEnvironment(macCatalyst)
     /// The Mac sidebar marks the open tab with the app's tint. In dark mode its label must still stand out
     /// from that highlight: an ink tint that turns white drew white text on a white bar.
     func testSidebarSelectionIsReadableInDarkMode() throws {
-        #if targetEnvironment(macCatalyst)
         for dark in [false, true] {
             let app = ForumFixture.launch(dark: dark)
             let selected = app.cells.matching(NSPredicate(format: "label == %@ AND isSelected == true", "社区")).firstMatch
@@ -86,10 +84,8 @@ final class AdaptiveLayoutTests: XCTestCase {
             XCTAssertGreaterThan(contrast, 0.4, "The selected tab's label should stand out from its highlight (dark: \(dark)).")
             app.terminate()
         }
-        #else
-        throw XCTSkip("Only the Mac shows the tabs in a sidebar.")
-        #endif
     }
+    #endif
 
     func testGroupedListKeepsTheColumn() throws {
         let app = XCUIApplication()
@@ -100,14 +96,8 @@ final class AdaptiveLayoutTests: XCTestCase {
         account.tap()
 
         let tools = app.cells.containing(.staticText, identifier: "社区工具").firstMatch
-        XCTAssertTrue(tools.waitForExistence(timeout: 5))
-        let list = app.collectionViews.containing(.staticText, identifier: "社区工具").firstMatch.frame
-        let row = tools.frame
-        XCTAssertLessThanOrEqual(row.width, readableWidth + tolerance, "Grouped rows keep to the readable width.")
-        // On a narrow screen the rows keep one gutter from each edge instead of running edge to edge.
-        let sideGap = max(gutter, ((list.width - readableWidth) / 2).rounded(.down))
-        assertClose(row.minX - list.minX, sideGap, "Grouped row leading gap")
-        assertClose(list.maxX - row.maxX, sideGap, "Grouped row trailing gap")
+        let list = app.collectionViews.containing(.staticText, identifier: "社区工具").firstMatch
+        ForumFixture.assertReadableRow(tools, in: list)
         attachScreenshot(of: app, named: "Account")
     }
 
