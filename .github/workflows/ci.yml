@@ -60,7 +60,7 @@ jobs:
   iphone-ui-test-groups:
     needs: design-checks
     if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true') }}
-    name: iPhone UI tests (${{ matrix.group }}/2)
+    name: iPhone UI tests (${{ matrix.group }}/3)
     runs-on: xcode-27
     timeout-minutes: 60
     strategy:
@@ -69,17 +69,25 @@ jobs:
         include:
           - group: 1
             filter: only-testing
+            classes:
+              - &iphone-group-1 >-
+                CommunitySectionViewTests ProgressViewTests QualityToolsTests
+                AttendanceViewTests MarkdownTableTests RapidPostReturnTests
           - group: 2
+            filter: only-testing
+            classes:
+              - &iphone-group-2 >-
+                AccountSettingsViewTests AccountBalancesViewTests WebsiteLinkTests
+                StardustHistoryViewTests OfflineNavigationTests MarkdownStickerTests
+          - group: 3
             filter: skip-testing
+            # Run all other classes here, including any new ones.
+            classes: [*iphone-group-1, *iphone-group-2]
     env:
       DEVICE: iPhone 17
       RESULTS: NodeSeekUITests-iPhone-${{ matrix.group }}
       TEST_FILTER: ${{ matrix.filter }}
-      # Group 1 runs these classes. Group 2 runs the rest, including new test classes.
-      TEST_CLASSES: >-
-        CommunitySectionViewTests DesignChecklistTests AccountBalancesViewTests
-        NodeImageLibraryViewTests ThreadImageGalleryTests StardustHistoryViewTests
-        ThreadHistoryTests EditorImageNavigationTests RapidPostReturnTests
+      TEST_CLASSES: ${{ join(matrix.classes, ' ') }}
     steps: &simulator-test-steps
       - name: Report documentation-only check
         if: needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true'
@@ -134,7 +142,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check both iPhone test groups
+      - name: Check all iPhone test groups
         env:
           IPHONE_RESULT: ${{ needs.iphone-ui-test-groups.result }}
           DOCS_ONLY: ${{ needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true' }}
