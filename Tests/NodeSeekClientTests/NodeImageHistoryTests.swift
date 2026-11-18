@@ -37,3 +37,18 @@ import Testing
     #expect(refreshed.map(\.id) == ["second", "first", "old"])
     #expect(history.cachedImages(userID: 101, key: "first")?.map(\.id) == ["second", "first", "old"])
 }
+
+@Test func nodeImageClientFixtureValidatesKeyAndDecodesImages() async throws {
+    let validKey = String(repeating: "a", count: 64)
+    let listJSON = Data(#"{"images":[{"image_id":"img_1","filename":"chart.png","url":"https://cdn.nodeimage.com/i/chart.png"}]}"#.utf8)
+    let client = NodeImageClient(responsesForUITests: [
+        "https://api.nodeimage.com/api/v1/images": listJSON
+    ])
+    await #expect(throws: SiteError.self) {
+        _ = try await client.images(key: "invalid")
+    }
+    let images = try await client.images(key: validKey)
+    #expect(images.count == 1)
+    #expect(images.first?.filename == "chart.png")
+    try await client.delete(images[0], key: validKey)
+}

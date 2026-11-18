@@ -37,16 +37,21 @@ public final class AccountSession {
     struct UITestWebsite: Decodable {
         let authentication: AuthenticationSnapshot
         let responses: [String: Data]
+        let nodeImageKey: String?
     }
 
     public static func fixtureForUITests(_ json: String) throws -> AccountSession {
         let fixture = try JSONDecoder().decode(UITestWebsite.self, from: Data(json.utf8))
+        NodeImageKeyStore.configureForUITests(userID: fixture.authentication.user?.id, key: fixture.nodeImageKey)
         let website = SiteDataStore(persistsResponses: false) { fixture.authentication }
         website.responsesForUITests = fixture.responses
-        return AccountSession(website: website, loadAuthentication: { try await website.bootstrap(force: $0) })
+        let session = AccountSession(website: website, loadAuthentication: { try await website.bootstrap(force: $0) })
+        session.nodeImageHistory.configureForUITests(responses: fixture.responses)
+        return session
     }
 
     public static func offlineForUITests() -> AccountSession {
+        NodeImageKeyStore.configureForUITests(userID: nil, key: nil)
         let website = SiteDataStore(persistsResponses: false) { throw URLError(.notConnectedToInternet) }
         return AccountSession(website: website, loadAuthentication: { try await website.bootstrap(force: $0) })
     }

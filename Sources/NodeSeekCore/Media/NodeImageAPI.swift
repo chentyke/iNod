@@ -11,6 +11,13 @@ public enum NodeImageAPI {
     public static let origin = URL(string: "https://api.nodeimage.com")!
     public static func validKey(_ key: String) -> Bool { key.wholeMatch(of: /[a-fA-F0-9]{32,128}/) != nil }
 
+    public static func maskedKey(_ key: String) -> String {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        guard trimmed.count > 8 else { return String(repeating: "•", count: trimmed.count) }
+        return "\(trimmed.prefix(4))••••\(trimmed.suffix(4))"
+    }
+
     public static func list(key: String) -> URLRequest { request(path: "api/v1/images", method: "GET", key: key) }
 
     public static func delete(id: String, key: String) -> URLRequest? {

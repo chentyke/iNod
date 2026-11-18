@@ -3,13 +3,31 @@ import Foundation
 
 public actor NodeImageClient {
     private let session: URLSession
+    #if DEBUG
+    private let responsesForUITests: [String: Data]?
+    #endif
+
     public init() {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
         configuration.urlCache = nil
         session = URLSession(configuration: configuration, delegate: NodeImageRedirects(), delegateQueue: nil)
+        #if DEBUG
+        responsesForUITests = nil
+        #endif
     }
+
+    #if DEBUG
+    init(responsesForUITests: [String: Data]) {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.urlCache = nil
+        session = URLSession(configuration: configuration, delegate: NodeImageRedirects(), delegateQueue: nil)
+        self.responsesForUITests = responsesForUITests
+    }
+    #endif
 
     public func images(key: String) async throws -> [HostedImage] {
         let data = try await send(NodeImageAPI.list(key: key))
@@ -35,6 +53,17 @@ public actor NodeImageClient {
 
     private func send(_ request: URLRequest, allowsMissing: Bool = false) async throws -> Data {
         guard let key = request.value(forHTTPHeaderField: "X-API-Key"), NodeImageAPI.validKey(key) else { throw SiteError.message("请先填写有效的 NodeImage API Key。") }
+        #if DEBUG
+        if let responsesForUITests, let url = request.url {
+            let method = request.httpMethod ?? "GET"
+            if let data = responsesForUITests["\(method) \(url.absoluteString)"] ?? responsesForUITests[url.absoluteString] {
+                if let problem = NodeImageAPI.problem(data: data, status: 200) { throw SiteError.message(problem) }
+                return data
+            }
+            if allowsMissing { return Data("{}".utf8) }
+            throw SiteError.message("Missing UI test response for \(method) \(url.absoluteString)")
+        }
+        #endif
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw SiteError.invalidResponse }
         if allowsMissing, http.statusCode == 404 { return data }

@@ -11,6 +11,19 @@ extension AccountSession {
         isSyncingNodeImageKey = true
         defer { isSyncingNodeImageKey = false }
         let originalRevision = revision
+        #if DEBUG
+        if let responses = website.responsesForUITests {
+            let endpoint = regenerating
+                ? "POST https://api.nodeimage.com/api/user/regenerate-api-key"
+                : "https://api.nodeimage.com/api/user/api-key"
+            guard let data = responses[endpoint] ?? responses["https://api.nodeimage.com/api/user/api-key"] else {
+                throw SiteError.message("论坛没有返回可用的 NodeImage 授权。请确认论坛已登录后重试。")
+            }
+            let key = try NodeImageAccountClient.readKey(data)
+            try NodeImageKeyStore.save(key, userID: userID)
+            return key
+        }
+        #endif
         let grant = try await website.reader.nodeImageGrant(userID: userID)
         let nodeImage = NodeImageAccountClient()
         defer { nodeImage.close() }
