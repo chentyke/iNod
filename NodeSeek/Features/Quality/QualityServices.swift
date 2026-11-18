@@ -18,7 +18,7 @@ enum QualityServices {
     }
 
     /// Launch arguments arrive as strings; `double(forKey:)` parses them.
-    private static var pace: Double {
+    static var pace: Double {
         let pace = UserDefaults.standard.double(forKey: "qualityPace")
         return pace > 0 ? pace : 1
     }
