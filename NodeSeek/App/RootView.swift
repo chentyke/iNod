@@ -7,11 +7,27 @@ struct RootView: View {
     @Environment(\.displayScale) private var displayScale
     @State private var tabAvatar: (url: URL, image: UIImage)?
 
+    private var usesSidebarAdaptableTabs: Bool {
+        #if targetEnvironment(macCatalyst)
+        true
+        #else
+        UIDevice.current.userInterfaceIdiom == .pad
+        #endif
+    }
+
     var body: some View {
         let avatarURL = account.user.map { account.versionedAvatarURL($0.avatarURL) }
-        TabView {
+        let tabs = TabView {
             Tab {
-                ForumNavigationStack(restoresTabBarDuringZoom: true) { FeedView() }
+                CommunityRootView()
+                    #if DEBUG && !targetEnvironment(macCatalyst)
+                    .background {
+                        if UIDevice.current.userInterfaceIdiom == .pad,
+                           ProcessInfo.processInfo.arguments.contains("--ui-test-open-sidebar") {
+                            UITestSidebarOpener()
+                        }
+                    }
+                    #endif
             } label: {
                 tabLabel("社区", icon: Image(systemName: "bubble.left.and.bubble.right"))
             }
@@ -31,22 +47,26 @@ struct RootView: View {
             .accessibilityLabel("我的")
         }
         #if targetEnvironment(macCatalyst)
-        // A Mac window has no tab bar to show the tabs in, so list them in a sidebar.
-        .tabViewStyle(.sidebarAdaptable)
         .tint(Color.seekSidebarSelection)
         #else
         .tint(Color.seekInk)
         #endif
         .task(id: avatarURL) { await loadTabAvatar(from: avatarURL) }
+
+        if usesSidebarAdaptableTabs {
+            tabs.tabViewStyle(.sidebarAdaptable)
+        } else {
+            tabs
+        }
     }
 
-    /// iPhone and iPad show the tabs as icons; the Mac sidebar names them too.
+    /// iPhone shows the tabs as icons; iPad and Mac name them so the adaptable sidebar reads clearly.
     @ViewBuilder private func tabLabel(_ title: String, icon: Image) -> some View {
-        #if targetEnvironment(macCatalyst)
-        Label { Text(title) } icon: { icon }
-        #else
-        icon
-        #endif
+        if usesSidebarAdaptableTabs {
+            Label { Text(title) } icon: { icon }
+        } else {
+            icon
+        }
     }
 
     private func tabIcon(for url: URL?) -> Image {
@@ -77,3 +97,36 @@ struct RootView: View {
         }
     }
 }
+
+#if DEBUG && !targetEnvironment(macCatalyst)
+/// Opens iPad's adaptable sidebar on launch when requested by UI tests.
+private struct UITestSidebarOpener: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+    func updateUIViewController(_ controller: Controller, context: Context) {}
+
+    final class Controller: UIViewController {
+        private var didOpen = false
+
+        override func loadView() {
+            view = UIView()
+            view.isUserInteractionEnabled = false
+        }
+
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+            openIfNeeded()
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            openIfNeeded()
+        }
+
+        private func openIfNeeded() {
+            guard !didOpen, let tabs = tabBarController else { return }
+            didOpen = true
+            tabs.sidebar.isHidden = false
+        }
+    }
+}
+#endif
