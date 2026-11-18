@@ -64,8 +64,7 @@ jobs:
     name: ${{ matrix.check }}
     # Keep both matrix check names on docs-only PRs without allocating a Mac runner.
     runs-on: ${{ needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true' && 'ubuntu-latest' || 'xcode-27' }}
-    # The full iPhone suite can take nearly 40 minutes on a slow hosted runner.
-    timeout-minutes: 40
+    timeout-minutes: ${{ matrix.timeout-minutes }}
     strategy:
       fail-fast: false
       matrix:
@@ -73,11 +72,14 @@ jobs:
           - check: iOS UI tests
             device: iPhone 17
             results: NodeSeekUITests
+            # Allow for a slow build as well as the full UI suite on hosted runners.
+            timeout-minutes: 60
             tests: ''
             retries: ''
           - check: iPad UI tests
             device: iPad Pro 13-inch (M5)
             results: NodeSeekUITests-iPad
+            timeout-minutes: 40
             tests: >-
               -only-testing:NodeSeekUITests/AdaptiveLayoutTests
               -only-testing:NodeSeekUITests/ThreadHistoryTests
