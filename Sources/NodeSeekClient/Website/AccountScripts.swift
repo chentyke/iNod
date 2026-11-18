@@ -55,7 +55,7 @@ enum AccountScripts {
                 const types={system:'系统',admin:'管理',transfer:'转账',upvote:'点赞',buyCode:'购买邀请码'};
                 result = {items:array(j.records).map(r=>({id:String(r.id),change:n(r.diff),balance:n(r.result),reason:types[r.type]||r.type,createdAt:r.created_at,peerID:optional(r.peer_id)})),hasNext:!!j.exist_more,cursor:optional(j.cursor)};
             } else if (kind === 'attendance') {
-                result = {gain:j.record?optional(j.record.gain):null,order:optional(j.order),total:n(j.total),items:array(j.list).map((r,i)=>({id:n(r.member_id),name:r.member_name,gain:n(r.gain),rank:(page-1)*50+i+1})),hasNext:page*50<n(j.total)};
+                result = {gain:j.record?optional(j.record.gain):null,order:optional(j.order),createdAt:j.record?.created_at==null?null:String(j.record.created_at),total:n(j.total),items:array(j.list).map((r,i)=>({id:n(r.member_id),name:r.member_name,gain:n(r.gain),rank:(page-1)*50+i+1})),hasNext:page*50<n(j.total)};
             } else if (kind === 'profile') {
                 const r=j.detail;
                 if (!r || n(r.member_id) !== memberID) throw new Error('没有找到这位用户');

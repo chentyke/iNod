@@ -204,9 +204,12 @@ func postActivityDateKeepsWebsiteTimestampRules(_ rawDate: String, _ expectedTim
 @Test func attendanceDistinguishesNotSignedInFromZeroReward() throws {
     let board = try JSONDecoder().decode(AttendanceBoard.self, from: Data(#"{"gain":null,"order":null,"total":50,"items":[],"hasNext":false}"#.utf8))
     #expect(board.gain == nil)
-    let signed = try JSONDecoder().decode(AttendanceBoard.self, from: Data(#"{"gain":0,"order":3,"total":50,"items":[],"hasNext":false}"#.utf8))
+    #expect(board.createdAt == nil)
+    let signed = try JSONDecoder().decode(AttendanceBoard.self, from: Data(#"{"gain":0,"order":3,"createdAt":"2026-11-17T00:02:18.000Z","total":50,"items":[{"id":9,"name":"读者","gain":0,"rank":3}],"hasNext":false}"#.utf8))
     #expect(signed.gain == 0)
     #expect(signed.order == 3)
+    #expect(ForumDate.parse(try #require(signed.createdAt)) != nil)
+    #expect(signed.items.first?.rank == 3)
 }
 
 @Test func datesAcceptWebsiteFormatsAndKeepMissingValuesUnknown() {

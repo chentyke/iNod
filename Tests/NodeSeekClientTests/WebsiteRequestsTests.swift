@@ -23,6 +23,10 @@ import Testing
     #expect(entries.first?["category"] as? String == "tech")
     #expect(entries.first?["showInIndex"] as? Bool == true)
     #expect(!WebsiteAction.prepareTransfer(recipientID: 5).request.changesData)
+    #expect(WebsiteAction.attend(random: false).request.path == "/api/attendance?random=false")
+    #expect(WebsiteAction.attend(random: true).request.path == "/api/attendance?random=true")
+    #expect(AccountResource.attendance(2).path == "/api/attendance/board?page=2")
+    #expect(AccountResource.attendance(0).path == "/api/attendance/board?page=1")
 }
 
 @Test func missingThreadUsesTheListedRankAndConfirmedAccount() throws {
