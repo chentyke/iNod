@@ -52,6 +52,7 @@ struct ForumNavigationStack<Content: View>: View {
         .environment(\.openPost, PostNavigationAction { path.append($0) })
         .environment(\.postTransitionNamespace, postTransition)
         .environment(\.openAccountDestination, AccountNavigationAction { path.append($0) })
+        .environment(\.openAppDestination, AppNavigationAction { path.append($0) })
         .environment(\.openURL,OpenURLAction { url in
             switch ForumLink.parse(url.absoluteString) {
             case .native(let destination): path.append(destination); return .handled

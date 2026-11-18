@@ -72,18 +72,26 @@ struct FeedView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if isSearch { ToolbarItem(placement:.topBarTrailing) {
-                Menu("搜索选项",systemImage:"ellipsis") {
-                    searchOptions
+            if isSearch {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu("搜索选项", systemImage: "ellipsis") {
+                        searchOptions
+                    }
                 }
-            } }
+            } else if recommended {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ShareLink(item: NodeSeekRoute.recommended(page: 1).url) {
+                        Label("分享推荐阅读", systemImage: "square.and.arrow.up")
+                    }
+                }
+            }
         }
         .onSubmit(of: .search, submitSearch)
         .onChange(of: query) { if query.isEmpty { submittedQuery = "" } }
         .refreshable { await load(reset: true, force: true) }
         .menuRefreshable { await load(reset: true, force: true) }
         .task(id: requestKey) { await load(reset: true) }
-        .task(id: account.revision) { await categories.refresh() }
+        .task(id: account.revision) { if !recommended { await categories.refresh() } }
         .task(id: openingNewPost) {
             if openingNewPost { await openNewPost() }
         }
@@ -189,8 +197,13 @@ struct FeedView: View {
                     }
                     .id(page)
                 } else if posts.isEmpty && pinnedPosts.isEmpty && error == nil {
-                    ContentUnavailableView("没有找到帖子", systemImage: "magnifyingglass", description: Text("换个关键词，或浏览其他版块。"))
-                        .listRowSeparator(.hidden)
+                    if recommended {
+                        ContentUnavailableView("暂无推荐阅读", systemImage: "rosette", description: Text("下拉刷新以重新获取社区精选主题。"))
+                            .listRowSeparator(.hidden)
+                    } else {
+                        ContentUnavailableView("没有找到帖子", systemImage: "magnifyingglass", description: Text("换个关键词，或浏览其他版块。"))
+                            .listRowSeparator(.hidden)
+                    }
                 }
             }
             .listRowBackground(Color.clear)
@@ -201,12 +214,13 @@ struct FeedView: View {
             if let error, !hasContent, !isSwitchingVisibility {
                 LoadFailureView(failure: error, isRetrying: isLoading,
                                 offersWebsite: account.website.needsWebsite,
+                                websiteURL: recommended ? NodeSeekRoute.recommended(page: 1).url : NodeSeekRoute.home.url,
                                 retry: { refreshID = UUID() }, verify: { showsVerification = true })
             }
         }
         .seekCanvas(margins: .keepsGutter)
-        .contentMargins(.vertical, 6, for: .scrollContent)
-        .safeAreaBar(edge: .top, spacing: 0) { filterBar }
+        .contentMargins(.vertical, recommended ? 8 : 6, for: .scrollContent)
+        .modifier(OptionalFeedFilterBar(isEnabled: !recommended) { filterBar })
         // An open search folds away once the reader scrolls, taps outside it or leaves the page;
         // a search with results only drops the keyboard.
         .scrollDismissesKeyboard(.immediately)
@@ -399,6 +413,19 @@ struct FeedView: View {
             account.synchronizeAfterRequest(expectedRevision: sessionRevision)
             if reset { self.error = LoadFailure(error) }
             else { nextPageError = SiteError.displayMessage(for: error) }
+        }
+    }
+}
+
+private struct OptionalFeedFilterBar<Bar: View>: ViewModifier {
+    let isEnabled: Bool
+    @ViewBuilder let bar: () -> Bar
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.safeAreaBar(edge: .top, spacing: 0, content: bar)
+        } else {
+            content
         }
     }
 }
