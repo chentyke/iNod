@@ -102,5 +102,5 @@ HTTP 401、451、重定向和超时分别记录。403、404、返回首页或挑
 App 在网络检测的“常用服务”一节末尾放了“流媒体”入口，检测进行中时隐藏。页面通过 `NodeSeekCore` 的 `StreamingChecking` 调用以上服务，界面测试用 `SampleStreamingChecker`。
 
 - 样片一节逐个平台显示样片名和取得的信息。非 200 的 HTTP 状态写在样片名后面。
-- 播放器一节在弹出页里用 `WKWebView` 打开官方播放器，静音自动播放。网页的基础地址为 `https://` 加小写的 Bundle ID，作为 YouTube 要求的 Referer。YouTube 每 250 ms 读一次 `getCurrentTime()`。TikTok 只转发来源为该样片 iframe、且 origin 为 `https://www.tiktok.com` 的消息。播放器里的外链在浏览器中打开。30 秒内没有结果记为超时，提前关闭记为已取消。
+- 播放器一节在弹出页里用 `WKWebView` 打开官方播放器，静音自动播放。网页的基础地址为 `https://` 加小写的 Bundle ID，作为 YouTube 要求的 Referer。YouTube 每 250 ms 读一次 `getCurrentTime()`。TikTok 只转发来源为该样片 iframe、且 origin 为 `https://www.tiktok.com` 的消息。TikTok 的 `WKWebView` 在默认 User-Agent 后加上 `Safari/604.1`，和 Mobile Safari 一致：缺少这个标识时，TikTok 服务器多数时候返回错误 2001。播放器里的外链在浏览器中打开。30 秒内没有结果记为超时，提前关闭记为已取消。
 - YouTube 地区规则的国家代码默认取本次检测的出口归属，可以修改。API 密钥只存在本机钥匙串，离线界面测试只存在内存里。
