@@ -157,14 +157,24 @@ final class DesignChecklistTests: XCTestCase {
         XCTAssertTrue(open.waitForExistence(timeout: 3), "Scrolling should fold an empty search.")
 
         drag(app, from: 0.3, to: 0.8)
-        let card = ForumFixture.postCard(ForumFixture.announcementTitle, in: app)
-        XCTAssertTrue(card.wait(for: \.isHittable, toEqual: true, timeout: 3))
-        Thread.sleep(forTimeInterval: 1) // let the list stop, so the next tap is a tap
         open.tap()
         XCTAssertTrue(close.wait(for: \.isHittable, toEqual: true, timeout: 3))
 
+        // The accessibility activation point can disappear while the list settles. Wait for the visible row before tapping its center.
+        let card = ForumFixture.postCard(ForumFixture.announcementTitle, in: app)
+        let keyboard = app.keyboards.firstMatch
+        let cardIsVisible = NSPredicate { _, _ in
+            guard card.exists else { return false }
+            let frame = card.frame
+            let keyboardFrame = keyboard.exists ? keyboard.frame : .zero
+            let bottom = keyboardFrame.isEmpty ? app.frame.maxY : keyboardFrame.minY
+            return !frame.isEmpty && frame.midY > close.frame.maxY && frame.midY < bottom
+        }
+        let visible = XCTNSPredicateExpectation(predicate: cardIsVisible, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: 6), .completed)
+
         // Leaving for a post and coming back keeps the empty search folded and the keyboard down.
-        card.tap()
+        card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let back = app.buttons["返回"]
         XCTAssertTrue(back.wait(for: \.isHittable, toEqual: true, timeout: 5))
         back.tap()
