@@ -118,6 +118,11 @@ private struct OfficialPlayerView: UIViewRepresentable {
         configuration.allowsInlineMediaPlayback = true
         // Muted video may start by itself; sound would need a tap. This is what the check measures.
         configuration.mediaTypesRequiringUserActionForPlayback = .audio
+        if platform == .tikTok {
+            // TikTok's player server answers most requests from a user agent without Safari's product token
+            // with error 2001. WKWebView runs Safari's engine, so the page names it as Mobile Safari does.
+            configuration.applicationNameForUserAgent = "Mobile/15E148 Safari/604.1"
+        }
         configuration.userContentController.add(context.coordinator, name: "player")
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.isOpaque = false
