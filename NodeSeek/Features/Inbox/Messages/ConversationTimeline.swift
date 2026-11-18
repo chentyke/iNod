@@ -31,7 +31,9 @@ struct ConversationTimeline: View {
             }
             Color.clear.frame(height: 1).id("conversation-bottom").accessibilityHidden(true)
         }
-        .padding(.horizontal, 12)
+        .frame(maxWidth: SeekLayout.readableWidth)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, SeekLayout.gutter)
         .padding(.vertical, 8)
     }
 

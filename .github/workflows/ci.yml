@@ -153,7 +153,9 @@ jobs:
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testAllTabsAreOnScreen \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testFeedKeepsAReadableCentredColumn \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testThreadCardsAndReplyBarShareOneColumn \
+            -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testConversationBubblesAndComposerShareOneColumn \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testSidebarSelectionIsReadableInDarkMode \
+            -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testMenuBarIncludesManualRefreshCommand \
             -resultBundlePath "$RUNNER_TEMP/NodeSeekUITests-Mac.xcresult" \
             CODE_SIGN_IDENTITY=- test
       - name: Upload failed test results

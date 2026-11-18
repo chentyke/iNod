@@ -23,6 +23,10 @@ struct MessageBubble: View {
         .background {
             bubbleShape.fill(Color.seekCard)
                 .overlay { if own { bubbleShape.fill(Color.seekGreen.opacity(0.13)) } }
+                #if DEBUG
+                // Selectable text widens the bubble's outer accessibility frame on Mac; expose the visual bubble bounds for layout tests.
+                .overlay { Color.clear.accessibilityElement().accessibilityIdentifier("message-\(message.id)") }
+                #endif
         }
         .frame(maxWidth: 500, alignment: own ? .trailing : .leading)
         .frame(maxWidth: .infinity, alignment: own ? .trailing : .leading)

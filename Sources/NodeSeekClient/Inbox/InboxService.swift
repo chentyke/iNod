@@ -36,10 +36,29 @@ public final class InboxService {
     public func refreshUnread() async {
         guard let userID else { return }
         let version = changes
+        let currentSession = session
+        let previousCount = unreadCount
         do {
             let count = try await website.unreadCount(userID: userID)
-            if version == changes, !Task.isCancelled { unreadCount = count }
+            guard version == changes, !Task.isCancelled else { return }
+            unreadCount = count
+            if count > previousCount, currentSession == session {
+                await refreshLoadedLists(userID: userID)
+            }
         } catch { }
+    }
+
+    private func refreshLoadedLists(userID: Int) async {
+        var tasks: [Task<Void, Never>] = []
+        if threads != nil {
+            tasks.append(Task { try? await loadThreads(userID: userID, force: true) })
+        }
+        for kind in notices.keys {
+            tasks.append(Task { try? await loadNotices(kind, userID: userID, force: true) })
+        }
+        for task in tasks {
+            await task.value
+        }
     }
 
     public func loadThreads(userID: Int, force: Bool = false) async throws {

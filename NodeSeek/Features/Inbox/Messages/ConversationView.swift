@@ -13,6 +13,7 @@ struct ConversationView: View {
     private var conversation: ConversationData? { account.inbox.conversations[peer.id] }
     @State private var draft = MessageDraft()
     @State private var draftLoaded = false
+    @State private var hasLoadedOnce = false
     @State private var isVisible = false
     @State private var isNearBottom = true
     @State private var hasNewMessages = false
@@ -23,9 +24,10 @@ struct ConversationView: View {
 
     var body: some View {
         let peerName = conversation?.peer.name ?? peer.name
-        let isActive = scenePhase == .active
 
-        AccountDataView(value: conversation, error: error, isBusy: loadID != nil || isSending, retry: { await load(force: true) }) { data in
+        AccountDataView(value: conversation, error: error, isBusy: loadID != nil || isSending,
+                        margins: .keepsGutter, in: .scrollView,
+                        retry: { await refreshManually() }) { data in
             ScrollViewReader { proxy in
                 ScrollView {
                     ConversationTimeline(messages: data.items, userID: userID)
@@ -63,7 +65,6 @@ struct ConversationView: View {
                 }
             }
         }
-        .seekCanvas(margins: .keepsGutter)
         .navigationTitle(peerName)
         .safeAreaBar(edge: .bottom, spacing: 0) {
             MessageComposer(draft: $draft, isBusy: isSending,
@@ -92,16 +93,27 @@ struct ConversationView: View {
         }
         .onDisappear { isVisible = false }
         .onChange(of: draft) { if draftLoaded { MessageDraftStore.save(draft, ownerID: userID, peerID: peer.id) } }
-        .task(id: isActive) {
-            guard isActive else { return }
-            await load(replacingCurrentLoad: true)
+        .task {
+            let shouldForce = hasLoadedOnce
+            hasLoadedOnce = true
+            await load(force: shouldForce, replacingCurrentLoad: true)
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(10)) } catch { return }
-                guard !Task.isCancelled, isVisible, scenePhase == .active else { return }
+                guard !Task.isCancelled, scenePhase.isPollingActive else { continue }
                 if !isSending { await load(force: true) }
             }
         }
-        .refreshable { await load(force: true) }
+        .onChange(of: scenePhase) { previous, phase in
+            if previous != .active, phase == .active, isVisible, hasLoadedOnce, !isSending {
+                Task { await load(force: true) }
+            }
+        }
+        .onChange(of: account.inbox.unreadCount) { previous, count in
+            if count > previous, isVisible, !isSending {
+                Task { await load(force: true) }
+            }
+        }
+        .refreshable { await refreshManually() }
         .sheet(isPresented: $showsPreview) {
             ForumNavigationStack {
                 ScrollView { ForumMarkdown(markdown: draft.content).padding(20).frame(maxWidth: .infinity, alignment: .leading) }
@@ -111,6 +123,11 @@ struct ConversationView: View {
             }
         }
         .sheet(isPresented:$showsStickers) { StickerPickerView { sticker in draft.isMarkdown = true; draft.content += ":\(sticker.code):" } }
+    }
+
+    private func refreshManually() async {
+        guard !isSending else { return }
+        await load(force: true, replacingCurrentLoad: true)
     }
 
     private func load(force: Bool = false, replacingCurrentLoad: Bool = false) async {
