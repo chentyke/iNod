@@ -81,23 +81,26 @@ final class QualityToolsTests: XCTestCase {
         XCTAssertTrue(row("Netflix", "片名页可访问").exists)
         XCTAssertTrue(row("Disney+", "HTTP 403", "无法判断").exists)
         XCTAssertTrue(row("TikTok", "超时").exists)
+        // Lists only build rows near the screen, so smaller iPhones scroll each row in before using it.
+        func reveal(_ element: XCUIElement) -> XCUIElement {
+            for _ in 0..<6 where !(element.exists && element.isHittable) { app.swipeUp() }
+            return element
+        }
 
         // The sample players never load the network; one plays, the other reports blocked autoplay.
-        app.buttons["streaming.play.youTube"].tap()
+        reveal(app.buttons["streaming.play.youTube"]).tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '已播放'")).firstMatch.waitForExistence(timeout: 5))
         app.buttons["streaming.playback.done"].tap()
         XCTAssertTrue(app.buttons["streaming.play.youTube"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["streaming.play.youTube"].label.contains("已播放"))
-        app.buttons["streaming.play.tikTok"].tap()
+        reveal(app.buttons["streaming.play.tikTok"]).tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '自动播放被拦'")).firstMatch.waitForExistence(timeout: 5))
         app.buttons["streaming.playback.done"].tap()
         XCTAssertTrue(app.buttons["streaming.play.tikTok"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["streaming.play.tikTok"].label.contains("自动播放被拦"))
 
         // The region form starts from the report's exit country and needs a key before it queries.
-        let region = app.buttons["streaming.region"]
-        for _ in 0..<4 where !region.isHittable { app.swipeUp() }
-        region.tap()
+        reveal(app.buttons["streaming.region"]).tap()
         let country = app.textFields["region.country"]
         XCTAssertTrue(country.waitForExistence(timeout: 5))
         XCTAssertEqual(country.value as? String, "CN")
