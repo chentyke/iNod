@@ -24,6 +24,7 @@ struct NodeSeekApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .modifier(UITestDynamicTypeModifier())
                 .environment(account)
                 .environment(\.pageRefresh, pageRefresh)
                 .tint(.seekGreen)
@@ -79,5 +80,41 @@ private struct RefreshCommandButton: View {
         }
         .keyboardShortcut("r", modifiers: [.command, .shift])
         .disabled(!pageRefresh.canRefresh)
+    }
+}
+
+private struct UITestDynamicTypeModifier: ViewModifier {
+    #if DEBUG
+    private var overrideSize: DynamicTypeSize? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "-UIPreferredContentSizeCategoryName"),
+              arguments.indices.contains(index + 1) else {
+            return nil
+        }
+        let raw = arguments[index + 1]
+        if let mapped = DynamicTypeSize(UIContentSizeCategory(rawValue: raw)) {
+            return mapped
+        }
+        switch raw {
+        case "UICTContentSizeCategoryAccessibilityMedium": return .accessibility1
+        case "UICTContentSizeCategoryAccessibilityLarge": return .accessibility2
+        case "UICTContentSizeCategoryAccessibilityExtraLarge": return .accessibility3
+        case "UICTContentSizeCategoryAccessibilityExtraExtraLarge": return .accessibility4
+        case "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge": return .accessibility5
+        default: return nil
+        }
+    }
+    #endif
+
+    func body(content: Content) -> some View {
+        #if DEBUG
+        if let size = overrideSize {
+            content.dynamicTypeSize(size)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
     }
 }

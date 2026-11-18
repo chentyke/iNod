@@ -34,6 +34,20 @@ public enum AccountLevel {
             let span = max(1, nextTarget - currentFloor)
             return min(max(Double(coins - currentFloor) / Double(span), 0), 1)
         }
+
+        public var compactSummary: String {
+            if let remaining = remainingCoins {
+                return "Lv \(level) · 还差 \(remaining.formatted())"
+            }
+            return "Lv \(level) · 已满级"
+        }
+
+        public var accessibilitySummary: String {
+            if let nextLevel, let remaining = remainingCoins {
+                return "Lv \(level)，距离 Lv \(nextLevel) 还差 \(remaining.formatted()) 个鸡腿"
+            }
+            return "Lv \(level)，已达最高等级"
+        }
     }
 
     public static func requiredCoins(for level: Int) -> Int {
