@@ -52,6 +52,8 @@ Cloudflare 的 HTTP 时延和抖动算法可在同节点上复测。iNod 使用�
 
 [Globalping 会公开测量目标和结果](https://globalping.io/terms/terms-of-use.md)。此服务只用于可以公开的目标，由调用方单独发起，常规网络检测不调用。测到的是远端到公网地址的线路。共享地址、路由器、防火墙和 VPN 都可能使远端只能测到部分线路。
 
+界面入口在网络检测的「三网线路 → 回程线路」，检测进行中不显示。读者手动填写或点选本次检测的出口地址，确认公开后才开始。界面通过 `ReturnRouteTesting` 调用，离线界面测试使用 `SampleReturnRouteTester`：电信、联通有结果，移动没有节点。
+
 ## 进阶检测与离线跑分
 
 - 用 `AdvancedNetworkQualityService().run(for:)` 对已有首版报告补测。预览用 `AdvancedQualityExamples.partial`。五个网站分别发一次 HTTPS GET，报告区分页面可访问、重定向、HTTP 451、超时和其他失败。HTTP 403 只记录服务端拒绝。

@@ -89,6 +89,28 @@ struct QualityReturnRouteTests {
         }
     }
 
+    @Test func liveTesterCarriesTheTargetIntoEachRoute() async {
+        let tester = LiveReturnRouteTester(service: QualityReturnRouteService { request, _ in
+            if request.httpMethod == "POST" { return response(#"{"id":"sample-trace"}"#, status: 202) }
+            return response("""
+                {"type":"traceroute","status":"finished","target":"192.0.2.80","results":[
+                  {"probe":{"asn":4837,"city":"Beijing","country":"CN"},"result":{
+                    "status":"finished","resolvedAddress":"192.0.2.80",
+                    "hops":[{"resolvedAddress":null,"timings":[]},{"resolvedAddress":"192.0.2.80","timings":[{"rtt":40.0}]}]
+                  }}
+                ]}
+                """)
+        })
+        let target = ReturnRouteTarget(family: .v4, address: "192.0.2.80")
+        let routes = await tester.trace(to: target)
+        #expect(routes.map(\.carrier) == [.telecom, .unicom, .mobile])
+        #expect(routes.allSatisfy { $0.target == target })
+        #expect(routes[1].result.value == .init(probeCity: "Beijing", hops: [.init(index: 1, address: nil), .init(index: 2, address: "192.0.2.80", rttMs: 40)],
+                                                reachedTarget: true))
+        #expect(routes[1].result.value?.lastLatencyMs == 40)
+        guard case .unavailable = routes[0].result else { Issue.record("Expected no Telecom probe"); return }
+    }
+
     private func target(_ address: String, family: IPFamily = .v4) -> IPEgress {
         .init(family: family, address: address, echoSource: "Example", owner: nil, queriedAt: .now)
     }
