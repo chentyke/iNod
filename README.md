@@ -4,6 +4,11 @@
 
 使用 SwiftUI，最低支持 iOS 26 / iPadOS 26，Mac 版通过 Mac Catalyst 运行（macOS 26 或更新）。直接读取官网页面和官网使用的 JSON 接口，无第三方依赖。
 
+## 下载安装
+
+- [iPhone / iPad 安装](https://appdrop.app/d/uikx2q7ahi)（首次需要连接 AppDrop VPN，并用自己的 Apple 账号签名）
+- [Mac 下载和历史版本](https://github.com/chentyke/iNod/releases)
+
 ## 打开项目
 
 用 Xcode 26.2 或更新版本打开 `NodeSeek.xcodeproj`，选择 `NodeSeek` scheme 和 iPhone、iPad 模拟器或 **My Mac (Mac Catalyst)** 后运行。真机运行需要在 Signing & Capabilities 中选择自己的开发者团队。
