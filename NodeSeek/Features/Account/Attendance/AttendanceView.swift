@@ -2,51 +2,108 @@ import NodeSeekCore
 import NodeSeekClient
 import SwiftUI
 
+enum AttendanceSignInMode: Equatable {
+    case fixed
+    case random
+}
+
+enum AttendanceMetrics {
+    static let cardPadding: CGFloat = 20
+    /// Trims font line-height air above the first text line so visual top and bottom gaps match.
+    static let topGlyphTrim: CGFloat = 3
+    static let bottomGlyphTrim: CGFloat = 3
+    static let blockSpacing: CGFloat = 16
+    static let textSpacing: CGFloat = 6
+    static let buttonSpacing: CGFloat = 10
+    static let pillSpacing: CGFloat = 8
+    static let pillHorizontalPadding: CGFloat = 12
+    static let pillVerticalPadding: CGFloat = 6
+
+    static let rowVerticalInset: CGFloat = 9
+    static let rowHorizontalInset: CGFloat = 16
+    static let rowSpacing: CGFloat = 12
+    static let rankWidth: CGFloat = 30
+    static let podiumBadgeSize: CGFloat = 24
+    static let avatarSize: CGFloat = 36
+    static let separatorInset: CGFloat = rankWidth + rowSpacing + avatarSize + rowSpacing
+    static let memberRowInsets = EdgeInsets(
+        top: rowVerticalInset,
+        leading: rowHorizontalInset,
+        bottom: rowVerticalInset,
+        trailing: rowHorizontalInset
+    )
+
+    static func statusCardInsets(hasBottomCapsule: Bool) -> EdgeInsets {
+        EdgeInsets(
+            top: cardPadding - topGlyphTrim,
+            leading: cardPadding,
+            bottom: hasBottomCapsule ? cardPadding : cardPadding - bottomGlyphTrim,
+            trailing: cardPadding
+        )
+    }
+}
+
 struct AttendanceView: View {
     let userID: Int
     @Environment(AccountSession.self) private var account
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var loader = AccountLoader<AttendanceBoard>()
     @State private var page = 1
+    @State private var signingMode: AttendanceSignInMode?
 
     var body: some View {
         AccountDataView(loader: loader, retry: { await load(force: true) }) { data in
+            let hasBottomCapsule = data.gain == nil || data.order != nil || account.user?.coins != nil
             List {
                 Section {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Label(data.gain == nil ? "今天还未签到" : "今天已签到", systemImage: data.gain == nil ? "calendar" : "checkmark.circle.fill")
-                            .font(.title3.bold()).foregroundStyle(Color.seekGreen)
-                        if let gain = data.gain {
-                            Text("获得 \(gain) 个鸡腿").font(.headline)
-                            if let order = data.order { Text("今日第 \(order) 位签到").font(.subheadline).foregroundStyle(.secondary) }
-                        } else {
-                            Button("签到，领取 5 个鸡腿", systemImage: "checkmark") { Task { await signIn(random: false) } }
-                                .buttonStyle(.seekPill)
-                            Button("试试手气，领取随机奖励", systemImage: "dice") { Task { await signIn(random: true) } }
-                                .buttonStyle(.borderless).frame(minHeight: 44)
-                        }
-                        if loader.isUpdating { ProgressView("正在签到") }
-                    }.padding(.vertical, 12).disabled(loader.isUpdating)
+                    AttendanceStatusCard(
+                        board: data,
+                        coins: account.user?.coins,
+                        signingMode: signingMode
+                    ) { mode in
+                        Task { await signIn(mode: mode) }
+                    }
+                    .listRowInsets(AttendanceMetrics.statusCardInsets(hasBottomCapsule: hasBottomCapsule))
+                    .listRowBackground(Color.seekCard)
+                    .listRowSeparator(.hidden)
                 }
-                Section("今日签到榜（\(data.total) 人）") {
+
+                Section {
+                    if data.items.isEmpty {
+                        Text("今天还没有人签到")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 8)
+                            .listRowBackground(Color.seekCard)
+                    }
                     ForEach(data.items) { member in
-                        HStack(spacing: 12) {
-                            Text(member.rank.formatted()).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 28)
-                            AvatarView(name: member.name, url: NodeSeekRoute.origin.appending(path: "avatar/\(member.id).png"))
-                            Text(member.name).lineLimit(1)
-                            Spacer()
-                            Text("+\(member.gain)").font(.subheadline.bold().monospacedDigit()).foregroundStyle(Color.seekGreen)
-                        }.padding(.vertical, 5).accessibilityElement(children: .combine)
+                        NavigationLink(value: MemberDestination.profile(member.id)) {
+                            AttendanceMemberRow(member: member, isCurrentUser: member.id == userID)
+                        }
+                        .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] + AttendanceMetrics.separatorInset }
+                        .listRowInsets(AttendanceMetrics.memberRowInsets)
+                        .listRowBackground(Color.seekCard)
                     }
                     if data.hasNext && loader.error == nil && !loader.isLoadingFirstPage {
-                        LoadMoreRow(error: loader.nextPageError, isEnabled: !loader.isUpdating) {
+                        LoadMoreRow(error: loader.nextPageError, isEnabled: signingMode == nil && !loader.isUpdating) {
                             await load(nextPage: true)
                         }
                         .id(page)
+                        .listRowBackground(Color.seekCard)
                     }
+                } header: {
+                    SeekSectionTitle(
+                        title: "今日签到榜",
+                        detail: data.total > 0 ? "\(data.total.formatted()) 人" : nil
+                    )
                 }
             }
+            .seekGroupedList()
+            .contentMargins(.top, 12, for: .scrollContent)
+            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy(duration: 0.28), value: data.gain != nil)
         }
-        .seekGroupedList().navigationTitle("每日签到")
+        .navigationTitle("每日签到")
         .task { if loader.value == nil { await load() } }
         .refreshable { await load(force: true) }
     }
@@ -60,12 +117,15 @@ struct AttendanceView: View {
             page = requestedPage
         }
     }
-    private func signIn(random: Bool) async {
-        guard loader.value?.gain == nil, !loader.isUpdating else { return }
-        if let response = await loader.action(account.website, .attend(random: random), userID: userID) {
+
+    private func signIn(mode: AttendanceSignInMode) async {
+        guard loader.value?.gain == nil, signingMode == nil, !loader.isUpdating else { return }
+        signingMode = mode
+        defer { signingMode = nil }
+        if let response = await loader.action(account.website, .attend(random: mode == .random), userID: userID) {
             account.updateCoins(response.current)
-            await load()
-            await account.refresh()
+            await load(force: true)
+            await account.refresh(force: true)
         }
     }
 }
