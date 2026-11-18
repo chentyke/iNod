@@ -28,6 +28,8 @@ public struct StardustRecords: Decodable, Sendable {
     public let cursor: Int?
 }
 public struct StardustRecord: Decodable, Sendable, Identifiable {
+    public static let filterableTypes = ["transfer", "upvote", "system", "buyCode", "admin"]
+
     public let id: Int
     public let diff: Int
     public let result: Int
@@ -35,4 +37,49 @@ public struct StardustRecord: Decodable, Sendable, Identifiable {
     public let created_at: String
     public let peer_id: Int?
     public let ref_id: Int?
+
+    public init(
+        id: Int,
+        diff: Int,
+        result: Int,
+        type: String,
+        created_at: String,
+        peer_id: Int? = nil,
+        ref_id: Int? = nil
+    ) {
+        self.id = id
+        self.diff = diff
+        self.result = result
+        self.type = type
+        self.created_at = created_at
+        self.peer_id = peer_id
+        self.ref_id = ref_id
+    }
+
+    public static func typeTitle(_ rawType: String) -> String {
+        switch rawType {
+        case "system": "系统"
+        case "admin": "管理"
+        case "transfer": "转账"
+        case "upvote": "点赞"
+        case "buyCode": "购买邀请码"
+        default: rawType
+        }
+    }
+
+    public var typeTitle: String { Self.typeTitle(type) }
+
+    public var validPeerID: Int? {
+        guard let peer_id, peer_id > 0 else { return nil }
+        return peer_id
+    }
+
+    public var validRefID: Int? {
+        guard let ref_id, ref_id > 0 else { return nil }
+        return ref_id
+    }
+
+    public var formattedDiff: String {
+        diff > 0 ? "+\(diff.formatted())" : diff.formatted()
+    }
 }
