@@ -86,6 +86,7 @@ struct ForumNavigationStack<Content: View>: View {
         })
         .environment(\.postTransitionNamespace, postTransition)
         .environment(\.openAccountDestination, AccountNavigationAction { activePath.wrappedValue.append($0) })
+        .environment(\.openAppDestination, AppNavigationAction { activePath.wrappedValue.append($0) })
         .environment(\.openURL,OpenURLAction { url in
             switch ForumLink.parse(url.absoluteString) {
             case .native(let destination): activePath.wrappedValue.append(destination); return .handled
