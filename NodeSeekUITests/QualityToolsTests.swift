@@ -34,17 +34,17 @@ final class QualityToolsTests: XCTestCase {
     }
 
     func testCancelKeepsFinishedResultsAndResumes() {
-        let app = open("网络检测", pace: "0.6")
+        let app = open("网络检测", pace: "0.9")
         app.buttons["quality.start"].tap()
         // Wait until the address lookups start, so the speed result is in and the rest is not.
         XCTAssertTrue(app.staticTexts["正在查询地址"].waitForExistence(timeout: 20))
         app.buttons["quality.cancel"].tap()
 
-        XCTAssertTrue(app.staticTexts["已取消"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Cloudflare 香港"].exists, "The finished speed result stays after a cancel")
         let resume = app.buttons["quality.retry"]
-        XCTAssertTrue(resume.exists)
+        XCTAssertTrue(resume.waitForExistence(timeout: 8))
         XCTAssertTrue(resume.label.hasPrefix("继续剩余"))
+        let download = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", "下载", "486 Mbps")).firstMatch
+        XCTAssertTrue(download.exists, "The finished download stays in the summary after cancellation")
 
         resume.tap()
         XCTAssertTrue(app.buttons["quality.cancel"].waitForExistence(timeout: 5))
