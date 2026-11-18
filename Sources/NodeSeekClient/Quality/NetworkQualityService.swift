@@ -51,8 +51,8 @@ public struct NetworkQualityService: Sendable {
                 .measured(await Self.measure(startReport, steps: steps, send: send, onProgress: onProgress))
             }
             group.addTask {
-                for await path in updates where path != initial {
-                    return .interrupted(path.network == .offline ? .offline : .networkChanged)
+                if let issue = await QualityNetworkPath.interruption(in: updates, after: initial) {
+                    return .interrupted(issue)
                 }
                 return .monitorEnded
             }

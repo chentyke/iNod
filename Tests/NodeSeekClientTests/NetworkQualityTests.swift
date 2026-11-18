@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import Testing
 @testable import NodeSeekClient
 
@@ -57,6 +58,27 @@ struct NetworkQualityTests {
         let report = await service.run()
         #expect(report.ipv6 == .unavailable(.wrongAddressFamily))
         #expect(report.completedStepCount == 5)
+    }
+
+    @Test func pathDetailsCanAppearWithoutInterruptingAWiFiRun() async {
+        let initial = QualityNetworkPath(network: .wifi, interfaces: ["en0"])
+        let gateway = NWEndpoint.hostPort(host: "192.0.2.1", port: 0)
+        let stream = AsyncStream<QualityNetworkPath> { continuation in
+            continuation.yield(.init(network: .wifi, interfaces: ["en0"], gateways: [gateway], isConstrained: true))
+            continuation.yield(.init(network: .wifi, interfaces: ["en0"], isExpensive: true))
+            continuation.finish()
+        }
+        #expect(await QualityNetworkPath.interruption(in: stream, after: initial) == nil)
+    }
+
+    @Test func wifiWithANewGatewayInterruptsTheRunAfterAnIncompleteUpdate() async {
+        let initial = QualityNetworkPath(network: .wifi, interfaces: ["en0"], gateways: [.hostPort(host: "192.0.2.1", port: 0)])
+        let stream = AsyncStream<QualityNetworkPath> { continuation in
+            continuation.yield(.init(network: .wifi, interfaces: ["en0"]))
+            continuation.yield(.init(network: .wifi, interfaces: ["en0"], gateways: [.hostPort(host: "192.0.2.2", port: 0)]))
+            continuation.finish()
+        }
+        #expect(await QualityNetworkPath.interruption(in: stream, after: initial) == .networkChanged)
     }
 
     @Test func switchingNetworksCancelsInFlightRequestsAndKeepsCompletedChecks() async {

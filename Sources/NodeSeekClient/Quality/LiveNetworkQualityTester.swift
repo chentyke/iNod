@@ -69,8 +69,8 @@ public struct LiveNetworkQualityTester: NetworkQualityTesting {
         return await withTaskGroup(of: Event.self) { group in
             group.addTask { .measured(await measure(requested, from: activeReport, previous: previous, publish: publish)) }
             group.addTask {
-                for await change in updates where change != path {
-                    return .interrupted(change.network == .offline ? .offline : .networkChanged)
+                if let issue = await QualityNetworkPath.interruption(in: updates, after: path) {
+                    return .interrupted(issue)
                 }
                 return .monitorEnded
             }
