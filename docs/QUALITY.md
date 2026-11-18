@@ -44,6 +44,12 @@ Cloudflare 的 HTTP 时延和抖动算法可在同节点上复测。iNod 使用�
 2. 在电脑上运行同一 `NetworkQualityService`，使用相同的请求大小、顺序和算法。记录两个报告的延迟、抖动和 Mbps，并检查两侧 IP 和 ASN。
 3. 在 iPhone 上用蜂窝网络重跑。还需在仅一种 IP 可用、VPN 分流、测速时换网络和取消后重跑的情况下记录结果。检查用户看到的不可用原因是否与实际情况相符。
 
+## 三网回程
+
+`QualityReturnRouteService.trace(toPublicTarget:)` 以一个公开的 IPv4 或 IPv6 地址为目标，请 [Globalping](https://github.com/jsdelivr/globalping/blob/master/public/v1/spec.yaml) 从中国大陆的电信（AS4134）、联通（AS4837）和移动（AS9808）各选择一个在线节点，执行 ICMP 路由追踪。结果带运营商、节点城市、地址类型、逐跳往返时延和目标是否回应。没有回应的一跳保持原来的位置。一个运营商缺少结果时保留其他运营商已取得的记录。
+
+[Globalping 会公开测量目标和结果](https://globalping.io/terms/terms-of-use.md)。此服务只用于可以公开的目标，由调用方单独发起，常规网络检测不调用。测到的是远端到公网地址的线路。共享地址、路由器、防火墙和 VPN 都可能使远端只能测到部分线路。
+
 ## 进阶检测与离线跑分
 
 - 用 `AdvancedNetworkQualityService().run(for:)` 对已有首版报告补测。预览用 `AdvancedQualityExamples.partial`。五个网站分别发一次 HTTPS GET，报告区分页面可访问、重定向、HTTP 451、超时和其他失败。HTTP 403 只记录服务端拒绝。
