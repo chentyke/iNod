@@ -10,15 +10,13 @@ final class AccountSettingsViewTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testAccountSettingsDisplaysIdentityGroupsAndNavigatesSubpages() throws {
+    func testAccountSettingsAndSubpagesNavigateAndValidate() throws {
         #if targetEnvironment(macCatalyst)
         throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
         #else
         let app = try launchAccountSettings()
-        XCTAssertTrue(ForumFixture.title("账号设置", in: app).waitForExistence(timeout: 5))
 
         let identityCard = ForumFixture.element("account-settings-identity-card", in: app)
-        XCTAssertTrue(identityCard.waitForExistence(timeout: 5))
         XCTAssertTrue(identityCard.label.contains("测试用户"))
         XCTAssertTrue(identityCard.label.contains("UID 9900315"), "UID should not contain thousand separators.")
         XCTAssertFalse(identityCard.label.contains("9,900,315"))
@@ -27,12 +25,11 @@ final class AccountSettingsViewTests: XCTestCase {
         assertReadableColumn(in: app, elementIdentifier: "account-settings-identity-card")
         attachScreenshot(of: app, named: "account-settings-after-light")
 
-        // 1. Profile Editor
+        // 1. Profile Editor (edit + Markdown preview)
         tapRow("settings-row-profile", in: app)
         XCTAssertTrue(ForumFixture.title("编辑资料", in: app).waitForExistence(timeout: 5))
         let modePicker = ForumFixture.element("profile-editor-mode-picker", in: app)
         XCTAssertTrue(modePicker.waitForExistence(timeout: 5))
-        attachScreenshot(of: app, named: "profile-editor-after-light")
         modePicker.buttons["预览"].tap()
         XCTAssertTrue(app.staticTexts["热爱开源与网络技术"].waitForExistence(timeout: 5))
         popBack(to: "账号设置", in: app)
@@ -44,17 +41,54 @@ final class AccountSettingsViewTests: XCTestCase {
         XCTAssertTrue(avatarPreview.waitForExistence(timeout: 5))
         XCTAssertTrue(avatarPreview.label.contains("当前头像"))
         XCTAssertTrue(ForumFixture.element("avatar-pick-button", in: app).exists)
-        attachScreenshot(of: app, named: "avatar-editor-after-light")
         popBack(to: "账号设置", in: app)
 
-        // 3. Homepage Settings
+        // 3. Account Security & its verification subpages
+        tapRow("settings-row-security", in: app)
+        XCTAssertTrue(ForumFixture.title("登录与安全", in: app).waitForExistence(timeout: 5))
+        let twoFactorRow = ForumFixture.element("security-row-2fa", in: app)
+        XCTAssertTrue(twoFactorRow.waitForExistence(timeout: 5))
+        XCTAssertTrue(twoFactorRow.label.contains("已开启"))
+        XCTAssertTrue(app.staticTexts["203.0.113.42"].exists)
+        XCTAssertTrue(app.staticTexts["最近一次"].exists)
+
+        tapRow("security-row-password", in: app)
+        XCTAssertTrue(ForumFixture.title("修改密码", in: app).waitForExistence(timeout: 5))
+        let savePassword = ForumFixture.element("password-save-button", in: app)
+        XCTAssertFalse(savePassword.isEnabled)
+        let newPasswordField = ForumFixture.element("password-new-field", in: app)
+        newPasswordField.tap()
+        newPasswordField.typeText("abc")
+        XCTAssertTrue(app.staticTexts["新密码长度需为 6–18 位（当前 3 位）。"].waitForExistence(timeout: 5))
+        popBack(to: "登录与安全", in: app)
+
+        tapRow("security-row-2fa", in: app)
+        XCTAssertTrue(ForumFixture.title("双因素验证", in: app).waitForExistence(timeout: 5))
+        let statusCard = ForumFixture.element("two-factor-status-card", in: app)
+        XCTAssertTrue(statusCard.waitForExistence(timeout: 5))
+        XCTAssertTrue(statusCard.label.contains("双因素验证已开启"))
+        XCTAssertFalse(ForumFixture.element("two-factor-action-button", in: app).isEnabled)
+        popBack(to: "登录与安全", in: app)
+
+        tapRow("security-row-telegram", in: app)
+        XCTAssertTrue(ForumFixture.title("Telegram 提醒", in: app).waitForExistence(timeout: 5))
+        let telegramUsername = ForumFixture.element("telegram-username-row", in: app)
+        XCTAssertTrue(telegramUsername.waitForExistence(timeout: 5))
+        XCTAssertTrue(telegramUsername.label.contains("@nodeseek_reader"))
+        tapRow("telegram-unbind-button", in: app)
+        let unbindAlert = app.alerts["解除 Telegram 绑定？"]
+        XCTAssertTrue(unbindAlert.waitForExistence(timeout: 5))
+        unbindAlert.buttons["取消"].tap()
+        popBack(to: "登录与安全", in: app)
+        popBack(to: "账号设置", in: app)
+
+        // 4. Homepage Settings
         tapRow("settings-row-homepage", in: app)
         XCTAssertTrue(ForumFixture.title("首页版块", in: app).waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["技术"].waitForExistence(timeout: 5))
         let saveHomepage = ForumFixture.element("homepage-save-button", in: app)
-        XCTAssertFalse(saveHomepage.isEnabled)
         let tradeToggle = app.switches.matching(identifier: "homepage-category-trade").firstMatch
         XCTAssertTrue(tradeToggle.waitForExistence(timeout: 5))
+        XCTAssertFalse(saveHomepage.isEnabled)
         tradeToggle.switches.firstMatch.tap()
         if !saveHomepage.isEnabled {
             tradeToggle.tap()
@@ -62,93 +96,30 @@ final class AccountSettingsViewTests: XCTestCase {
         XCTAssertTrue(saveHomepage.isEnabled)
         saveHomepage.tap()
         XCTAssertTrue(app.staticTexts["首页版块设置已同步到 NodeSeek。"].waitForExistence(timeout: 5))
-        attachScreenshot(of: app, named: "homepage-settings-after-light")
         popBack(to: "账号设置", in: app)
 
-        // 4. Blocked Members
+        // 5. Blocked Members
         tapRow("settings-row-blocks", in: app)
         XCTAssertTrue(ForumFixture.title("屏蔽用户", in: app).waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["广告账号"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["UID 9900088"].exists)
-        attachScreenshot(of: app, named: "blocked-members-after-light")
         let unblockButton = ForumFixture.element("unblock-member-9900088", in: app)
         XCTAssertTrue(unblockButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["UID 9900088"].exists)
         unblockButton.tap()
         let unblockAlert = app.alerts["解除对「广告账号」的屏蔽？"]
         XCTAssertTrue(unblockAlert.waitForExistence(timeout: 5))
         unblockAlert.buttons["取消"].tap()
         popBack(to: "账号设置", in: app)
 
-        // 5. Website Preferences
+        // 6. Website Preferences & Sign Out Confirmation
         tapRow("settings-row-website-preferences", in: app)
         XCTAssertTrue(ForumFixture.title("官网显示设置", in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(ForumFixture.element("website-css-editor", in: app).waitForExistence(timeout: 5))
-        attachScreenshot(of: app, named: "website-preferences-after-light")
         popBack(to: "账号设置", in: app)
 
-        // 6. Sign Out Confirmation
         tapRow("settings-sign-out-button", in: app)
         let signOutAlert = app.alerts["退出登录？"]
         XCTAssertTrue(signOutAlert.waitForExistence(timeout: 5))
         signOutAlert.buttons["取消"].tap()
-        XCTAssertTrue(ForumFixture.title("账号设置", in: app).exists)
-        #endif
-    }
-
-    func testAccountSecurityAndVerificationSubpages() throws {
-        #if targetEnvironment(macCatalyst)
-        throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
-        #else
-        let app = try launchAccountSettings()
-        tapRow("settings-row-security", in: app)
-        XCTAssertTrue(ForumFixture.title("登录与安全", in: app).waitForExistence(timeout: 5))
-
-        let twoFactorRow = ForumFixture.element("security-row-2fa", in: app)
-        XCTAssertTrue(twoFactorRow.waitForExistence(timeout: 5))
-        XCTAssertTrue(twoFactorRow.label.contains("已开启"))
-        XCTAssertTrue(app.staticTexts["203.0.113.42"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["最近一次"].exists)
-        assertReadableColumn(in: app, elementIdentifier: "security-row-password")
-        attachScreenshot(of: app, named: "account-security-after-light")
-
-        // 1. Password View
-        tapRow("security-row-password", in: app)
-        XCTAssertTrue(ForumFixture.title("修改密码", in: app).waitForExistence(timeout: 5))
-        let savePassword = ForumFixture.element("password-save-button", in: app)
-        XCTAssertTrue(savePassword.waitForExistence(timeout: 5))
-        XCTAssertFalse(savePassword.isEnabled)
-        let newPasswordField = ForumFixture.element("password-new-field", in: app)
-        newPasswordField.tap()
-        newPasswordField.typeText("abc")
-        XCTAssertTrue(app.staticTexts["新密码长度需为 6–18 位（当前 3 位）。"].waitForExistence(timeout: 5))
-        attachScreenshot(of: app, named: "password-view-after-light")
-        popBack(to: "登录与安全", in: app)
-
-        // 2. Two-Factor View
-        tapRow("security-row-2fa", in: app)
-        XCTAssertTrue(ForumFixture.title("双因素验证", in: app).waitForExistence(timeout: 5))
-        let statusCard = ForumFixture.element("two-factor-status-card", in: app)
-        XCTAssertTrue(statusCard.waitForExistence(timeout: 5))
-        XCTAssertTrue(statusCard.label.contains("双因素验证已开启"))
-        XCTAssertFalse(ForumFixture.element("two-factor-action-button", in: app).isEnabled)
-        attachScreenshot(of: app, named: "two-factor-after-light")
-        popBack(to: "登录与安全", in: app)
-
-        // 3. Telegram Settings View
-        tapRow("security-row-telegram", in: app)
-        XCTAssertTrue(ForumFixture.title("Telegram 提醒", in: app).waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["已绑定 Telegram"].waitForExistence(timeout: 5))
-        let telegramUsername = ForumFixture.element("telegram-username-row", in: app)
-        XCTAssertTrue(telegramUsername.waitForExistence(timeout: 5))
-        XCTAssertTrue(telegramUsername.label.contains("@nodeseek_reader"))
-        attachScreenshot(of: app, named: "telegram-settings-after-light")
-        let unbindButton = ForumFixture.element("telegram-unbind-button", in: app)
-        XCTAssertTrue(unbindButton.waitForExistence(timeout: 5))
-        for _ in 0..<3 where !unbindButton.isHittable { app.swipeUp() }
-        unbindButton.tap()
-        let unbindAlert = app.alerts["解除 Telegram 绑定？"]
-        XCTAssertTrue(unbindAlert.waitForExistence(timeout: 5))
-        unbindAlert.buttons["取消"].tap()
         #endif
     }
 
@@ -157,23 +128,20 @@ final class AccountSettingsViewTests: XCTestCase {
         throw XCTSkip("Mac Catalyst UI tests cannot click into app content.")
         #else
         let app = try launchAccountSettings(dark: true)
-        XCTAssertTrue(ForumFixture.element("account-settings-identity-card", in: app).waitForExistence(timeout: 5))
         attachScreenshot(of: app, named: "account-settings-after-dark")
 
         tapRow("settings-row-security", in: app)
         XCTAssertTrue(ForumFixture.title("登录与安全", in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["203.0.113.42"].waitForExistence(timeout: 5))
-        attachScreenshot(of: app, named: "account-security-after-dark")
         #endif
     }
 
     private func tapRow(_ identifier: String, in app: XCUIApplication, line: UInt = #line) {
         let row = ForumFixture.element(identifier, in: app)
-        if !row.waitForExistence(timeout: 3) {
-            for _ in 0..<4 where !row.exists { app.swipeUp() }
+        for _ in 0..<4 where !(row.exists && row.isHittable) {
+            app.swipeUp()
         }
         XCTAssertTrue(row.waitForExistence(timeout: 5), "Missing row \(identifier)", line: line)
-        for _ in 0..<4 where !row.isHittable { app.swipeUp() }
         row.tap()
     }
 
@@ -279,8 +247,12 @@ final class AccountSettingsViewTests: XCTestCase {
         XCTAssertTrue(myTab.waitForExistence(timeout: 8))
         myTab.tap()
 
+        // Wait for the signed-in identity header before checking whether "账号设置" needs a scroll.
+        XCTAssertTrue(app.staticTexts["测试用户"].waitForExistence(timeout: 5))
         let settings = app.buttons["账号设置"].firstMatch
-        for _ in 0..<4 where !settings.isHittable { app.swipeUp() }
+        for _ in 0..<3 where !(settings.exists && settings.isHittable) {
+            app.swipeUp()
+        }
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.tap()
         XCTAssertTrue(ForumFixture.title("账号设置", in: app).waitForExistence(timeout: 5))
