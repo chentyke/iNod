@@ -2,13 +2,22 @@ import NodeSeekCore
 import Network
 import Synchronization
 
-struct QualityNetworkPath: Equatable, Sendable {
+struct QualityNetworkPath: Sendable {
     let network: NetworkQualityReport.Network
-    private let path: NWPath?
+    private var interfaces: Set<String>
+    private var gateways: Set<NWEndpoint>
+    private let isConstrained: Bool
+    private let isExpensive: Bool
 
-    init(network: NetworkQualityReport.Network, path: NWPath? = nil) {
+    init(
+        network: NetworkQualityReport.Network, interfaces: Set<String> = [], gateways: Set<NWEndpoint> = [],
+        isConstrained: Bool = false, isExpensive: Bool = false
+    ) {
         self.network = network
-        self.path = path
+        self.interfaces = interfaces
+        self.gateways = gateways
+        self.isConstrained = isConstrained
+        self.isExpensive = isExpensive
     }
 
     var context: NetworkContext {
@@ -19,7 +28,28 @@ struct QualityNetworkPath: Equatable, Sendable {
         case .offline: .offline
         case .unknown, .other: .other
         }
-        return NetworkContext(kind: kind, isConstrained: path?.isConstrained ?? false, isExpensive: path?.isExpensive ?? false)
+        return NetworkContext(kind: kind, isConstrained: isConstrained, isExpensive: isExpensive)
+    }
+
+    static func interruption(in updates: AsyncStream<Self>, after initial: Self) async -> QualityIssue? {
+        var lastKnown = initial
+        for await path in updates {
+            if path.network == .offline { return .offline }
+            if path.network != lastKnown.network ||
+                areBothKnownAndDisjoint(path.interfaces, lastKnown.interfaces) ||
+                areBothKnownAndDisjoint(path.gateways, lastKnown.gateways) {
+                return .networkChanged
+            }
+            // A path can gain details as the system evaluates it. Preserve the last route information
+            // when an update omits it, and do not treat changes to DNS or data-mode flags as a switch.
+            if !path.interfaces.isEmpty { lastKnown.interfaces = path.interfaces }
+            if !path.gateways.isEmpty { lastKnown.gateways = path.gateways }
+        }
+        return nil
+    }
+
+    private static func areBothKnownAndDisjoint<Value>(_ lhs: Set<Value>, _ rhs: Set<Value>) -> Bool {
+        !lhs.isEmpty && !rhs.isEmpty && lhs.isDisjoint(with: rhs)
     }
 
     static func updates() -> AsyncStream<Self> {
@@ -36,7 +66,11 @@ struct QualityNetworkPath: Equatable, Sendable {
                 else if path.usesInterfaceType(.cellular) { network = .cellular }
                 else if path.usesInterfaceType(.wiredEthernet) { network = .ethernet }
                 else { network = .other }
-                continuation.yield(Self(network: network, path: path))
+                let interfaces = path.availableInterfaces.filter { path.usesInterfaceType($0.type) }.map(\.name)
+                continuation.yield(Self(
+                    network: network, interfaces: Set(interfaces), gateways: Set(path.gateways),
+                    isConstrained: path.isConstrained, isExpensive: path.isExpensive
+                ))
             }
             continuation.onTermination = { _ in monitor.cancel() }
             monitor.start(queue: queue)
