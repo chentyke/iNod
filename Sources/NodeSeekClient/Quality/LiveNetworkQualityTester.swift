@@ -217,7 +217,7 @@ extension LiveNetworkQualityTester {
         }
     }
 
-    private static func measureAdvanced(
+    static func measureAdvanced(
         _ step: NetworkQualityStep, in report: Report, previous: Report?, send: @escaping QualityHTTP.Request
     ) async -> Report {
         var report = report
@@ -267,9 +267,42 @@ extension LiveNetworkQualityTester {
             let failures = Set(past.filter { $0.issue != nil }.map(\.name))
             let results = await AdvancedNetworkQualityService.websiteAccess(names: failures.isEmpty ? nil : failures, send: send)
             report.services = .measured(merge(results.map(service), kept: failures.isEmpty ? [] : past))
+        case .ipDetails:
+            guard report.ipv4.value != nil || report.ipv6.value != nil else {
+                report.ipDetails = .failed(.init(.other, detail: "需要先测得公网地址"))
+                return report
+            }
+            let fresh = await QualityIPDetailsService(send: send).run(for: report).map(profile)
+            // A retry keeps lookups that already answered for the same address family.
+            let past = Dictionary((previous?.ipDetails.value ?? []).map { ($0.family, $0) }, uniquingKeysWith: { first, _ in first })
+            report.ipDetails = .measured(fresh.map { profile in
+                guard let old = past[profile.family] else { return profile }
+                var merged = profile
+                if !profile.route.result.isMeasured, old.route.result.isMeasured { merged.route = old.route }
+                if !profile.usage.result.isMeasured, old.usage.result.isMeasured { merged.usage = old.usage }
+                return merged
+            })
         case .speed, .ipv4, .ipv6: break
         }
         return report
+    }
+
+    private static func profile(_ raw: QualityIPDetails) -> IPProfile {
+        let route = raw.routing.result.map { routing -> BGPRoute in
+            switch routing {
+            case .announced(let prefix, let asns): BGPRoute(prefix: prefix, originASNs: asns.map(Int.init))
+            case .noAnnouncementObserved: BGPRoute(prefix: nil)
+            }
+        }
+        let usage = raw.risk.result.map { risk -> IPUsage in
+            let flags: [(IPUsageTag, Bool?)] = [(.datacenter, risk.isDatacenter), (.vpn, risk.isVPN), (.proxy, risk.isProxy),
+                                                (.tor, risk.isTor), (.mobile, risk.isMobile)]
+            return IPUsage(score: risk.score, tags: flags.filter { $0.1 == true }.map(\.0),
+                           unreported: flags.filter { $0.1 == nil }.map(\.0))
+        }
+        return IPProfile(family: raw.family,
+                         route: .init(source: raw.routing.provider, queriedAt: raw.routing.queriedAt, result: route),
+                         usage: .init(source: raw.risk.provider, queriedAt: raw.risk.queriedAt, result: usage))
     }
 
     private static func merge<T: Identifiable>(_ updated: [T], kept: [T]) -> [T] {
