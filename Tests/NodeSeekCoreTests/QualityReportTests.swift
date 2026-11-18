@@ -22,7 +22,7 @@ struct QualityReportTests {
     }
 
     @Test func retryCoversPartlyMeasuredSteps() {
-        #expect(NetworkQualityReport.sample(.partialFailure).retryableSteps == [.speed, .ipv4, .routes, .reputation, .services])
+        #expect(NetworkQualityReport.sample(.partialFailure).retryableSteps == [.speed, .ipv4, .ipDetails, .routes, .reputation, .services])
         #expect(NetworkQualityReport.sample(.complete).retryableSteps.isEmpty)
     }
 
@@ -47,6 +47,17 @@ struct QualityReportTests {
         #expect(text.contains("归属：查询过于频繁"))
         #expect(text.contains("移动 上海 超时"))
         #expect(text.contains("AbuseIPDB IPv4 查询服务不可用"))
+    }
+
+    @Test func sharedTextKeepsPrefixesPrivateWhenHidingAddresses() {
+        let report = NetworkQualityReport.sample(.complete)
+        let hidden = report.sharedText(hidingAddresses: true, timeZone: .gmt)
+        #expect(hidden.contains("IPv4 类型 未标记，分值 0（IPQuery）"))
+        #expect(hidden.contains("IPv4 路由 AS4812"))
+        #expect(!hidden.contains("203.0.113.0/24"))
+        #expect(report.sharedText(hidingAddresses: false, timeZone: .gmt).contains("IPv4 路由 203.0.113.0/24，AS4812"))
+        let partial = NetworkQualityReport.sample(.partialFailure).sharedText(hidingAddresses: true, timeZone: .gmt)
+        #expect(partial.contains("IPv4 类型 查询过于频繁"))
     }
 
     @Test func webPageChecksNeverClaimMore() {

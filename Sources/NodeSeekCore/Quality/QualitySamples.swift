@@ -25,6 +25,10 @@ public extension NetworkQualityReport {
                                        latencySamples: 20, bytesTransferred: 412_000_000)),
                 ipv4: .measured(.init(family: .v4, address: "203.0.113.24", echoSource: "cloudflare.com/cdn-cgi/trace", owner: v4Owner, queriedAt: date.addingTimeInterval(40))),
                 ipv6: .measured(.init(family: .v6, address: "2001:db8:4c2a:1f00:9d3e:21ff:fe4b:7a10", echoSource: "cloudflare.com/cdn-cgi/trace", owner: v6Owner, queriedAt: date.addingTimeInterval(41))),
+                ipDetails: .measured([
+                    sampleProfile(.v4, prefix: "203.0.113.0/24", asn: 4812, usage: .init(score: 0, tags: []), at: date.addingTimeInterval(44)),
+                    sampleProfile(.v6, prefix: "2001:db8::/32", asn: 4812, usage: .init(score: 0, tags: []), at: date.addingTimeInterval(44)),
+                ]),
                 routes: .measured(ChinaCarrier.allCases.map { carrier in
                     RouteTrace(carrier: carrier, city: "上海", family: .v4, target: sampleTarget(carrier), sent: 20, received: carrier == .mobile ? 19 : 20,
                                averageLatencyMs: carrier == .telecom ? 4.8 : carrier == .unicom ? 9.6 : 12.3, hops: sampleHops(carrier, silentAt: []))
@@ -54,6 +58,11 @@ public extension NetworkQualityReport {
                 ipv4: .measured(.init(family: .v4, address: "198.51.100.173", echoSource: "cloudflare.com/cdn-cgi/trace", owner: nil,
                                       ownerIssue: .init(.rateLimited, detail: "ipinfo.io 返回 429"), queriedAt: date.addingTimeInterval(52))),
                 ipv6: .unavailable(.init(.noIPv6)),
+                ipDetails: .measured([
+                    IPProfile(family: .v4,
+                              route: .init(source: "RIPEstat", queriedAt: date.addingTimeInterval(55), result: .measured(.init(prefix: "198.51.100.0/22", originASNs: [9808]))),
+                              usage: .init(source: "IPQuery", queriedAt: date.addingTimeInterval(55), result: .failed(.init(.rateLimited, detail: "IPQuery 返回 429")))),
+                ]),
                 routes: .measured([
                     .init(carrier: .telecom, city: "上海", family: .v4, target: sampleTarget(.telecom), sent: 20, received: 17, averageLatencyMs: 38.5,
                           hops: sampleHops(.telecom, silentAt: [3, 4])),
@@ -74,9 +83,15 @@ public extension NetworkQualityReport {
         case .offline:
             let dropped = QualityIssue(.offline)
             return .init(startedAt: date, finishedAt: date.addingTimeInterval(9), network: .init(kind: .offline),
-                         speed: .failed(dropped), ipv4: .failed(dropped), ipv6: .failed(dropped), routes: .failed(dropped),
+                         speed: .failed(dropped), ipv4: .failed(dropped), ipv6: .failed(dropped), ipDetails: .failed(dropped), routes: .failed(dropped),
                          nat: .failed(dropped), mailPort: .failed(dropped), reputation: .failed(dropped), services: .failed(dropped))
         }
+    }
+
+    private static func sampleProfile(_ family: IPFamily, prefix: String, asn: Int, usage: IPUsage, at date: Date) -> IPProfile {
+        IPProfile(family: family,
+                  route: .init(source: "RIPEstat", queriedAt: date, result: .measured(.init(prefix: prefix, originASNs: [asn]))),
+                  usage: .init(source: "IPQuery", queriedAt: date, result: .measured(usage)))
     }
 
     private static func sampleTarget(_ carrier: ChinaCarrier) -> String {
@@ -122,7 +137,7 @@ public struct SampleNetworkQualityTester: NetworkQualityTesting {
             let task = Task {
                 var report = previous?.resetting(Set(steps)) ?? NetworkQualityReport(
                     startedAt: .now, network: final.network,
-                    speed: .pending, ipv4: .pending, ipv6: .pending, routes: .pending,
+                    speed: .pending, ipv4: .pending, ipv6: .pending, ipDetails: .pending, routes: .pending,
                     nat: .pending, mailPort: .pending, reputation: .pending, services: .pending)
                 for step in NetworkQualityStep.allCases where !steps.contains(step) && report.status(of: step) == .pending {
                     report.set(step, from: NetworkQualityReport(startedAt: .now, network: final.network, speed: .notIncluded, ipv4: .notIncluded, ipv6: .notIncluded))
@@ -211,6 +226,7 @@ extension NetworkQualityReport {
         case .speed: speed = other.speed
         case .ipv4: ipv4 = other.ipv4
         case .ipv6: ipv6 = other.ipv6
+        case .ipDetails: ipDetails = other.ipDetails
         case .routes: routes = other.routes
         case .nat: nat = other.nat
         case .mailPort: mailPort = other.mailPort
