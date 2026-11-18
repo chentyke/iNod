@@ -26,6 +26,18 @@ public enum QualityResult<Value: Sendable & Equatable & Codable>: Sendable, Equa
         case .notIncluded: .notIncluded
         }
     }
+    public var isMeasured: Bool { value != nil }
+    public func map<T>(_ transform: (Value) -> T) -> QualityResult<T> {
+        switch self {
+        case .pending: .pending
+        case .running(let progress): .running(progress)
+        case .measured(let value): .measured(transform(value))
+        case .failed(let issue): .failed(issue)
+        case .unavailable(let issue): .unavailable(issue)
+        case .cancelled: .cancelled
+        case .notIncluded: .notIncluded
+        }
+    }
     /// A step that has not finished turns into `.cancelled`; finished results stay as they are.
     public var cancellingUnfinished: Self {
         switch self { case .pending, .running: .cancelled; default: self }

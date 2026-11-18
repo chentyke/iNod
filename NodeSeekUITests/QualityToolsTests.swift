@@ -55,7 +55,7 @@ final class QualityToolsTests: XCTestCase {
         app.buttons["quality.start"].tap()
         let retry = app.buttons["quality.retry"]
         XCTAssertTrue(retry.waitForExistence(timeout: 20))
-        XCTAssertEqual(retry.label, "重试 5 项")
+        XCTAssertEqual(retry.label, "重试 6 项")
         // The timed-out upload is named near the top, where its row says why. Rows combine for VoiceOver,
         // so the reason is part of the row's label.
         let upload = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '上传' AND label CONTAINS '超时'")).firstMatch

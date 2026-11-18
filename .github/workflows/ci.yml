@@ -57,39 +57,30 @@ jobs:
       - name: Check website scripts and WebKit parsing
         run: sh scripts/verify-website.sh
 
-  ios-ui-tests:
+  iphone-ui-test-groups:
     needs: design-checks
-    if: ${{ !cancelled() }}
-    # The iPhone run keeps its original check name, which branch protection requires.
-    name: ${{ matrix.check }}
-    # Keep both matrix check names on docs-only PRs without allocating a Mac runner.
-    runs-on: ${{ needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true' && 'ubuntu-latest' || 'xcode-27' }}
-    timeout-minutes: ${{ matrix.timeout-minutes }}
+    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true') }}
+    name: iPhone UI tests (${{ matrix.group }}/2)
+    runs-on: xcode-27
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
-          - check: iOS UI tests
-            device: iPhone 17
-            results: NodeSeekUITests
-            # Allow for a slow build as well as the full UI suite on hosted runners.
-            timeout-minutes: 60
-            tests: ''
-            retries: ''
-          - check: iPad UI tests
-            device: iPad Pro 13-inch (M5)
-            results: NodeSeekUITests-iPad
-            timeout-minutes: 40
-            tests: >-
-              -only-testing:NodeSeekUITests/AdaptiveLayoutTests
-              -only-testing:NodeSeekUITests/ThreadHistoryTests
-              -only-testing:NodeSeekUITests/AttendanceViewTests/testUncheckedAttendanceShowsActionsAndKeepsReadableColumn
-              -only-testing:NodeSeekUITests/ProgressViewTests/testUpgradingProgressShowsLevelQuotasAndKeepsReadableColumn
-              -only-testing:NodeSeekUITests/StardustHistoryViewTests/testStardustHistoryDisplaysBalanceRecordsAndNavigates
-            # The hosted iPad simulator is slow and now and then fails to stop the app between tests.
-            # A test that fails both times still fails the check.
-            retries: -retry-tests-on-failure -test-iterations 2
-    steps:
+          - group: 1
+            filter: only-testing
+          - group: 2
+            filter: skip-testing
+    env:
+      DEVICE: iPhone 17
+      RESULTS: NodeSeekUITests-iPhone-${{ matrix.group }}
+      TEST_FILTER: ${{ matrix.filter }}
+      # Group 1 runs these classes. Group 2 runs the rest, including new test classes.
+      TEST_CLASSES: >-
+        CommunitySectionViewTests DesignChecklistTests AccountBalancesViewTests
+        NodeImageLibraryViewTests ThreadImageGalleryTests StardustHistoryViewTests
+        ThreadHistoryTests EditorImageNavigationTests RapidPostReturnTests
+    steps: &simulator-test-steps
       - name: Report documentation-only check
         if: needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true'
         run: echo "Documentation only. No simulator needed."
@@ -98,11 +89,9 @@ jobs:
         if: needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true'
         with:
           persist-credentials: false
-      - name: Start the ${{ matrix.device }} simulator
+      - name: Start the ${{ env.DEVICE }} simulator
         id: simulator
         if: steps.checkout.outcome == 'success'
-        env:
-          DEVICE: ${{ matrix.device }}
         run: |
           simulator_id="$(xcrun simctl list devices available --json | node -e '
             const { devices } = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
@@ -113,27 +102,69 @@ jobs:
           ')"
           xcrun simctl bootstatus "$simulator_id" -b
           echo "id=$simulator_id" >> "$GITHUB_OUTPUT"
-      - name: Build and test on ${{ matrix.device }}
+      - name: Build and test on ${{ env.DEVICE }}
         if: steps.simulator.outcome == 'success'
         shell: bash
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
-          TESTS: ${{ matrix.tests }}
-          RETRIES: ${{ matrix.retries }}
         run: |
           read -ra args <<< "$TESTS $RETRIES"
+          read -ra test_classes <<< "$TEST_CLASSES"
+          for test_class in "${test_classes[@]}"; do
+            args+=("-$TEST_FILTER:NodeSeekUITests/$test_class")
+          done
           xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -parallel-testing-enabled NO "${args[@]}" \
-            -resultBundlePath "$RUNNER_TEMP/${{ matrix.results }}.xcresult" \
+            -resultBundlePath "$RUNNER_TEMP/$RESULTS.xcresult" \
             CODE_SIGN_IDENTITY=- test
       - name: Upload failed test results
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ${{ matrix.results }}
-          path: ${{ runner.temp }}/${{ matrix.results }}.xcresult
+          name: ${{ env.RESULTS }}
+          path: ${{ runner.temp }}/${{ env.RESULTS }}.xcresult
           retention-days: 7
+
+  ios-ui-tests:
+    # Branch protection requires this check name.
+    name: iOS UI tests
+    needs: [design-checks, iphone-ui-test-groups]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check both iPhone test groups
+        env:
+          IPHONE_RESULT: ${{ needs.iphone-ui-test-groups.result }}
+          DOCS_ONLY: ${{ needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true' }}
+        run: |
+          if [[ "$IPHONE_RESULT" == skipped && "$DOCS_ONLY" == true ]]; then
+            echo "Documentation only. No simulator needed."
+          else
+            echo "iPhone test groups: $IPHONE_RESULT"
+            test "$IPHONE_RESULT" = success
+          fi
+
+  ipad-ui-tests:
+    needs: design-checks
+    if: ${{ !cancelled() }}
+    name: iPad UI tests
+    runs-on: ${{ needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true' && 'ubuntu-latest' || 'xcode-27' }}
+    timeout-minutes: 40
+    env:
+      DEVICE: iPad Pro 13-inch (M5)
+      RESULTS: NodeSeekUITests-iPad
+      TESTS: >-
+        -only-testing:NodeSeekUITests/AdaptiveLayoutTests
+        -only-testing:NodeSeekUITests/ThreadHistoryTests
+        -only-testing:NodeSeekUITests/AttendanceViewTests/testUncheckedAttendanceShowsActionsAndKeepsReadableColumn
+        -only-testing:NodeSeekUITests/ProgressViewTests/testUpgradingProgressShowsLevelQuotasAndKeepsReadableColumn
+        -only-testing:NodeSeekUITests/StardustHistoryViewTests/testStardustHistoryDisplaysBalanceRecordsAndNavigates
+      # The hosted iPad simulator is slow and now and then fails to stop the app between tests.
+      # A test that fails both times still fails the check.
+      RETRIES: -retry-tests-on-failure -test-iterations 2
+    steps: *simulator-test-steps
 
   mac-ui-tests:
     needs: design-checks

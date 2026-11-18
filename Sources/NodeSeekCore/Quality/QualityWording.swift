@@ -42,6 +42,7 @@ public extension NetworkQualityStep {
         case .speed: "速度与延迟"
         case .ipv4: "公网 IPv4"
         case .ipv6: "公网 IPv6"
+        case .ipDetails: "IP 类型与路由"
         case .routes: "三网线路"
         case .nat: "NAT 类型"
         case .mailPort: "邮件端口"
@@ -170,4 +171,22 @@ public extension ServiceProbe {
 
 public extension ThermalLevel {
     var title: String { switch self { case .nominal: "正常"; case .fair: "略热"; case .serious: "较热"; case .critical: "过热" } }
+}
+
+public extension IPUsageTag {
+    var title: String {
+        switch self { case .datacenter: "机房"; case .vpn: "VPN"; case .proxy: "代理"; case .tor: "Tor"; case .mobile: "蜂窝" }
+    }
+}
+
+public extension IPUsage {
+    /// "机房、VPN", or "未标记" when the source matched none of the types it reported on.
+    var tagsTitle: String { tags.isEmpty ? "未标记" : tags.map(\.title).joined(separator: "、") }
+    /// "分值 12（IPQuery 自定 0–100）" style detail, without the source name.
+    var scoreTitle: String? { score.map { "分值 \($0)" } }
+}
+
+public extension BGPRoute {
+    /// "AS4812", "AS4812、AS4134", or nil when nothing was announced.
+    var originsTitle: String? { originASNs.isEmpty ? nil : originASNs.map { "AS\($0)" }.joined(separator: "、") }
 }

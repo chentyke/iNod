@@ -28,13 +28,16 @@ final class ThreadHistoryTests: XCTestCase {
         XCTAssertTrue(post.waitForExistence(timeout: 10))
         post.tap()
 
-        let heading = app.staticTexts[title]
-        let opening = app.staticTexts[openingText]
-        let back = app.buttons["返回"]
-        let firstImage = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "插图 1")).firstMatch
-        XCTAssertTrue(heading.waitForExistence(timeout: 10), "Tapping the pinned card should open that post.")
+        let threadScroll = app.scrollViews.containing(.staticText, identifier: openingText).firstMatch
+        XCTAssertTrue(threadScroll.waitForExistence(timeout: 10), "Tapping the pinned card should open that post.")
+        let heading = threadScroll.staticTexts[title].firstMatch
+        let opening = threadScroll.staticTexts[openingText].firstMatch
+        let firstImage = threadScroll.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "插图 1")).firstMatch
+        XCTAssertTrue(heading.waitForExistence(timeout: 5))
         XCTAssertTrue(firstImage.waitForExistence(timeout: 8), "The first thumbnail should finish loading.")
-        XCTAssertGreaterThanOrEqual(heading.frame.minY, back.frame.maxY, "The full post title should be visible on entry.")
+        let topBarButton = app.buttons["返回"].exists ? app.buttons["返回"] : app.buttons["更多"]
+        XCTAssertTrue(topBarButton.exists)
+        XCTAssertGreaterThanOrEqual(heading.frame.minY, topBarButton.frame.maxY, "The full post title should be visible on entry.")
         XCTAssertGreaterThan(opening.frame.minY, heading.frame.maxY, "The opening heading should follow the full title.")
     }
 
@@ -97,7 +100,11 @@ final class ThreadHistoryTests: XCTestCase {
     private func reveal(_ element: XCUIElement, in scrollView: XCUIElement) -> Bool {
         for _ in 0..<8 {
             if element.exists, element.isHittable { return true }
-            scrollView.swipeDown(velocity: .slow)
+            if element.exists, element.frame.minY > scrollView.frame.midY {
+                scrollView.swipeUp(velocity: .slow)
+            } else {
+                scrollView.swipeDown(velocity: .slow)
+            }
         }
         return element.exists && element.isHittable
     }

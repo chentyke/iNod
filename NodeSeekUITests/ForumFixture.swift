@@ -12,13 +12,15 @@ enum ForumFixture {
 
     /// Launches the app on the fixture's feed, in dark mode when `dark` is set,
     /// signed in as the thread's author when `signedInAsAuthor` is set.
-    @MainActor static func launch(dark: Bool = false, opensThread: Bool = false, opensConversation: Bool = false,
-                                  signedInAsAuthor: Bool = false, openingMarkdown: String = "周六下午两点开始读书。",
+    @MainActor static func launch(dark: Bool = false, opensThread: Bool = false, opensSidebar: Bool = false,
+                                  opensConversation: Bool = false, signedInAsAuthor: Bool = false,
+                                  openingMarkdown: String = "周六下午两点开始读书。",
                                   assetResponses: [String: Data] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor,
                                                                     openingMarkdown: openingMarkdown, assetResponses: assetResponses)
         if opensThread { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "\(threadID)" }
+        if opensSidebar { app.launchArguments.append("--ui-test-open-sidebar") }
         if opensConversation { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_CONVERSATION"] = "\(peerID):\(peerName)" }
         // `appearance` is the in-app appearance setting; an argument sets it for this launch only.
         app.launchArguments += ["-appearance", dark ? "dark" : "light"]
@@ -71,12 +73,18 @@ enum ForumFixture {
         #endif
     }
 
-    /// A root tab. iPhone shows it in a tab bar and iPad as a plain button at the top; the Mac lists it in a sidebar.
+    /// A root tab. iPhone shows it in a tab bar, iPad in its adaptable tab bar or sidebar, and the Mac in a sidebar.
     @MainActor static func tab(_ name: String, in app: XCUIApplication) -> XCUIElement {
         let label = NSPredicate(format: "label == %@", name)
         #if targetEnvironment(macCatalyst)
         return app.descendants(matching: .any).matching(label).firstMatch
         #else
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let types = [XCUIElement.ElementType.button.rawValue, XCUIElement.ElementType.cell.rawValue]
+            return app.descendants(matching: .any)
+                .matching(NSPredicate(format: "elementType IN %@ AND label == %@", types, name))
+                .firstMatch
+        }
         return app.buttons.matching(label).firstMatch
         #endif
     }

@@ -148,11 +148,14 @@ final class DesignChecklistTests: XCTestCase {
 
         open.tap()
         XCTAssertTrue(close.waitForExistence(timeout: 3))
+        let list = app.collectionViews
+            .containing(NSPredicate(format: "label BEGINSWITH %@", ForumFixture.threadTitle)).firstMatch
+        let dragX = list.exists ? list.frame.midX / app.frame.width : 0.5
         // Drag in the top half: the software keyboard covers the bottom, and dragging on it scrolls nothing.
-        drag(app, from: 0.5, to: 0.2)
+        drag(app, x: dragX, from: 0.5, to: 0.2)
         XCTAssertTrue(open.waitForExistence(timeout: 3), "Scrolling should fold an empty search.")
 
-        drag(app, from: 0.3, to: 0.8)
+        drag(app, x: dragX, from: 0.3, to: 0.8)
         open.tap()
         XCTAssertTrue(close.wait(for: \.isHittable, toEqual: true, timeout: 3))
 
@@ -169,21 +172,25 @@ final class DesignChecklistTests: XCTestCase {
         let visible = XCTNSPredicateExpectation(predicate: cardIsVisible, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: 6), .completed)
 
-        // Leaving for a post and coming back keeps the empty search folded and the keyboard down.
+        // Opening a post (and returning on single-column screens) keeps the empty search folded and the keyboard down.
         card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let back = app.buttons["返回"]
-        XCTAssertTrue(back.wait(for: \.isHittable, toEqual: true, timeout: 5))
-        back.tap()
+        if UIDevice.current.userInterfaceIdiom != .pad {
+            XCTAssertTrue(back.wait(for: \.isHittable, toEqual: true, timeout: 5))
+            back.tap()
+        } else {
+            XCTAssertTrue(app.staticTexts[ForumFixture.announcementTitle].waitForExistence(timeout: 5))
+        }
         XCTAssertTrue(open.wait(for: \.isHittable, toEqual: true, timeout: 5))
         XCTAssertEqual(app.keyboards.count, 0, "Returning to the feed must not bring the keyboard back.")
     }
 
     // MARK: - Helpers
 
-    /// Scrolls whatever list is on screen by dragging between two heights given as fractions of the screen.
-    private func drag(_ app: XCUIApplication, from start: CGFloat, to end: CGFloat) {
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: start))
-            .press(forDuration: 0, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: end)))
+    /// Scrolls whatever list is at `x` by dragging between two heights given as fractions of the screen.
+    private func drag(_ app: XCUIApplication, x: CGFloat = 0.5, from start: CGFloat, to end: CGFloat) {
+        app.coordinate(withNormalizedOffset: CGVector(dx: x, dy: start))
+            .press(forDuration: 0, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: x, dy: end)))
     }
 
     /// The Mac reports the menu button as a pop-up button rather than a button.

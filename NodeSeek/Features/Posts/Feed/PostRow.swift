@@ -3,6 +3,7 @@ import SwiftUI
 
 struct PostRow: View {
     let post: PostSummary
+    var isSelected = false
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .subheadline) private var avatarSize: CGFloat = 22
 
@@ -11,6 +12,7 @@ struct PostRow: View {
 
     var body: some View {
         let date = post.parsedActivityDate
+        let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
         VStack(alignment: .leading, spacing: 10) {
             header
             title
@@ -24,7 +26,20 @@ struct PostRow: View {
         // In the pinned carousel every card takes the tallest card's height; centring keeps the
         // spare height split evenly above and below instead of opening a gap under a short title.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Color.seekCard, in: .rect(cornerRadius: Self.cornerRadius))
+        .background {
+            shape.fill(Color.seekCard)
+                .overlay {
+                    if isSelected {
+                        shape.fill(Color.seekGreen.opacity(0.06))
+                    }
+                }
+        }
+        .overlay {
+            if isSelected {
+                shape.strokeBorder(Color.seekGreen.opacity(0.3), lineWidth: 0.5)
+                    .allowsHitTesting(false)
+            }
+        }
         .contentShape(.rect(cornerRadius: Self.cornerRadius))
         .contentShape(.contextMenuPreview, .rect(cornerRadius: Self.cornerRadius))
         .contentShape(.hoverEffect, .rect(cornerRadius: Self.cornerRadius))

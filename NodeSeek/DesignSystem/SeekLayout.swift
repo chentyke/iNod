@@ -1,14 +1,25 @@
+import NodeSeekCore
 import SwiftUI
 
 /// Sizes shared by pages that must read the same on an iPhone, an iPad and a Mac window.
 enum SeekLayout {
     /// The widest a card grows. Wider windows centre one column instead of stretching lines edge to edge.
-    static let readableWidth: CGFloat = 760
+    static let readableWidth = CGFloat(FeedSplitLayout.readableWidth)
     /// The gap between a card and the window edge.
-    static let gutter: CGFloat = 16
+    static let gutter = CGFloat(FeedSplitLayout.gutter)
     /// The widest a screen-wide column grows, gutters included. Bars above and below the cards use it
     /// so they line up with the cards.
     static let columnWidth = readableWidth + 2 * gutter
+    /// Hairline rule between the iPad feed column and the thread column beside it.
+    static let splitDividerWidth = CGFloat(FeedSplitLayout.dividerWidth)
+
+    static func usesFeedSplit(forWidth width: CGFloat, supportsSplit: Bool, isCompact: Bool) -> Bool {
+        FeedSplitLayout.usesSplit(width: Double(width), supportsSplit: supportsSplit, isCompact: isCompact)
+    }
+
+    static func feedPaneWidth(forTotalWidth totalWidth: CGFloat) -> CGFloat {
+        CGFloat(FeedSplitLayout.feedPaneWidth(forTotalWidth: Double(totalWidth)))
+    }
 
     /// Space on each side of a scroll view's content so its cards keep to `readableWidth`.
     static func sideMargin(forWidth width: CGFloat, _ style: ReadableMargin) -> CGFloat {

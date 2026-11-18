@@ -66,7 +66,7 @@ Cloudflare 的 HTTP 时延和抖动算法可在同节点上复测。iNod 使用�
 
 ## 公网 IP 风险和 BGP 路由
 
-调用 `QualityIPDetailsService.run(for:)` 可从已有网络报告补查每个已测得的 IPv4、IPv6 出口。每个地址分别返回两个来源的结果和查询时间。没有测到某类地址时，该类地址不发请求。服务供后续报告接入，当前界面的一键检测尚未调用。
+调用 `QualityIPDetailsService.run(for:)` 可从已有网络报告补查每个已测得的 IPv4、IPv6 出口。每个地址分别返回两个来源的结果和查询时间。没有测到某类地址时，该类地址不发请求。一键检测在测得公网地址后运行这一步，报告的「IP 类型与路由」按地址列出 IPQuery 的类型和分值、RIPEstat 的地址段和发布网络。重试只替换失败的查询，已取得的结果保留。分享时如隐藏 IP，地址段也不写入，只保留发布网络。
 
 - [RIPEstat Network Info](https://stat.ripe.net/docs/data-api/api-endpoints/network-info.html) 返回 RIPE RIS 观察到的匹配地址段和宣布该地址段的 ASN。可有多个 ASN。空结果表示该来源没有看到公告，连接失败会单独返回。查询时间为 App 发请求的时间，RIPE RIS 数据本身按来源更新。
 - [IPQuery](https://ipquery.io/developers/api) 返回它自己的 0–100 分值和网络分类。VPN、代理、Tor、机房和蜂窝为独立标记。未匹配和字段缺失分别保留，分值不是恶意活动的概率。IPQuery 的结果与已有两家黑名单分开。

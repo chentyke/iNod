@@ -13,6 +13,20 @@ final class RapidPostReturnTests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 8))
 
         card.tap()
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCTAssertTrue(body.waitForExistence(timeout: 5))
+            XCTAssertTrue(card.isHittable, "The feed card stays reachable beside the open thread on iPad.")
+            let more = app.buttons["更多"]
+            XCTAssertTrue(more.waitForExistence(timeout: 5))
+            more.tap()
+            let close = app.buttons["关闭帖子"]
+            XCTAssertTrue(close.waitForExistence(timeout: 5))
+            close.tap()
+            XCTAssertTrue(ForumFixture.element("feed-detail-placeholder", in: app).waitForExistence(timeout: 5))
+            card.tap()
+            XCTAssertTrue(body.waitForExistence(timeout: 5))
+            return
+        }
         XCTAssertTrue(back.wait(for: \.isHittable, toEqual: true, timeout: 5))
         back.tap()
         XCTAssertTrue(card.wait(for: \.isHittable, toEqual: true, timeout: 5))
