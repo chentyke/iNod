@@ -1,17 +1,21 @@
 import Foundation
 import Network
+import NodeSeekClient
 import NodeSeekCore
 import SwiftUI
 
-/// The detection services the quality screens run. Until the real services land, both play back sample data;
-/// `-qualitySample <complete|partialFailure|offline>` and `-qualityPace <seconds factor>` pick which and how fast.
 enum QualityServices {
     static var network: any NetworkQualityTesting {
+        guard ProcessInfo.processInfo.arguments.contains("--ui-test-offline") else { return LiveNetworkQualityTester() }
         let defaults = UserDefaults.standard
         let scenario = defaults.string(forKey: "qualitySample").flatMap(QualitySampleScenario.init) ?? .complete
         return SampleNetworkQualityTester(scenario: scenario, pace: pace)
     }
-    static var device: any DeviceBenchmarking { SampleDeviceBenchmark(pace: pace) }
+
+    static var device: any DeviceBenchmarking {
+        if ProcessInfo.processInfo.arguments.contains("--ui-test-offline") { return SampleDeviceBenchmark(pace: pace) }
+        return LiveDeviceBenchmark()
+    }
 
     /// Launch arguments arrive as strings; `double(forKey:)` parses them.
     private static var pace: Double {
@@ -40,8 +44,6 @@ final class CurrentNetworkMonitor {
         let kind: NetworkKind = path.usesInterfaceType(.wifi) ? .wifi
             : path.usesInterfaceType(.cellular) ? .cellular
             : path.usesInterfaceType(.wiredEthernet) ? .wired : .other
-        // A VPN shows up as an extra "other" interface alongside the physical one.
-        let vpn = kind != .other && path.availableInterfaces.contains { $0.type == .other }
-        return .init(kind: kind, isConstrained: path.isConstrained, isExpensive: path.isExpensive, usesVPN: vpn)
+        return .init(kind: kind, isConstrained: path.isConstrained, isExpensive: path.isExpensive)
     }
 }

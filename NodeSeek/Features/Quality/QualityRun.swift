@@ -54,12 +54,14 @@ final class DeviceBenchmarkRun {
     @ObservationIgnored private nonisolated(unsafe) var task: Task<Void, Never>?
     @ObservationIgnored let benchmark: any DeviceBenchmarking
     @ObservationIgnored private let store: UserDefaults
-    private static let historyKey = "quality.benchmarkHistory"
+    @ObservationIgnored private let historyKey: String
     private static let historyLimit = 20
 
     init(benchmark: any DeviceBenchmarking = QualityServices.device, store: UserDefaults = .standard) {
         self.benchmark = benchmark; self.store = store
-        history = (store.data(forKey: Self.historyKey)).flatMap { try? JSONDecoder().decode([DeviceBenchmarkReport].self, from: $0) } ?? []
+        let historyKey = benchmark is SampleDeviceBenchmark ? "quality.benchmarkSampleHistory" : "quality.benchmarkLiveHistory"
+        self.historyKey = historyKey
+        history = (store.data(forKey: historyKey)).flatMap { try? JSONDecoder().decode([DeviceBenchmarkReport].self, from: $0) } ?? []
     }
     deinit { task?.cancel() }
 
@@ -96,5 +98,5 @@ final class DeviceBenchmarkRun {
         history = Array(history.prefix(Self.historyLimit))
         save()
     }
-    private func save() { store.set(try? JSONEncoder().encode(history), forKey: Self.historyKey) }
+    private func save() { store.set(try? JSONEncoder().encode(history), forKey: historyKey) }
 }

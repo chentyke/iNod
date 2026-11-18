@@ -18,6 +18,7 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
     public var finishedAt: Date?
     public var network: NetworkContext
     public var speed: QualityResult<SpeedMeasurement>
+    public var partialSpeed: SpeedMeasurement?
     public var ipv4: QualityResult<IPEgress>
     public var ipv6: QualityResult<IPEgress>
     public var routes: QualityResult<[RouteTrace]>
@@ -58,13 +59,14 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
         includedSteps.filter { step in
             if status(of: step).canRetry { return true }
             switch step {
-            case .speed: return speed.value.map { $0.downloadMbps == nil || $0.uploadMbps == nil } ?? false
+            case .speed: return speed.value.map { $0.downloadMbps == nil || $0.uploadMbps == nil || $0.latencyMs == nil || $0.jitterMs == nil } ?? false
             case .ipv4: return ipv4.value?.ownerIssue != nil
             case .ipv6: return ipv6.value?.ownerIssue != nil
             case .routes: return routes.value?.contains { $0.issue != nil } ?? false
             case .reputation: return reputation.value?.contains { $0.issue != nil } ?? false
             case .nat: return nat.value?.issue != nil
-            case .mailPort, .services: return false
+            case .mailPort: return false
+            case .services: return services.value?.contains { $0.issue != nil } ?? false
             }
         }
     }
@@ -81,7 +83,8 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
     /// What the report keeps after the reader cancels: finished results, with every unfinished step marked cancelled.
     public func cancellingUnfinished(at date: Date = .now) -> Self {
         var copy = self
-        copy.speed = speed.cancellingUnfinished; copy.ipv4 = ipv4.cancellingUnfinished; copy.ipv6 = ipv6.cancellingUnfinished
+        copy.speed = partialSpeed.map { .measured($0) } ?? speed.cancellingUnfinished; copy.partialSpeed = nil
+        copy.ipv4 = ipv4.cancellingUnfinished; copy.ipv6 = ipv6.cancellingUnfinished
         copy.routes = routes.cancellingUnfinished; copy.nat = nat.cancellingUnfinished; copy.mailPort = mailPort.cancellingUnfinished
         copy.reputation = reputation.cancellingUnfinished; copy.services = services.cancellingUnfinished
         copy.finishedAt = copy.finishedAt ?? date
@@ -93,7 +96,7 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
         var copy = self
         for step in steps {
             switch step {
-            case .speed: copy.speed = .pending
+            case .speed: copy.speed = .pending; copy.partialSpeed = nil
             case .ipv4: copy.ipv4 = .pending
             case .ipv6: copy.ipv6 = .pending
             case .routes: copy.routes = .pending
@@ -106,6 +109,37 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
         copy.finishedAt = nil
         return copy
     }
+    public mutating func setRunning(_ step: NetworkQualityStep, _ progress: QualityProgress) {
+        switch step {
+        case .speed: speed = .running(progress)
+        case .ipv4: ipv4 = .running(progress)
+        case .ipv6: ipv6 = .running(progress)
+        case .routes: routes = .running(progress)
+        case .nat: nat = .running(progress)
+        case .mailPort: mailPort = .running(progress)
+        case .reputation: reputation = .running(progress)
+        case .services: services = .running(progress)
+        }
+    }
+
+    public mutating func setFailed(_ step: NetworkQualityStep, _ issue: QualityIssue) {
+        switch step {
+        case .speed:
+            if var measured = partialSpeed {
+                measured.issues.append(issue)
+                speed = .measured(measured)
+                partialSpeed = nil
+            } else { speed = .failed(issue) }
+        case .ipv4: ipv4 = .failed(issue)
+        case .ipv6: ipv6 = .failed(issue)
+        case .routes: routes = .failed(issue)
+        case .nat: nat = .failed(issue)
+        case .mailPort: mailPort = .failed(issue)
+        case .reputation: reputation = .failed(issue)
+        case .services: services = .failed(issue)
+        }
+    }
+
 }
 
 // MARK: - Speed
@@ -127,6 +161,8 @@ public struct SpeedMeasurement: Sendable, Equatable, Codable {
     /// nil when that direction did not finish; `issues` says why.
     public var downloadMbps: Double?
     public var uploadMbps: Double?
+    public var downloadIsEstimate: Bool?
+    public var uploadIsEstimate: Bool?
     /// Median round trip while the line is idle.
     public var latencyMs: Double?
     /// Mean difference between consecutive latency samples.
@@ -222,6 +258,7 @@ public struct RouteTrace: Sendable, Equatable, Codable, Identifiable {
 
 public enum NATType: String, Sendable, Codable {
     case openInternet, fullCone, restrictedCone, portRestrictedCone, symmetric, udpBlocked, undetermined
+    case endpointIndependent, addressDependent, addressAndPortDependent
 }
 
 public struct NATObservation: Sendable, Equatable, Codable {
@@ -249,7 +286,7 @@ public struct PortProbe: Sendable, Equatable, Codable {
 
 // MARK: - Reputation
 
-public enum ReputationVerdict: String, Sendable, Codable { case clean, low, medium, high, unknown }
+public enum ReputationVerdict: String, Sendable, Codable { case clean, low, medium, high, unknown, listed, notListed }
 
 public struct ReputationRecord: Sendable, Equatable, Codable, Identifiable {
     public var source: String
@@ -269,7 +306,7 @@ public struct ReputationRecord: Sendable, Equatable, Codable, Identifiable {
 
 // MARK: - Services
 
-public enum ServiceOutcome: String, Sendable, Codable { case reachable, regionRestricted, timedOut, undetermined }
+public enum ServiceOutcome: String, Sendable, Codable { case reachable, regionRestricted, timedOut, undetermined, redirected, legallyRestricted }
 
 /// What a service check actually asked, so the report never claims more than it tested.
 public enum ServiceBasis: String, Sendable, Codable {
@@ -285,9 +322,14 @@ public struct ServiceProbe: Sendable, Equatable, Codable, Identifiable {
     public var basis: ServiceBasis
     /// The region the service reported, when `basis` is `.regionCheck`.
     public var region: String?
+    public var endpoint: URL?
+    public var issue: QualityIssue?
+    public var httpStatus: Int?
     public var id: String { name }
 
-    public init(name: String, outcome: ServiceOutcome, basis: ServiceBasis, region: String? = nil) {
+    public init(name: String, outcome: ServiceOutcome, basis: ServiceBasis, region: String? = nil,
+                endpoint: URL? = nil, issue: QualityIssue? = nil, httpStatus: Int? = nil) {
         self.name = name; self.outcome = outcome; self.basis = basis; self.region = region
+        self.endpoint = endpoint; self.issue = issue; self.httpStatus = httpStatus
     }
 }

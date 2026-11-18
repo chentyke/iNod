@@ -100,11 +100,11 @@ public extension NetworkKind {
 }
 
 public extension IPOwner {
-    /// "中国 上海 · AS4812 中国电信"
+    /// "中国 上海，AS4812 中国电信"
     var summary: String {
         let place = [country, region == city ? nil : region, city].compactMap { $0 }.joined(separator: " ")
         let network = [asn.map { "AS\($0)" }, organization].compactMap { $0 }.joined(separator: " ")
-        return [place, network].filter { !$0.isEmpty }.joined(separator: " · ")
+        return [place, network].filter { !$0.isEmpty }.joined(separator: "，")
     }
 }
 
@@ -122,6 +122,9 @@ public extension NATType {
         case .symmetric: "对称型"
         case .udpBlocked: "UDP 被阻断"
         case .undetermined: "无法确定"
+        case .endpointIndependent: "映射与目标无关"
+        case .addressDependent: "映射随目标 IP 变化"
+        case .addressAndPortDependent: "映射随目标 IP 和端口变化"
         }
     }
     /// What the type means for the reader, in one line.
@@ -133,6 +136,7 @@ public extension NATType {
         case .symmetric: "点对点连接通常需要中转，游戏和通话可能受影响。"
         case .udpBlocked: "当前网络不放行 UDP，通话和部分游戏无法直连。"
         case .undetermined: "测试没有得到足够的回应。"
+        case .endpointIndependent, .addressDependent, .addressAndPortDependent: "测量公网地址和端口的分配方式。"
         }
     }
 }
@@ -145,7 +149,7 @@ public extension PortOutcome {
 
 public extension ReputationVerdict {
     var title: String {
-        switch self { case .clean: "无风险"; case .low: "低风险"; case .medium: "中风险"; case .high: "高风险"; case .unknown: "未知" }
+        switch self { case .clean: "无风险"; case .low: "低风险"; case .medium: "中风险"; case .high: "高风险"; case .unknown: "未知"; case .listed: "名单已收录"; case .notListed: "名单未收录" }
     }
 }
 
@@ -154,10 +158,12 @@ public extension ServiceProbe {
     var outcomeTitle: String {
         switch (outcome, basis) {
         case (.reachable, .webPage): "网页可访问"
-        case (.reachable, .regionCheck): region.map { "可用 · \($0)" } ?? "可用"
+        case (.reachable, .regionCheck): region.map { "可用，\($0)" } ?? "可用"
         case (.regionRestricted, _): region ?? "地区受限"
         case (.timedOut, _): "超时"
-        case (.undetermined, _): "无法判断"
+        case (.undetermined, _): issue?.title ?? "无法判断"
+        case (.redirected, _): "网页返回重定向"
+        case (.legallyRestricted, _): "网页返回法律限制"
         }
     }
 }

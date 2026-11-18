@@ -3,8 +3,8 @@ import Foundation
 public extension NetworkQualityReport {
     /// Plain text for copying and sharing. It holds exactly what the report shows, with addresses masked when asked.
     func sharedText(hidingAddresses: Bool, timeZone: TimeZone = .current) -> String {
-        var lines = ["iNod 网络检测", "\(network.kind.title) · \(Self.timestamp(startedAt, timeZone))"]
-        if network.usesVPN { lines[1] += " · 经由 VPN" }
+        var lines = ["iNod 网络检测", "\(network.kind.title)，\(Self.timestamp(startedAt, timeZone))"]
+        if network.usesVPN { lines[1] += "，经由 VPN" }
 
         func section(_ title: String, _ body: [String]) { lines.append(""); lines.append("【\(title)】"); lines += body }
         func line(_ result: QualityStatus) -> String? {
@@ -19,11 +19,13 @@ public extension NetworkQualityReport {
         if speed != .notIncluded {
             if let speed = speed.value {
                 var body = [
-                    "下载 " + (speed.downloadMbps.map { QualityFormat.mbps($0) + " Mbps" } ?? "未测得"),
-                    "上传 " + (speed.uploadMbps.map { QualityFormat.mbps($0) + " Mbps" } ?? "未测得"),
+                    (speed.downloadIsEstimate == true ? "下载约 " : "下载 ") + (speed.downloadMbps.map { QualityFormat.mbps($0) + " Mbps" } ?? "未测得"),
+                    (speed.uploadIsEstimate == true ? "上传约 " : "上传 ") + (speed.uploadMbps.map { QualityFormat.mbps($0) + " Mbps" } ?? "未测得"),
                 ]
-                if let latency = speed.latencyMs { body.append("延迟 \(QualityFormat.ms(latency)) ms" + (speed.jitterMs.map { " · 抖动 \(QualityFormat.ms($0)) ms" } ?? "")) }
-                body.append("节点 \(speed.server.provider) \(speed.server.location)")
+                if let latency = speed.latencyMs { body.append("延迟 \(QualityFormat.ms(latency)) ms" + (speed.jitterMs.map { "，抖动 \(QualityFormat.ms($0)) ms" } ?? "")) }
+                let node = [speed.server.provider, speed.server.location].filter { !$0.isEmpty }.joined(separator: " ")
+                body.append("节点 \(node)")
+                body += speed.issues.map { [$0.detail, $0.title].compactMap { $0 }.joined(separator: "，") }
                 section("速度", body)
             } else if let text = line(speed.status) { section("速度", [text]) }
         }
@@ -45,12 +47,15 @@ public extension NetworkQualityReport {
                     let head = "\(trace.carrier.title) \(trace.city)"
                     if let issue = trace.issue { return "\(head) \(issue.title)" }
                     let loss = trace.lossRate.map { "丢包 \(QualityFormat.percent($0))" } ?? ""
-                    let latency = trace.averageLatencyMs.map { "\(QualityFormat.ms($0)) ms · " } ?? ""
+                    let latency = trace.averageLatencyMs.map { "\(QualityFormat.ms($0)) ms，" } ?? ""
                     return "\(head) \(latency)\(loss)"
                 })
             } else if let text = line(routes.status) { section("三网线路", [text]) }
         }
-        if nat != .notIncluded { section("NAT 类型", [nat.value.map(\.type.title) ?? line(nat.status) ?? ""]) }
+        if nat != .notIncluded {
+            let notes = [nat.value?.type.title ?? line(nat.status), nat.value?.issue.map { $0.detail ?? $0.title }]
+            section("NAT 类型", notes.compactMap { $0 })
+        }
         if mailPort != .notIncluded { section("邮件端口", [mailPort.value.map { "TCP \($0.port) \($0.outcome.title)" } ?? line(mailPort.status) ?? ""]) }
         if reputation != .notIncluded {
             if let records = reputation.value {
