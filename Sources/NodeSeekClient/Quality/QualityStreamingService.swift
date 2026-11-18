@@ -59,6 +59,13 @@ public struct QualityStreamingService: Sendable {
         }
     }
 
+    /// Creates a result collector for the matching sample in a visible official player.
+    public func playbackCheck(for platform: QualityStreamingPlatform) -> QualityStreamingPlaybackCheck? {
+        let sample = Sample(platform)
+        guard sample.isEmbed else { return nil }
+        return QualityStreamingPlaybackCheck(platform: platform, videoID: sample.id)
+    }
+
     /// Checks a published rule for the supplied country. This does not determine the viewer's location.
     public func checkYouTubeRegion(
         videoID: String, countryCode: String, apiKey: String

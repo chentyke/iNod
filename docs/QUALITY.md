@@ -92,3 +92,7 @@ HTTP 401、451、重定向和超时分别记录。403、404、返回首页或挑
 另外，调用方提供 YouTube Data API 密钥、视频编号和国家代码时，`checkYouTubeRegion(videoID:countryCode:apiKey:)` 可以查该片已发布的允许或限制规则。未发布地区规则和找不到视频应分别记录。国家代码由调用方提供，结果说明规则对该国家的判断。密钥仅随请求头传给 Google。
 
 [YouTube 地区规则](https://developers.google.com/youtube/data/reference/rest/v3/videos#contentDetails.regionRestriction) / [Netflix 地区说明](https://help.netflix.com/en/node/125345) / [YouTube 嵌入播放器规则](https://developers.google.com/youtube/terms/required-minimum-functionality) / [TikTok 嵌入接口](https://developers.tiktok.com/docs/en/embed-videos)
+
+`QualityStreamingService.playbackCheck(for:)` 为 YouTube 和 TikTok 样片生成一次播放检查。调用方把同一样片的官方可见播放器事件传给检查对象。YouTube 使用 IFrame Player API 的状态、播放时间和错误回调。TikTok 使用该样片 iframe 的消息，调用方先检查事件来源是该 iframe。只有播放器进入播放状态，并且播放时间持续前进，才得到已播放。缓冲、中途跳转、自动播放被阻止和播放器报错分别处理。这项检查适用于指定样片，当前 App 尚未放置播放器。
+
+[YouTube 播放器 API](https://developers.google.com/youtube/iframe_api_reference) / [TikTok 播放器 API](https://developers.tiktok.com/docs/en/embed-player)
