@@ -7,31 +7,112 @@ struct HomepageSettingsView: View {
     @Environment(AccountSession.self) private var account
     @State private var loader = AccountLoader<AccountPage<HomepageCategory>>()
     @State private var categories: [HomepageCategory] = []
+    @State private var baselineCategories: [HomepageCategory] = []
     @State private var saved = false
     @State private var initialized = false
 
+    private var enabledCount: Int {
+        categories.filter(\.enabled).count
+    }
+
+    private var hasChanges: Bool {
+        initialized && categories != baselineCategories
+    }
+
     var body: some View {
         AccountDataView(loader: loader, retry: { await load(force: true) }) { _ in
-            Form {
+            List {
+                if saved && !hasChanges {
+                    Section {
+                        SettingsFeedbackRow(message: "首页版块设置已同步到 NodeSeek。", isSuccess: true)
+                            .listRowBackground(Color.seekCard)
+                    }
+                }
+
                 Section {
-                    ForEach($categories) { $category in Toggle(category.title, isOn: $category.enabled) }
-                } header: { Text("在社区首页显示") } footer: { Text("这些选择也会同步到官网。") }
-                if saved { Label("已保存", systemImage: "checkmark.circle.fill").foregroundStyle(Color.seekGreen) }
-            }.disabled(loader.isUpdating)
+                    if categories.isEmpty {
+                        Text("暂无可自定义的版块")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 6)
+                            .listRowBackground(Color.seekCard)
+                    }
+
+                    ForEach($categories) { $category in
+                        Toggle(isOn: $category.enabled) {
+                            HStack(spacing: AccountSettingsMetrics.rowSpacing) {
+                                SeekIconTile(
+                                    symbol: category.symbol,
+                                    tint: category.enabled ? .categoryTint(category.id) : .seekInk
+                                )
+                                Text(category.title)
+                                    .foregroundStyle(Color.seekInk)
+                            }
+                            .frame(minHeight: 44)
+                        }
+                        .tint(Color.seekGreen)
+                        .accessibilityIdentifier("homepage-category-\(category.id)")
+                        .settingsRowStyle()
+                    }
+                } header: {
+                    SeekSectionTitle(
+                        title: "首页显示版块",
+                        detail: categories.isEmpty ? nil : "已开启 \(enabledCount) / \(categories.count)"
+                    )
+                } footer: {
+                    Text("关闭后，对应版块的主题将不在首页综合流中显示，仍可单独进入版块浏览。选择会同步到 NodeSeek 官网。")
+                }
+            }
+            .seekGroupedList()
+            .contentMargins(.top, 12, for: .scrollContent)
+            .disabled(loader.isUpdating)
         }
-        .seekCanvas().listSectionSpacing(20).navigationTitle("首页版块")
-        .toolbar { Button(loader.isUpdating ? "保存中" : "保存") { Task { await save() } }.disabled(loader.value == nil || loader.isUpdating || categories == (loader.value?.items ?? [])) }
-        .onChange(of: categories) { saved = false }
+        .navigationTitle("首页版块")
+        .interactiveDismissDisabled(loader.isUpdating)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(loader.isUpdating ? "保存中…" : "保存") {
+                    Task { await save() }
+                }
+                .fontWeight(.semibold)
+                .disabled(loader.value == nil || loader.isUpdating || !hasChanges)
+                .accessibilityIdentifier("homepage-save-button")
+            }
+        }
+        .onChange(of: categories) {
+            if hasChanges { saved = false }
+        }
         .task { await load() }
+        .refreshable { await load(force: true) }
     }
+
     private func load(force: Bool = false) async {
-        if !initialized, let cached: AccountPage<HomepageCategory> = account.website.cached(key: account.website.key(for: .homepage, viewerID: userID)) {
-            categories = cached.items; initialized = true
+        if !initialized,
+           let cached: AccountPage<HomepageCategory> = account.website.cached(
+               key: account.website.key(for: .homepage, viewerID: userID)
+           ) {
+            apply(cached.items)
         }
+        let hadEditsBeforeLoad = hasChanges
         await loader.load(account.website, .homepage, userID: userID, force: force)
-        if !initialized, let value = loader.value { categories = value.items; initialized = true }
+        if let value = loader.value, (!initialized || !hadEditsBeforeLoad || force) {
+            apply(value.items)
+        }
     }
+
+    private func apply(_ items: [HomepageCategory]) {
+        categories = items
+        baselineCategories = items
+        initialized = true
+    }
+
     private func save() async {
-        if await loader.action(account.website, .saveHomepage(categories), userID: userID) != nil { saved = true; await account.refresh() }
+        guard hasChanges else { return }
+        if await loader.action(account.website, .saveHomepage(categories), userID: userID) != nil {
+            baselineCategories = categories
+            loader.value = AccountPage(items: categories, hasNext: false)
+            saved = true
+            await account.refresh()
+        }
     }
 }

@@ -136,6 +136,16 @@ public final class SiteDataStore {
         let revision = identityRevision
         let auth = try await bootstrap()
         guard revision == identityRevision, auth.user?.id == userID else { throw CancellationError() }
+        #if DEBUG
+        if let responsesForUITests {
+            guard let data = responsesForUITests["POST \(path)"] ?? responsesForUITests[path] else {
+                throw SiteError.message("Missing UI test response for POST \(path)")
+            }
+            let result = try JSONDecoder().decode(Value.self, from: data)
+            if changesData { invalidate(after: path, userID: userID, postID: body?["postId"] as? Int) }
+            return result
+        }
+        #endif
         let result: Value = try await reader.json(path: path, method: "POST", body: body, userID: userID, headers: headers)
         guard revision == identityRevision else { throw CancellationError() }
         if changesData { invalidate(after: path, userID: userID, postID: body?["postId"] as? Int) }
@@ -216,6 +226,16 @@ public final class SiteDataStore {
         let revision = identityRevision
         let auth = try await bootstrap()
         guard revision == identityRevision, auth.user?.id == userID else { throw CancellationError() }
+        #if DEBUG
+        if let responsesForUITests {
+            guard let data = responsesForUITests["POST \(path)"] ?? responsesForUITests[path] else {
+                throw SiteError.message("Missing UI test response for POST \(path)")
+            }
+            let result = try JSONDecoder().decode(ReactionResponse.self, from: data)
+            invalidate(after: path, userID: userID, postID: body["postId"] as? Int, messagePeerID: messagePeerID)
+            return result
+        }
+        #endif
         let result = try await reader.accountAction(path: path, body: body, userID: userID, headers: headers)
         guard revision == identityRevision else { throw CancellationError() }
         invalidate(after: path, userID: userID, postID: body["postId"] as? Int, messagePeerID: messagePeerID)
