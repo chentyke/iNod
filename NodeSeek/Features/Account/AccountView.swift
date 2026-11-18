@@ -97,6 +97,7 @@ struct AccountView: View {
         .navigationTitle("我的")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await account.refresh(force: true) }
+        .menuRefreshable { await account.refresh(force: true) }
         .task { await account.refresh() }
         .sheet(isPresented: $showsVerification) { WebsiteView(initialURL: NodeSeekRoute.home.url) }
         .sheet(isPresented: $showsSignIn) { SignInView() }

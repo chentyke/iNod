@@ -81,6 +81,7 @@ struct FeedView: View {
         .onSubmit(of: .search, submitSearch)
         .onChange(of: query) { if query.isEmpty { submittedQuery = "" } }
         .refreshable { await load(reset: true, force: true) }
+        .menuRefreshable { await load(reset: true, force: true) }
         .task(id: requestKey) { await load(reset: true) }
         .task(id: account.revision) { await categories.refresh() }
         .task(id: openingNewPost) {

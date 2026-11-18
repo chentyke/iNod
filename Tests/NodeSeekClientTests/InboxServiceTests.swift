@@ -125,6 +125,42 @@ struct InboxServiceTests {
         #expect(site.sent == ["你好"])
         #expect(inbox.threads?.items.count == 1)
     }
+
+    @Test func unreadIncreaseRefreshesLoadedListsWithoutFetchingUnvisitedOnes() async throws {
+        let site = try TestInboxWebsite()
+        site.currentUnreadCount = 1
+        let inbox = InboxService(website: site)
+        inbox.reset(userID: 1, unreadCount: 1)
+
+        // Before any inbox tab has been visited, badge polling only updates the count.
+        site.currentUnreadCount = 2
+        await inbox.refreshUnread()
+        #expect(inbox.unreadCount == 2)
+        #expect(site.threadReads == 0)
+        #expect(site.noticeReads.isEmpty)
+
+        try await inbox.loadThreads(userID: 1)
+        try await inbox.loadNotices(.replies, userID: 1)
+        #expect(site.threadReads == 1)
+        #expect(site.noticeReads == [.replies])
+
+        // A new unread item refreshes already-loaded threads and replies with `force: true`, leaving `.mentions` untouched.
+        site.currentUnreadCount = 4
+        await inbox.refreshUnread()
+        #expect(inbox.unreadCount == 4)
+        #expect(site.threadReads == 2)
+        #expect(site.lastThreadsForce == true)
+        #expect(site.noticeReads == [.replies, .replies])
+        #expect(site.lastNoticeForce == true)
+
+        // Same or lower unread counts do not re-fetch lists.
+        await inbox.refreshUnread()
+        site.currentUnreadCount = 3
+        await inbox.refreshUnread()
+        #expect(inbox.unreadCount == 3)
+        #expect(site.threadReads == 2)
+        #expect(site.noticeReads == [.replies, .replies])
+    }
 }
 
 @MainActor
@@ -138,9 +174,13 @@ private final class TestInboxWebsite: InboxWebsite {
     private var didStartConversationRead: CheckedContinuation<Void, Never>?
     private var finishConversationRead: CheckedContinuation<Void, Never>?
     private(set) var threadReads = 0
+    private(set) var lastThreadsForce: Bool?
     private(set) var conversationReads: [Int] = []
     private(set) var unreadReads = 0
+    private(set) var noticeReads: [NoticeKind] = []
+    private(set) var lastNoticeForce: Bool?
     private(set) var noticeWrites: [NoticeKind] = []
+    var currentUnreadCount = 3
     var onUnreadRead: (() -> Void)?
     var failingNoticeKind: NoticeKind?
     var failUnreadRefresh = false
@@ -186,11 +226,12 @@ private final class TestInboxWebsite: InboxWebsite {
         unreadReads += 1
         onUnreadRead?()
         if failUnreadRefresh { throw Failure.network }
-        return 3
+        return currentUnreadCount
     }
 
     func messageThreads(userID: Int, force: Bool) async throws -> AccountPage<MessageThread> {
         threadReads += 1
+        lastThreadsForce = force
         if failThreadsRead { throw Failure.network }
         let value = threadsValue
         if let started = didStartThreadsRead {
@@ -211,7 +252,11 @@ private final class TestInboxWebsite: InboxWebsite {
         {"peer":{"id":3,"name":"Second reader"},"items":[]}
         """#.utf8))
     }
-    func notices(_ kind: NoticeKind, userID: Int, force: Bool) async throws -> AccountPage<ForumNotice> { .init(items: [], hasNext: false) }
+    func notices(_ kind: NoticeKind, userID: Int, force: Bool) async throws -> AccountPage<ForumNotice> {
+        noticeReads.append(kind)
+        lastNoticeForce = force
+        return .init(items: [], hasNext: false)
+    }
     func markNoticesRead(_ kind: NoticeKind, ids: [Int]?, userID: Int) async throws {
         noticeWrites.append(kind)
         if kind == failingNoticeKind { throw Failure.network }

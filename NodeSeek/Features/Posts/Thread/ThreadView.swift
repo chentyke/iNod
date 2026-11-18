@@ -221,6 +221,7 @@ struct ThreadView: View {
             }
         }
         .task(id: "\(showsBlocked)|\(page)|\(refreshID)|\(account.revision)") { await load() }
+        .menuRefreshable { await load(force: true) }
         .task(id: requestedCommentPage) {
             if let requestedCommentPage { await loadCommentPage(requestedCommentPage) }
         }

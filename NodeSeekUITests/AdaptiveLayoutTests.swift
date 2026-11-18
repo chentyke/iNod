@@ -71,6 +71,31 @@ final class AdaptiveLayoutTests: XCTestCase {
         attachScreenshot(of: app, named: "Thread")
     }
 
+    func testConversationBubblesAndComposerShareOneColumn() throws {
+        #if targetEnvironment(macCatalyst)
+        let app = ForumFixture.launchConversation(dark: true)
+        #else
+        let app = ForumFixture.launchConversation()
+        #endif
+        let incoming = ForumFixture.element("message-703", in: app)
+        let outgoing = ForumFixture.element("message-704", in: app)
+        XCTAssertTrue(incoming.waitForExistence(timeout: 5))
+        XCTAssertTrue(outgoing.waitForExistence(timeout: 5))
+        attachScreenshot(of: app, named: "Conversation")
+
+        let page = besideSidebar(app.scrollViews.containing(.any, identifier: "message-703").firstMatch.frame, in: app)
+        let column = CGRect(x: incoming.frame.minX, y: incoming.frame.minY,
+                            width: outgoing.frame.maxX - incoming.frame.minX, height: incoming.frame.height)
+        assertColumn(column, in: page, "Conversation column")
+
+        let options = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "私信选项")).firstMatch
+        let send = app.buttons["发送"]
+        XCTAssertTrue(options.waitForExistence(timeout: 5))
+        XCTAssertTrue(send.exists)
+        assertClose(options.frame.minX, column.minX, "Incoming bubble and composer leading edges")
+        assertClose(send.frame.maxX, column.maxX, "Outgoing bubble and composer trailing edges")
+    }
+
     #if targetEnvironment(macCatalyst)
     /// The Mac sidebar marks the open tab with the app's tint. In dark mode its label must still stand out
     /// from that highlight: an ink tint that turns white drew white text on a white bar.
@@ -118,6 +143,22 @@ final class AdaptiveLayoutTests: XCTestCase {
         app.typeKey("r", modifierFlags: .command)
         XCTAssertTrue(ForumFixture.title("登录 NodeSeek", in: app).waitForExistence(timeout: 5),
                       "⌘R should start a reply, which asks a signed-out reader to sign in first.")
+    }
+
+    func testMenuBarIncludesManualRefreshCommand() throws {
+        #if targetEnvironment(macCatalyst)
+        let app = ForumFixture.launchConversation(dark: true)
+        let refreshItem = app.menuBars.menuBarItems["显示"].menus.menuItems["刷新"]
+        XCTAssertTrue(refreshItem.waitForExistence(timeout: 5), "The View menu should expose a Refresh command on Mac.")
+        XCTAssertTrue(refreshItem.isEnabled, "The Refresh command should be enabled while a refreshable page is open.")
+        #else
+        let app = ForumFixture.launchThread()
+        XCTAssertTrue(replyButton(in: app).wait(for: \.isEnabled, toEqual: true, timeout: 5))
+        app.typeKey("r", modifierFlags: [.command, .shift])
+        XCTAssertTrue(ForumFixture.element("comment-2", in: app).waitForExistence(timeout: 5),
+                      "⇧⌘R should reload the open thread in place without opening the reply sheet.")
+        XCTAssertFalse(ForumFixture.title("登录 NodeSeek", in: app).exists)
+        #endif
     }
 
     // MARK: - Helpers

@@ -35,6 +35,7 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
         .contentMargins(.top, 4, for: .scrollContent)
         .readableContentMargins()
         .refreshable { await reload() }
+        .menuRefreshable(reload)
         .overlay {
             if items?.isEmpty != false {
                 if let error {
