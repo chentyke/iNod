@@ -2,7 +2,7 @@ import Foundation
 import Network
 
 public struct NetworkQualityService: Sendable {
-    public static let maximumTransferBytes = SpeedTarget.cloudflare.transferSizes.reduce(0, +) * 2
+    public static let maximumTransferBytes = SpeedTarget.cloudflare.downloadSizes.reduce(0, +) + SpeedTarget.cloudflare.uploadSizes.reduce(0, +)
 
     struct SpeedTarget: Sendable {
         static let cloudflare = Self(
@@ -10,23 +10,26 @@ public struct NetworkQualityService: Sendable {
             latencyURL: URL(string: "https://speed.cloudflare.com/__down?bytes=0")!,
             downloadURL: URL(string: "https://speed.cloudflare.com/__down")!,
             uploadURL: URL(string: "https://speed.cloudflare.com/__up")!,
-            transferSizes: [1_000_000, 10_000_000, 10_000_000],
+            downloadSizes: [1_000_000, 10_000_000, 10_000_000],
+            uploadSizes: [1_000_000, 10_000_000, 10_000_000],
             format: .cloudflare
         )
 
-        enum Format: Sendable { case cloudflare, libreSpeed }
+        enum Format: Sendable { case cloudflare, libreSpeed, speedTestCN }
 
         let provider: String
         let latencyURL: URL
         let downloadURL: URL
         let uploadURL: URL
-        let transferSizes: [Int]
+        let downloadSizes: [Int]
+        let uploadSizes: [Int]
         let format: Format
 
         func downloadURL(bytes: Int) -> URL {
             let size = switch format {
             case .cloudflare: URLQueryItem(name: "bytes", value: String(bytes))
             case .libreSpeed: URLQueryItem(name: "ckSize", value: String(bytes / 1_048_576))
+            case .speedTestCN: URLQueryItem(name: "size", value: String(bytes))
             }
             return downloadURL.appending(queryItems: [size])
         }
@@ -73,11 +76,13 @@ public struct NetworkQualityService: Sendable {
             return Self.finish(report, state: .interrupted(.offline))
         }
 
-        let session = request == nil ? QualityHTTP.makeSession() : nil
+        let session = request == nil
+            ? QualityHTTP.makeSession(resourceTimeout: speedTarget.format == .speedTestCN ? 25 : 12)
+            : nil
         defer { session?.invalidateAndCancel() }
         let send: QualityHTTP.Request = request ?? { request, upload in
             guard let session else { throw QualityIssue.invalidResponse }
-            let limit = speedTarget.format == .libreSpeed ? Self.responseLimit(for: request, target: speedTarget) : nil
+            let limit = speedTarget.format == .cloudflare ? nil : Self.responseLimit(for: request, target: speedTarget)
             return try await QualityHTTP.request(using: session, request: request, upload: upload, maximumResponseBytes: limit)
         }
         let startReport = report
@@ -256,7 +261,7 @@ extension NetworkQualityService {
         let endpoint = target.latencyURL
         let source = QualitySource(provider: target.provider, endpoint: endpoint, checkedAt: .now)
         // Warm up the connection before measuring request-to-first-byte latency.
-        if let warmup = try? await send(speedRequest(endpoint, timeout: 4), nil), warmup.statusCode == 429 {
+        if let warmup = try? await send(speedRequest(endpoint, timeout: 4, format: target.format), nil), warmup.statusCode == 429 {
             throw QualityIssue.httpStatus(429)
         }
         var samples: [QualityLatencySample] = []
@@ -264,10 +269,13 @@ extension NetworkQualityService {
             try Task.checkCancellation()
             let started = Date.now
             do {
-                let response = try await send(speedRequest(endpoint, timeout: 4), nil)
+                let response = try await send(speedRequest(endpoint, timeout: 4, format: target.format), nil)
                 try response.validateStatus()
                 guard response.body.count <= 1_024, let seconds = response.requestToFirstByte,
                       seconds.isFinite, seconds > 0 else { throw QualityIssue.invalidResponse }
+                if target.format == .speedTestCN, !String(decoding: response.body, as: UTF8.self).hasPrefix("hello v") {
+                    throw QualityIssue.invalidResponse
+                }
                 let adjusted = seconds - target.serverTime(response)
                 let latency = (adjusted > 0 ? adjusted : seconds) * 1_000
                 samples.append(.init(
@@ -293,11 +301,12 @@ extension NetworkQualityService {
         let endpoint = upload ? target.uploadURL : target.downloadURL
         let source = QualitySource(provider: target.provider, endpoint: endpoint, checkedAt: .now)
         var samples: [QualityTransferSample] = []
-        for size in target.transferSizes {
+        let sizes = upload ? target.uploadSizes : target.downloadSizes
+        for size in sizes {
             try Task.checkCancellation()
             let started = Date.now
             let url = upload ? endpoint : target.downloadURL(bytes: size)
-            var request = speedRequest(url, timeout: 8)
+            var request = speedRequest(url, timeout: 8, format: target.format)
             do {
                 var body: Data?
                 if upload {
@@ -308,7 +317,13 @@ extension NetworkQualityService {
                 let response = try await send(request, body)
                 try response.validateStatus()
                 let measured: TimeInterval?
-                if upload { measured = response.requestToFirstByte }
+                if upload {
+                    if target.format == .speedTestCN,
+                       String(decoding: response.body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) != "upload size:\(size)" {
+                        throw QualityIssue.invalidResponse
+                    }
+                    measured = response.requestToFirstByte
+                }
                 else { measured = response.requestToEnd.map { $0 - target.serverTime(response) } }
                 guard (upload || response.body.count == size), let seconds = measured, seconds.isFinite, seconds > 0 else {
                     throw QualityIssue.invalidResponse
@@ -323,7 +338,7 @@ extension NetworkQualityService {
                 samples.append(.init(checkedAt: started, node: nil, bytes: size, seconds: nil, issue: issue))
                 if issue == .httpStatus(429) { break }
             }
-            if let sample = samples.last { await onSample(sample, Double(samples.count) / Double(target.transferSizes.count)) }
+            if let sample = samples.last { await onSample(sample, Double(samples.count) / Double(sizes.count)) }
         }
         let result = QualityBandwidth(source: source, samples: samples)
         guard result.megabitsPerSecond != nil else {
@@ -335,14 +350,23 @@ extension NetworkQualityService {
     private static func responseLimit(for request: URLRequest, target: SpeedTarget) -> Int {
         guard request.httpMethod == "GET", let url = request.url,
               url.path() == target.downloadURL.path(),
-              let chunks = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                  .queryItems?.first(where: { $0.name == "ckSize" })?.value.flatMap(Int.init),
-              (1...4).contains(chunks) else { return 1_024 }
-        return chunks * 1_048_576
+              let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems else { return 1_024 }
+        let count: Int?
+        if target.format == .speedTestCN {
+            count = items.first(where: { $0.name == "size" })?.value.flatMap(Int.init)
+        } else {
+            let chunks = items.first(where: { $0.name == "ckSize" })?.value.flatMap(Int.init)
+            count = chunks.flatMap { (1...4).contains($0) ? $0 * 1_048_576 : nil }
+        }
+        guard let count, target.downloadSizes.contains(count) else { return 1_024 }
+        return count
     }
 
-    private static func speedRequest(_ endpoint: URL, timeout: TimeInterval) -> URLRequest {
-        let url = endpoint.appending(queryItems: [URLQueryItem(name: "measId", value: UUID().uuidString)])
+    private static func speedRequest(_ endpoint: URL, timeout: TimeInterval, format: SpeedTarget.Format) -> URLRequest {
+        let nonce: URLQueryItem = format == .speedTestCN
+            ? URLQueryItem(name: "r", value: String(Double.random(in: 0..<1)))
+            : URLQueryItem(name: "measId", value: UUID().uuidString)
+        let url = endpoint.appending(queryItems: [nonce])
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
         request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         return request

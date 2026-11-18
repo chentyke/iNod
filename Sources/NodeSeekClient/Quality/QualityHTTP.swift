@@ -49,7 +49,7 @@ extension QualityIssue {
 struct QualityHTTP {
     typealias Request = @Sendable (URLRequest, Data?) async throws -> QualityHTTPResponse
 
-    static func makeSession() -> URLSession {
+    static func makeSession(resourceTimeout: TimeInterval = 12) -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil
         configuration.httpCookieStorage = nil
@@ -57,7 +57,7 @@ struct QualityHTTP {
         configuration.httpShouldSetCookies = false
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.timeoutIntervalForRequest = 8
-        configuration.timeoutIntervalForResource = 12
+        configuration.timeoutIntervalForResource = resourceTimeout
         return URLSession(configuration: configuration)
     }
 
