@@ -91,7 +91,7 @@ Fluent 使用 `/static/image/sticker/emoji/{编号}.mov`，官网另提供 WebM�
 用户操作用到的写入接口如下。
 
 - 通知已读：`POST /api/notification/reply-to-me/markViewed`，`{replys:[id]}`；@我对应 `/at-me/markViewed`，`{atMe:[id]}`；全部已读附加 `?all=true`。
-- 私信已读：`POST /api/notification/message/markViewed`，`{messages:[id]}`；发送：`POST /api/notification/message/send`，`{receiverUid,content,markdown:false}`。
+- 私信已读：`POST /api/notification/message/markViewed`，`{messages:[id]}`；发送：`POST /api/notification/message/send`，`{receiverUid,content,markdown:true}`。
 - 签到：`POST /api/attendance?random=false` 固定 5 个鸡腿，`random=true` 随机奖励；以响应的 current 和再次读取的 record 为准。
 - 编辑资料：`POST /api/account/introduction`，`{bio,signature,readme}`。
 - 首页版块：`POST /api/homepage`，`{data:[{category,showInIndex}]}`。

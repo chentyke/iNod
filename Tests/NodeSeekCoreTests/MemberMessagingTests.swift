@@ -36,9 +36,11 @@ import Testing
     #expect(empty.belongs(to: 12, peerID: 9))
 }
 
-@Test func privateDraftsKeepMarkdownAndSeparateAccountAndRecipient() throws {
-    let draft = MessageDraft(content: "**未发出的草稿** :xhj003:", isMarkdown: true)
+@Test func privateDraftsKeepContentAndSeparateAccountAndRecipient() throws {
+    let draft = MessageDraft(content: "**未发出的草稿** :xhj003:")
     #expect(try JSONDecoder().decode(MessageDraft.self, from: JSONEncoder().encode(draft)) == draft)
+    let oldDraft = Data(#"{"content":"**未发出的草稿** :xhj003:","isMarkdown":false}"#.utf8)
+    #expect(try JSONDecoder().decode(MessageDraft.self, from: oldDraft) == draft)
     #expect(MessageDraft.key(ownerID: 12, peerID: 9) != MessageDraft.key(ownerID: 13, peerID: 9))
     #expect(MessageDraft.key(ownerID: 12, peerID: 9) != MessageDraft.key(ownerID: 12, peerID: 10))
     #expect(MessageDraft.key(ownerID: 12, peerID: 9) != MessageDraft.key(ownerID: 9, peerID: 12))
