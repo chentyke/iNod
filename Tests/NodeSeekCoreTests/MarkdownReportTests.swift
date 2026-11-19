@@ -27,6 +27,31 @@ import Testing
     #expect(blocks.last == .text("[NodeQuality链接](https://example.com/report)"))
 }
 
+@Test func reportTabsAllowMixedSpacingAfterColons() throws {
+    for opening in [":::: tabs", "::::tabs"] {
+        let source = """
+        合计
+
+        \(opening)
+        ::: tab-item 🎬IP质量
+        ![IP](https://example.com/ip.png)
+        :::
+        :::tab-item  🌐网络质量
+        ![网络](https://example.com/network.png)
+        :::
+        ::::
+
+        报告结束
+        """
+        let blocks = MarkdownBlock.parse(source)
+        try #require(blocks.count == 3)
+        guard case .tabs(let tabs) = blocks[1] else { Issue.record("没有显示报告标签"); return }
+        #expect(tabs.map(\.title) == ["🎬IP质量", "🌐网络质量"])
+        #expect(tabs.map(\.markdown) == ["![IP](https://example.com/ip.png)", "![网络](https://example.com/network.png)"])
+        #expect(blocks.last == .text("报告结束"))
+    }
+}
+
 @Test func tabMarkersInsideCodeStayLiteral() {
     #expect(MarkdownBlock.parse("```\n:::: tabs\n::: tab-item 示例\n::::\n```") == [.code(":::: tabs\n::: tab-item 示例\n::::")])
     let source = ":::: tabs\n::: tab-item 示例\n```\n:::\n::::\n```\n:::\n::::"
