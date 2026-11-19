@@ -25,6 +25,7 @@ public enum MarkdownBlock: Equatable, Sendable {
             return parts
         }
         let headingRule = /^#{1,6}\s+(.+)$/
+        let dividerRule = /([-*_])(?:[ \t]*\1){2,}/
         let tableDividerRule = /^:?-{3,}:?$/
         let listItemRule = /^(?:([-*+])|\d+[.)])\s+(.+)$/
         let voteRule = /^(?:\[.*\]\()?nsapp:\/\/vote\?id=(\d+)\)?$/
@@ -39,7 +40,7 @@ public enum MarkdownBlock: Equatable, Sendable {
                 result.append(.code(code.joined(separator: "\n")))
             } else if let match = trimmed.firstMatch(of: headingRule) {
                 flush(); result.append(.heading(String(match.1)))
-            } else if trimmed == "---" || trimmed == "***" || trimmed == "___" {
+            } else if trimmed.wholeMatch(of: dividerRule) != nil {
                 flush(); result.append(.divider)
             } else if trimmed.hasPrefix(">") {
                 flush(); var quote: [Substring] = []
@@ -57,7 +58,10 @@ public enum MarkdownBlock: Equatable, Sendable {
                 result.append(.table(rows)); continue
             } else if let match = trimmed.firstMatch(of: listItemRule) {
                 flush(); let ordered = match.1 == nil; var items: [String] = []
-                while index < lines.count, let item = lines[index].trimmingCharacters(in: .whitespaces).firstMatch(of: listItemRule), (item.1 == nil) == ordered {
+                while index < lines.count {
+                    let candidate = lines[index].trimmingCharacters(in: .whitespaces)
+                    guard let item = candidate.firstMatch(of: listItemRule), (item.1 == nil) == ordered,
+                          candidate.wholeMatch(of: dividerRule) == nil else { break }
                     items.append(String(item.2)); index += 1
                 }
                 result.append(.list(items: items, ordered: ordered)); continue
