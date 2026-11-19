@@ -52,7 +52,8 @@ struct RootView: View {
             .accessibilityLabel("我的")
         }
         #if targetEnvironment(macCatalyst)
-        .tint(Color.seekSidebarSelection)
+        // The sidebar's quiet grey; once a narrow window folds the tabs into a tab bar, ink marks the open tab like on iPhone.
+        .tint(horizontalSizeClass == .compact ? Color.seekInk : Color.seekSidebarSelection)
         #else
         .tint(Color.seekInk)
         #endif
