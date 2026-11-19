@@ -4,6 +4,7 @@ import SwiftUI
 struct ThreadAuthorBar: View {
     let post: PostSummary
     let detail: PostDetail?
+    var maximumWidth: CGFloat? = nil
 
     private var authorName: String { detail?.op.name ?? post.author }
     private var authorID: Int? { detail?.op.uid ?? post.authorID }
@@ -26,7 +27,8 @@ struct ThreadAuthorBar: View {
                 authorLabel
             }
         }
-        .fixedSize(horizontal: true, vertical: false)
+        .frame(maxWidth: maximumWidth, alignment: .leading)
+        .fixedSize(horizontal: maximumWidth == nil, vertical: false)
     }
 
     private var authorLabel: some View {

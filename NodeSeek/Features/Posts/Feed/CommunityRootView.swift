@@ -8,6 +8,9 @@ import UIKit
 struct CommunityRootView: View {
     @Environment(AccountSession.self) private var account
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.tabBarPlacement) private var tabPlacement
+    let sharedTabRow: ReaderTabRow?
+    @Binding var showsTopTabs: Bool
     @State private var selectedPost: PostSummary?
     @State private var detailPath = NavigationPath()
     @State private var compactPath = NavigationPath()
@@ -45,6 +48,7 @@ struct CommunityRootView: View {
                     }
                 }
             }
+            .onChange(of: tabPlacement == .topBar, initial: true) { _, visible in showsTopTabs = visible }
             .onChange(of: account.user?.id) { previous, current in
                 if previous != nil, previous != current {
                     selectedPost = nil
@@ -63,7 +67,11 @@ struct CommunityRootView: View {
         let feedWidth = SeekLayout.feedPaneWidth(forTotalWidth: totalWidth)
         return HStack(spacing: 0) {
             FeedView(selectedPostID: selectedPost?.id)
+                .safeAreaPadding(.top, sharedTabRow?.topInset ?? 0)
+                .ignoresSafeArea(.container, edges: sharedTabRow == nil ? [] : .top)
                 .frame(width: feedWidth)
+                // The reader background can extend under the list when its edge meets the tab bar inset.
+                .zIndex(sharedTabRow == nil ? 0 : 1)
                 .tint(Color.seekGreen)
                 .environment(\.openPost, PostNavigationAction { post in
                     selectedPost = post
@@ -91,6 +99,7 @@ struct CommunityRootView: View {
                     ThreadView(
                         post: post,
                         presentation: .splitDetail,
+                        sharedTabRow: sharedTabRow,
                         onClose: {
                             selectedPost = nil
                             detailPath = NavigationPath()

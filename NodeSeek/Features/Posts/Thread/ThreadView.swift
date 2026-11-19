@@ -14,6 +14,7 @@ enum ThreadPresentation {
 struct ThreadView: View {
     let post: PostSummary
     private let presentation: ThreadPresentation
+    private let sharedTabRow: ReaderTabRow?
     private let onClose: (() -> Void)?
     @Environment(AccountSession.self) private var account
     @Environment(\.dismiss) private var dismiss
@@ -79,9 +80,11 @@ struct ThreadView: View {
         initialFloor: Int? = nil,
         usesZoomTransition: Bool = false,
         presentation: ThreadPresentation? = nil,
+        sharedTabRow: ReaderTabRow? = nil,
         onClose: (() -> Void)? = nil
     ) {
         self.post = post
+        self.sharedTabRow = sharedTabRow
         self.presentation = presentation ?? (usesZoomTransition ? .zoom : .pushed)
         self.onClose = onClose
         _page = State(initialValue: max(1, initialPage))
@@ -205,7 +208,7 @@ struct ThreadView: View {
                             .frame(width: 44, height: 44)
                             .glassEffect(.regular.interactive(), in: .circle)
                         }
-                        ThreadAuthorBar(post: post, detail: detail)
+                        ThreadAuthorBar(post: post, detail: detail, maximumWidth: sharedTabRow?.authorWidth)
                         Spacer(minLength: 0)
                         Menu {
                             postMenuItems
@@ -220,11 +223,13 @@ struct ThreadView: View {
                         .accessibilityLabel("更多")
                     }
                     .padding(.horizontal, SeekLayout.gutter)
-                    .padding(.vertical, presentation == .splitDetail ? 10 : 4)
+                    .padding(.vertical, sharedTabRow != nil ? 0 : (presentation == .splitDetail ? 10 : 4))
                     .readableColumn()
                 }
             }
         }
+        .safeAreaPadding(.top, sharedTabRow?.topInset ?? 0)
+        .ignoresSafeArea(.container, edges: sharedTabRow == nil ? [] : .top)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !usesMacToolbar || pendingReply != nil || isWritingReply {
                 ThreadActionBar(

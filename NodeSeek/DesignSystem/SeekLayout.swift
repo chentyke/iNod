@@ -92,3 +92,17 @@ private struct SideMargins: Equatable {
     var leading: CGFloat = 0
     var trailing: CGFloat = 0
 }
+
+/// The system tabs sit in the middle of the reader. Leave half the row for them,
+/// with the author and the menu sharing the remaining space on either side.
+struct ReaderTabRow {
+    let topInset: CGFloat
+    let authorWidth: CGFloat
+
+    init?(readerWidth: CGFloat, topInset: CGFloat) {
+        let column = min(SeekLayout.readableWidth, readerWidth - 2 * SeekLayout.gutter)
+        guard column >= 608 else { return nil }
+        self.topInset = topInset
+        self.authorWidth = column / 4 - 8
+    }
+}
