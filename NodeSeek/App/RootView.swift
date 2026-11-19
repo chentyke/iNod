@@ -1,9 +1,11 @@
 import NodeSeekClient
+import NodeSeekCore
 import SwiftUI
 import UIKit
 
 struct RootView: View {
     @Environment(AccountSession.self) private var account
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #if targetEnvironment(macCatalyst)
@@ -11,6 +13,9 @@ struct RootView: View {
     #endif
     @State private var tabAvatar: (url: URL, image: UIImage)?
     @State private var selectedTab = RootTab.community
+    @State private var selectedPost: PostSummary?
+    @State private var detailPath = NavigationPath()
+    @State private var showsTopTabs = false
 
     private var usesSidebarAdaptableTabs: Bool {
         #if targetEnvironment(macCatalyst)
@@ -21,10 +26,40 @@ struct RootView: View {
     }
 
     var body: some View {
+        #if !targetEnvironment(macCatalyst)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            GeometryReader { proxy in
+                let feedWidth = SeekLayout.feedPaneWidth(forTotalWidth: proxy.size.width)
+                let tabRow = horizontalSizeClass == .regular && showsTopTabs && !dynamicTypeSize.isAccessibilitySize
+                    ? ReaderTabRow(readerWidth: proxy.size.width - feedWidth - SeekLayout.splitDividerWidth,
+                                   topInset: proxy.safeAreaInsets.top)
+                    : nil
+                HStack(spacing: 0) {
+                    if tabRow != nil {
+                        CommunityFeedPane(selectedPost: $selectedPost, detailPath: $detailPath, width: feedWidth)
+                            .frame(width: selectedTab == .community ? feedWidth + SeekLayout.splitDividerWidth : 0)
+                            .opacity(selectedTab == .community ? 1 : 0)
+                            .allowsHitTesting(selectedTab == .community)
+                            .accessibilityHidden(selectedTab != .community)
+                            .disabled(selectedTab != .community)
+                    }
+                    tabs(sharedTabRow: tabRow)
+                }
+            }
+        } else {
+            tabs(sharedTabRow: nil)
+        }
+        #else
+        tabs(sharedTabRow: nil)
+        #endif
+    }
+
+    @ViewBuilder private func tabs(sharedTabRow: ReaderTabRow?) -> some View {
         let avatarURL = account.user.map { account.versionedAvatarURL($0.avatarURL) }
         let tabs = TabView(selection: $selectedTab) {
             Tab(value: RootTab.community) {
-                CommunityRootView()
+                CommunityRootView(selectedPost: $selectedPost, detailPath: $detailPath,
+                                  sharedTabRow: sharedTabRow, showsTopTabs: $showsTopTabs)
                     #if DEBUG && !targetEnvironment(macCatalyst)
                     .background {
                         if UIDevice.current.userInterfaceIdiom == .pad,

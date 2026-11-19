@@ -101,6 +101,13 @@ final class AdaptiveLayoutTests: XCTestCase {
         let more = app.buttons["更多"]
         XCTAssertTrue(author.exists)
         XCTAssertTrue(more.exists)
+        let community = ForumFixture.tab("社区", in: app)
+        if !hasSidebar(app) {
+            assertClose(author.frame.midY, community.frame.midY, "Author and tabs share a row")
+            assertClose(more.frame.midY, community.frame.midY, "Menu and tabs share a row")
+            XCTAssertLessThan(author.frame.maxX, community.frame.minX)
+            XCTAssertLessThan(ForumFixture.tab("我的", in: app).frame.maxX, more.frame.minX)
+        }
         assertClose(author.frame.minX, card.minX, "Thread author bar leading edge")
         assertClose(more.frame.maxX, card.maxX, "Thread menu button trailing edge")
 
@@ -111,6 +118,15 @@ final class AdaptiveLayoutTests: XCTestCase {
         assertClose(reply.frame.minX - card.minX, replyBarInset, "Reply bar leading edge")
         assertClose(card.maxX - share.frame.maxX, replyBarInset, "Reply bar trailing edge")
         attachScreenshot(of: app, named: "Feed in landscape")
+
+        ForumFixture.tab("通知", in: app).tap()
+        community.tap()
+        XCTAssertTrue(post.isSelected)
+        more.tap()
+        let close = app.buttons["关闭帖子"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        close.tap()
+        XCTAssertTrue(ForumFixture.element("feed-detail-placeholder", in: app).waitForExistence(timeout: 5))
     }
 
     func testPadSplitSwitchesAndClosesPosts() throws {
