@@ -5,6 +5,7 @@ import SwiftUI
 struct NodeSeekApp: App {
     @State private var account = makeAccount()
     @State private var pageRefresh = PageRefreshController()
+    @State private var macToolbar = MacToolbarModel()
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("appearance") private var appearance = AppAppearance.system
 
@@ -54,7 +55,9 @@ struct NodeSeekApp: App {
                     }
                 }
                 #if targetEnvironment(macCatalyst)
-                // Narrower than this, the feed's filter bar and the thread's reply bar start to crowd.
+                .environment(macToolbar)
+                .macWindowToolbar(macToolbar)
+                // Narrower than this, the feed's search bar and the thread's cards start to crowd.
                 .frame(minWidth: 400, minHeight: 560)
                 #endif
         }
@@ -63,13 +66,42 @@ struct NodeSeekApp: App {
         #endif
         // One window is enough, and ⌘N starts a new post instead of opening another window.
         .commands {
+            #if targetEnvironment(macCatalyst)
+            // The Mac has no in-page new post or reply buttons; their shortcuts follow the sidebar and toolbar.
+            CommandGroup(replacing: .newItem) {
+                Button("发布帖子") { macToolbar.requestCompose() }
+                    .keyboardShortcut("n", modifiers: .command)
+            }
+            CommandMenu("帖子") {
+                MacToolbarCommandButton(model: macToolbar, title: "回复", itemID: MacToolbarItem.replyID, section: .trailing)
+                    .keyboardShortcut("r", modifiers: .command)
+                MacToolbarCommandButton(model: macToolbar, title: "收藏", itemID: MacToolbarItem.collectionID, section: .trailing)
+            }
+            #else
             CommandGroup(replacing: .newItem) { }
+            #endif
             CommandGroup(after: .toolbar) {
                 RefreshCommandButton(pageRefresh: pageRefresh)
             }
         }
     }
 }
+
+#if targetEnvironment(macCatalyst)
+/// A menu bar command that runs the matching toolbar button, and is unavailable while no page shows one.
+private struct MacToolbarCommandButton: View {
+    let model: MacToolbarModel
+    let title: String
+    let itemID: String
+    let section: MacToolbarSection
+
+    var body: some View {
+        let item = model.item(itemID, in: section)
+        Button(item?.label ?? title) { model.perform(itemID, in: section) }
+            .disabled(item == nil)
+    }
+}
+#endif
 
 private struct RefreshCommandButton: View {
     let pageRefresh: PageRefreshController

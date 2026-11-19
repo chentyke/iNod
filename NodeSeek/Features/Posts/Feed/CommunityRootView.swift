@@ -3,8 +3,8 @@ import NodeSeekCore
 import SwiftUI
 import UIKit
 
-/// Root of the community tab: side-by-side feed and thread panes on wide iPad windows,
-/// falling back to a single zoom-push stack on iPhone, Mac and narrow iPad splits.
+/// Root of the community tab: side-by-side feed and thread panes on wide iPad and Mac windows,
+/// falling back to a single zoom-push stack on iPhone and narrow windows.
 struct CommunityRootView: View {
     @Environment(AccountSession.self) private var account
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -14,7 +14,8 @@ struct CommunityRootView: View {
 
     private var supportsSplit: Bool {
         #if targetEnvironment(macCatalyst)
-        false
+        // Like Mail: list and reader side by side, so opening a post never covers the list.
+        true
         #else
         UIDevice.current.userInterfaceIdiom == .pad
         #endif

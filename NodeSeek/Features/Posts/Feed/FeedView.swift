@@ -11,8 +11,13 @@ struct FeedView: View {
     @Environment(\.openMemberDestination) private var openMember
     @Environment(AccountSession.self) private var account
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    #if targetEnvironment(macCatalyst)
+    @Environment(MacToolbarModel.self) private var macToolbar: MacToolbarModel?
+    #endif
     @AppStorage("showsBlockedContent") private var showsBlocked = false
     private var categories: CategoryStore { account.categories }
+    /// The list column's width, which the Mac toolbar search field follows.
+    @State private var listWidth: CGFloat = 0
     @State private var posts: [PostSummary] = []
     @State private var pinnedPosts: [PostSummary] = []
     @State private var category = ""
@@ -65,6 +70,14 @@ struct FeedView: View {
         account.website.feedKey(route(page: 1), includeBlocked: showsBlocked, viewerID: account.user?.id)
     }
     private var showsSortInCategoryPicker: Bool { !isSearch && !isLinkedPage }
+    /// The community home on a Mac keeps New Post and its category in the sidebar and search in the toolbar over the list, not a row above it.
+    private var usesMacToolbar: Bool {
+        #if targetEnvironment(macCatalyst)
+        !isSearch && !isLinkedPage && !recommended
+        #else
+        false
+        #endif
+    }
 
     var body: some View {
         Group {
@@ -99,6 +112,13 @@ struct FeedView: View {
                 }
             }
         }
+        // With a sidebar the category heads it under New Post and search sits in the toolbar over the list, filling the
+        // strip above it; a narrow window folds the sidebar into a tab bar, so New Post and the category join search there.
+        .macToolbar(.sidebar, items: usesMacToolbar && showsMacSidebar ? [macCategoryItem] : [])
+        .macToolbar(.leading, items: usesMacToolbar ? (showsMacSidebar ? [macSearchItem] : [macSearchItem, macCategoryItem, macComposeItem]) : [])
+        #if targetEnvironment(macCatalyst)
+        .onChange(of: macToolbar?.composeRequests) { if usesMacToolbar { openingNewPost = true } }
+        #endif
         .onSubmit(of: .search, submitSearch)
         .onChange(of: query) { if query.isEmpty { submittedQuery = "" } }
         .refreshable { await load(reset: true, force: true) }
@@ -233,7 +253,10 @@ struct FeedView: View {
         }
         .seekCanvas(margins: .keepsGutter)
         .contentMargins(.vertical, recommended ? 8 : 6, for: .scrollContent)
-        .modifier(OptionalFeedFilterBar(isEnabled: !recommended) { filterBar })
+        // On a Mac the filter row's controls live in the window toolbar and sidebar, so the list starts right under the toolbar.
+        .modifier(OptionalFeedFilterBar(isEnabled: !recommended && !usesMacToolbar) { filterBar })
+        .modifier(MacToolbarFadeIf(isEnabled: usesMacToolbar))
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { listWidth = $0 }
         // An open search folds away once the reader scrolls, taps outside it or leaves the page;
         // a search with results only drops the keyboard.
         .scrollDismissesKeyboard(.immediately)
@@ -344,6 +367,44 @@ struct FeedView: View {
         }
     }
 
+    private var showsMacSidebar: Bool {
+        #if targetEnvironment(macCatalyst)
+        macToolbar?.tracksSidebar ?? true
+        #else
+        false
+        #endif
+    }
+
+    private var macComposeItem: MacToolbarItem {
+        MacToolbarItem(id: MacToolbarItem.composeID, label: "发布帖子", systemImage: "square.and.pencil",
+                       isEnabled: !openingNewPost) { openingNewPost = true }
+    }
+
+    private var macSearchItem: MacToolbarItem {
+        // Beside the sidebar the field sits alone over the list, so it spans the cards below it.
+        let cardWidth = min(listWidth - 2 * SeekLayout.gutter, SeekLayout.readableWidth)
+        return MacToolbarItem(id: "search", label: "搜索帖子", systemImage: "magnifyingglass",
+                              kind: .search(prompt: "搜索帖子", text: query),
+                              width: showsMacSidebar && cardWidth > 0 ? cardWidth.rounded() : nil,
+                              action: submitSearch, onTextChange: { query = $0 })
+    }
+
+    private var macCategoryItem: MacToolbarItem {
+        let categoryTitle = categories.items.first { $0.id == category }?.title ?? category
+        var sections: [[MacToolbarMenuEntry]] = []
+        if showsSortInCategoryPicker {
+            sections.append(FeedSort.allCases.map { option in
+                MacToolbarMenuEntry(id: "sort.\(option.rawValue)", title: option.title, isOn: sort == option) { sort = option }
+            })
+        }
+        sections.append(categories.items.map { item in
+            MacToolbarMenuEntry(id: "category.\(item.id)", title: item.title, systemImage: item.symbol,
+                                isOn: category == item.id) { category = item.id }
+        })
+        return MacToolbarItem(id: "category", label: "选择版块，当前\(categoryTitle)", systemImage: "line.3.horizontal.decrease",
+                              kind: .menu(title: categoryTitle, sections: sections))
+    }
+
     private var newPostButton: some View {
         let size = min(actionSymbolSize, 32)
         return Button {
@@ -437,6 +498,14 @@ struct FeedView: View {
             if reset { self.error = LoadFailure(error) }
             else { nextPageError = SiteError.displayMessage(for: error) }
         }
+    }
+}
+
+private struct MacToolbarFadeIf: ViewModifier {
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled { content.fadesUnderMacToolbar() } else { content }
     }
 }
 

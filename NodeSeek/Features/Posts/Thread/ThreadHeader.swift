@@ -6,6 +6,8 @@ struct ThreadHeader: View {
     let detail: PostDetail?
     let createdDate: Date?
     let showsRank: Bool
+    /// The Mac has no floating author bar above the post, so the author leads the line under the title.
+    var showsAuthor = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     private var categoryTitle: String { detail?.categoryWord ?? post.category }
@@ -18,6 +20,7 @@ struct ThreadHeader: View {
             Text(detail?.title ?? post.title).font(.title2.bold()).foregroundStyle(Color.seekInk)
                 .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             layout {
+                if showsAuthor { author }
                 if !categoryTitle.isEmpty {
                     SeekCategoryLabel(title: categoryTitle, category: detail?.category ?? post.categoryKey)
                         .fixedSize()
@@ -32,5 +35,21 @@ struct ThreadHeader: View {
             }
             Divider().overlay(Color.seekHairline)
         }.padding(.horizontal, 20).padding(.top, 20)
+    }
+
+    private var authorName: String { detail?.op.name ?? post.author }
+
+    @ViewBuilder private var author: some View {
+        let label = HStack(spacing: 8) {
+            AvatarView(name: authorName, url: detail?.op.avatarURL ?? post.avatarURL, size: 24)
+            Text(authorName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.seekInk).lineLimit(1)
+        }
+        if let id = detail?.op.uid ?? post.authorID {
+            NavigationLink(value: MemberDestination.profile(id)) { label.contentShape(.rect) }
+                .buttonStyle(.plain)
+                .accessibilityLabel("查看 \(authorName) 的主页")
+        } else if !authorName.isEmpty {
+            label
+        }
     }
 }

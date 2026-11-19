@@ -1,8 +1,9 @@
 import XCTest
 
 /// Checks docs/DESIGN.md rule 9 on whatever screen the tests run on — iPhone, iPad or a Mac window:
-/// iPhone and Mac keep cards in one readable, centred column, iPad splits the community home into a
-/// feed column beside a readable thread column, and hardware-keyboard shortcuts reach new-post and reply.
+/// iPhone keeps cards in one readable, centred column, iPad and wide Mac windows split the community home into a
+/// feed column beside a readable thread column, the Mac keeps new post in its sidebar and page actions in its window toolbar,
+/// and hardware-keyboard shortcuts reach new-post and reply.
 @MainActor
 final class AdaptiveLayoutTests: XCTestCase {
     // Element frames are in screen points, so app sizes are scaled by `ForumFixture.pointScale`.
@@ -24,6 +25,24 @@ final class AdaptiveLayoutTests: XCTestCase {
         #else
         UIDevice.current.userInterfaceIdiom == .pad
         #endif
+    }
+
+    /// The Mac puts new post in its sidebar, and the category filter, search, reply and share in its window toolbar,
+    /// instead of bars on the page.
+    private var usesMacToolbar: Bool {
+        #if targetEnvironment(macCatalyst)
+        true
+        #else
+        false
+        #endif
+    }
+
+    /// Whether the community home shows the feed and reader side by side. A Mac window splits once it is wide enough.
+    private func isSplit(_ app: XCUIApplication) -> Bool {
+        if isPadSplit { return true }
+        guard usesMacToolbar else { return false }
+        return ForumFixture.element("feed-detail-placeholder", in: app).exists
+            || ForumFixture.postCard(ForumFixture.threadTitle, in: app).exists && ForumFixture.element("comment-2", in: app).exists
     }
 
     override func setUp() {
@@ -144,14 +163,25 @@ final class AdaptiveLayoutTests: XCTestCase {
         let app = ForumFixture.launchThread()
         let comment = ForumFixture.element("comment-2", in: app)
         let scroll = app.scrollViews.containing(.any, identifier: "comment-2").firstMatch.frame
-        let page = isPadSplit ? scroll : besideSidebar(scroll, in: app)
+        let split = isSplit(app)
+        let page = split ? scroll : besideSidebar(scroll, in: app)
         let card = comment.frame
         assertColumn(card, in: page, "Reply card")
 
-        if isPadSplit {
+        if split {
             let feedCard = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
-            XCTAssertTrue(feedCard.exists, "The feed column remains visible beside an open thread on iPad.")
+            XCTAssertTrue(feedCard.exists, "The feed column remains visible beside an open thread.")
             XCTAssertLessThanOrEqual(feedCard.frame.maxX, scroll.minX + tolerance)
+        }
+
+        if usesMacToolbar {
+            // No reply bar floats over the page: reply and share sit in the window toolbar, above the cards.
+            let reply = replyButton(in: app)
+            XCTAssertTrue(reply.waitForExistence(timeout: 5), "The Mac toolbar should offer reply.")
+            // The scroll view runs on under the transparent toolbar, so compare with the cards it shows.
+            XCTAssertLessThanOrEqual(reply.frame.maxY, card.minY + tolerance)
+            attachScreenshot(of: app, named: "Thread")
+            return
         }
 
         // The reply bar is inset 4 points inside the cards on every width.
@@ -286,7 +316,9 @@ final class AdaptiveLayoutTests: XCTestCase {
     // MARK: - Helpers
 
     private func assertFeedLayout(in app: XCUIApplication, line: UInt = #line) {
-        if isPadSplit {
+        let post = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
+        XCTAssertTrue(post.waitForExistence(timeout: 10), line: line)
+        if isSplit(app) {
             assertSplitFeed(in: app, line: line)
         } else {
             assertSingleColumnFeed(in: app, line: line)
@@ -330,8 +362,15 @@ final class AdaptiveLayoutTests: XCTestCase {
     private func assertFilterBarAligns(with card: CGRect, in app: XCUIApplication, line: UInt = #line) {
         let category = app.buttons["选择版块，当前全部"]
         let newPost = app.buttons["发布帖子"]
-        XCTAssertTrue(category.exists, line: line)
         XCTAssertTrue(newPost.exists, line: line)
+        if usesMacToolbar {
+            // New post heads the sidebar beside the feed (or the toolbar above it once the sidebar folds away),
+            // and the category menu sits in the toolbar, so neither lines up with the cards.
+            XCTAssertTrue(newPost.frame.maxX <= card.minX + tolerance || newPost.frame.maxY <= card.minY + tolerance,
+                          "The new post button should sit in the sidebar or toolbar, clear of the feed cards.", line: line)
+            return
+        }
+        XCTAssertTrue(category.exists, line: line)
         assertClose(category.frame.minX, card.minX, "Category button and card leading edges", line: line)
         assertClose(newPost.frame.maxX, card.maxX, "New post button and card trailing edges", line: line)
     }
