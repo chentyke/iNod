@@ -190,6 +190,35 @@ final class AdaptiveLayoutTests: XCTestCase {
     }
 
     #if targetEnvironment(macCatalyst)
+    func testSidebarTitlesAlignWithAnAccountAvatar() throws {
+        let size = CGSize(width: 28, height: 28)
+        let avatar = UIGraphicsImageRenderer(size: size).pngData { context in
+            UIColor.magenta.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+        let app = ForumFixture.launch(
+            signedInAsAuthor: true,
+            assetResponses: ["https://www.nodeseek.com/avatar/101.png": avatar]
+        )
+        let names = ["社区", "通知", "我的"]
+        let rows = names.map { app.cells[$0] }
+        for (name, row) in zip(names, rows) {
+            XCTAssertTrue(row.staticTexts[name].waitForExistence(timeout: 10))
+        }
+        let accountIcon = rows[2].images.firstMatch
+        XCTAssertTrue(accountIcon.waitForExistence(timeout: 5))
+        // The placeholder has the SF Symbol's identifier. The downloaded avatar is an unnamed image.
+        XCTAssertTrue(accountIcon.wait(for: \.identifier, toEqual: "", timeout: 10), "The test avatar should load.")
+        attachScreenshot(of: app, named: "Sidebar with an account avatar")
+
+        let titleX = rows[0].staticTexts[names[0]].frame.minX
+        let iconX = rows[0].images.firstMatch.frame.midX
+        for (name, row) in zip(names.dropFirst(), rows.dropFirst()) {
+            XCTAssertEqual(row.staticTexts[name].frame.minX, titleX, accuracy: 1, "\(name) title should share the same leading edge.")
+            XCTAssertEqual(row.images.firstMatch.frame.midX, iconX, accuracy: 1, "\(name) icon should share the same horizontal centre.")
+        }
+    }
+
     /// The Mac sidebar marks the open tab with the app's tint. In dark mode its label must still stand out
     /// from that highlight: an ink tint that turns white drew white text on a white bar.
     func testSidebarSelectionIsReadableInDarkMode() throws {
