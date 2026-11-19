@@ -6,7 +6,7 @@ public struct MarkdownTab: Equatable, Sendable {
 
     static func parse(_ lines: [String], from start: Int) -> (items: [MarkdownTab], nextIndex: Int)? {
         let opening = lines[start].trimmingCharacters(in: .whitespaces)
-        guard let match = opening.firstMatch(of: /^(:{4,})\s+tabs\s*$/) else { return nil }
+        guard let match = opening.firstMatch(of: /^(:{4,})\s*tabs\s*$/) else { return nil }
         let closing = String(match.1)
         var items: [MarkdownTab] = []
         var title: String?
@@ -38,7 +38,7 @@ public struct MarkdownTab: Equatable, Sendable {
             if !nestedContainers.isEmpty {
                 body.append(line)
                 if trimmed == nestedContainers.last { nestedContainers.removeLast() }
-                else if let nested = trimmed.firstMatch(of: /^(:{3,})\s+\S.*$/) {
+                else if let nested = trimmed.firstMatch(of: /^(:{3,})\s*[^:\s].*$/) {
                     nestedContainers.append(String(nested.1))
                 }
                 continue
@@ -47,13 +47,13 @@ public struct MarkdownTab: Equatable, Sendable {
                 appendItem()
                 return items.isEmpty ? nil : (items, index + 1)
             }
-            if let item = trimmed.firstMatch(of: /^(:{3,})\s+tab-item\s+(.+)$/), item.1.count < closing.count {
+            if let item = trimmed.firstMatch(of: /^(:{3,})\s*tab-item\s+(.+)$/), item.1.count < closing.count {
                 appendItem()
                 title = String(item.2); itemClosing = String(item.1)
             } else if trimmed == itemClosing {
                 appendItem()
             } else if title != nil {
-                if let nested = trimmed.firstMatch(of: /^(:{3,})\s+\S.*$/) {
+                if let nested = trimmed.firstMatch(of: /^(:{3,})\s*[^:\s].*$/) {
                     nestedContainers.append(String(nested.1))
                 }
                 body.append(line)
