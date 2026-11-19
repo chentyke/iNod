@@ -63,7 +63,16 @@ struct ThreadView: View {
     private var accessError: PostAccessError? { error as? PostAccessError }
     private var isCollected: Bool { account.collections.status(post.id) == true }
     private var threadKind: String { showsBlocked ? "thread-including-blocked" : "thread" }
-    private var usesFloatingTopBar: Bool { presentation == .zoom || presentation == .splitDetail }
+    /// The Mac puts back, reply and the post menu in its window toolbar, so the page keeps no bars of its own.
+    private var usesMacToolbar: Bool {
+        #if targetEnvironment(macCatalyst)
+        true
+        #else
+        false
+        #endif
+    }
+    private var usesFloatingTopBar: Bool { !usesMacToolbar && (presentation == .zoom || presentation == .splitDetail) }
+    private var usesNavigationBar: Bool { !usesMacToolbar && !usesFloatingTopBar }
 
     init(
         post: PostSummary,
@@ -84,7 +93,8 @@ struct ThreadView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ThreadHeader(post: post, detail: detail, createdDate: createdDate, showsRank: accessError == nil || accessError == .signInRequired)
+                    ThreadHeader(post: post, detail: detail, createdDate: createdDate, showsRank: accessError == nil || accessError == .signInRequired,
+                                 showsAuthor: usesMacToolbar)
                     if let accessError {
                         VStack(alignment: .leading, spacing: 12) {
                             Label(accessError.localizedDescription, systemImage: "lock")
@@ -140,6 +150,7 @@ struct ThreadView: View {
             .background(TopOverscrollLock())
         }
         .scrollPosition($scrollPosition)
+        .fadesUnderMacToolbar()
         // An open reaction dock folds away once the reader scrolls or taps anywhere outside it.
         // Touch tracking is left out so a tap on the dock's own buttons isn't cancelled.
         .onScrollPhaseChange { _, phase in
@@ -175,11 +186,16 @@ struct ThreadView: View {
                 requestedFloor = nil
             }
         }
-        .contentMargins(.bottom, bottomContentMargin, for: .scrollContent)
+        // The reply bar floats over the bottom of the page everywhere but the Mac.
+        .contentMargins(.bottom, usesMacToolbar ? 24 : bottomContentMargin, for: .scrollContent)
         .id(page)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarVisibility(usesFloatingTopBar ? .hidden : .visible, for: .navigationBar)
+        .toolbarVisibility(usesNavigationBar ? .visible : .hidden, for: .navigationBar)
+        .macToolbar(.leading, items: presentation == .splitDetail ? [] : [
+            MacToolbarItem(id: "back", label: "返回", systemImage: "chevron.backward", isNavigational: true) { dismiss() }
+        ])
+        .macToolbar(.trailing, items: macToolbarItems)
         .hidesTabBarWhenPushed()
         .safeAreaBar(edge: .top, spacing: 0) {
             if usesFloatingTopBar {
@@ -211,6 +227,7 @@ struct ThreadView: View {
             }
         }
         .overlay(alignment: .bottom) {
+            if !usesMacToolbar {
             ThreadActionBar(
                 post: post,
                 canReply: detail != nil,
@@ -228,9 +245,10 @@ struct ThreadView: View {
             .padding(.horizontal, 20)
             .readableColumn()
             .padding(.bottom, 12)
+            }
         }
         .toolbar {
-            if !usesFloatingTopBar {
+            if usesNavigationBar {
                 ToolbarItem(placement: .topBarLeading) {
                     ThreadAuthorBar(post: post, detail: detail)
                 }
@@ -317,6 +335,35 @@ struct ThreadView: View {
     private func showMissingFloor() {
         actionError = "没有找到这条回复。"
         showsActionError = true
+    }
+
+    private var macToolbarItems: [MacToolbarItem] {
+        var items: [MacToolbarItem] = []
+        if accessError == nil {
+            items.append(MacToolbarItem(id: MacToolbarItem.replyID,
+                                        label: account.signInStatus == .signedOut ? "登录后回复" : "写回复",
+                                        systemImage: "arrowshape.turn.up.left",
+                                        isEnabled: detail != nil && pendingReply == nil) { requestReply() })
+        }
+        items.append(MacToolbarItem(id: MacToolbarItem.collectionID, label: isCollected ? "取消收藏" : "收藏",
+                                    systemImage: isCollected ? "bookmark.fill" : "bookmark",
+                                    isEnabled: !account.collections.updating.contains(post.id)) {
+            let collected = !isCollected
+            Task { await setCollection(collected) }
+        })
+        items.append(MacToolbarItem(id: "share", label: "分享帖子", systemImage: "square.and.arrow.up", kind: .share(post.url)))
+        var menu: [[MacToolbarMenuEntry]] = [[]]
+        if let detail, detail.op.uid == account.user?.id, detail.locked != true, !openingEditor {
+            menu[0].append(MacToolbarMenuEntry(id: "edit", title: "编辑帖子", systemImage: "pencil") {
+                Task { await openPostEditor() }
+            })
+        }
+        menu[0].append(MacToolbarMenuEntry(id: "website", title: "在官网查看", systemImage: "globe") { Browser.open(post.url) })
+        if let onClose {
+            menu.append([MacToolbarMenuEntry(id: "close", title: "关闭帖子", systemImage: "xmark.circle") { onClose() }])
+        }
+        items.append(MacToolbarItem(id: "more", label: "更多", systemImage: "ellipsis", kind: .menu(title: nil, sections: menu)))
+        return items
     }
 
     @ViewBuilder private var postMenuItems: some View {

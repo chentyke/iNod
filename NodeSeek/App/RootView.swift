@@ -5,7 +5,12 @@ import UIKit
 struct RootView: View {
     @Environment(AccountSession.self) private var account
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #if targetEnvironment(macCatalyst)
+    @Environment(MacToolbarModel.self) private var macToolbar: MacToolbarModel?
+    #endif
     @State private var tabAvatar: (url: URL, image: UIImage)?
+    @State private var selectedTab = RootTab.community
 
     private var usesSidebarAdaptableTabs: Bool {
         #if targetEnvironment(macCatalyst)
@@ -17,8 +22,8 @@ struct RootView: View {
 
     var body: some View {
         let avatarURL = account.user.map { account.versionedAvatarURL($0.avatarURL) }
-        let tabs = TabView {
-            Tab {
+        let tabs = TabView(selection: $selectedTab) {
+            Tab(value: RootTab.community) {
                 CommunityRootView()
                     #if DEBUG && !targetEnvironment(macCatalyst)
                     .background {
@@ -32,14 +37,14 @@ struct RootView: View {
                 tabLabel("社区", icon: Image(systemName: "bubble.left.and.bubble.right"))
             }
             .accessibilityLabel("社区")
-            Tab {
+            Tab(value: RootTab.notifications) {
                 ForumNavigationStack { NotificationsView().id(account.revision) }
             } label: {
                 tabLabel("通知", icon: Image(systemName: "bell"))
             }
             .accessibilityLabel("通知")
             .badge(account.inbox.unreadCount)
-            Tab {
+            Tab(value: RootTab.account) {
                 ForumNavigationStack { AccountView() }.id(account.revision)
             } label: {
                 tabLabel("我的", icon: tabIcon(for: avatarURL))
@@ -52,6 +57,17 @@ struct RootView: View {
         .tint(Color.seekInk)
         #endif
         .task(id: avatarURL) { await loadTabAvatar(from: avatarURL) }
+        #if targetEnvironment(macCatalyst)
+        .tabViewSidebarHeader {
+            if let macToolbar {
+                MacSidebarHeader(model: macToolbar) { selectedTab = .community }
+            }
+        }
+        .onChange(of: macToolbar?.composeRequests) { selectedTab = .community }
+        .onChange(of: horizontalSizeClass, initial: true) { _, sizeClass in
+            macToolbar?.tracksSidebar = sizeClass != .compact
+        }
+        #endif
 
         if usesSidebarAdaptableTabs {
             tabs.tabViewStyle(.sidebarAdaptable)
@@ -130,3 +146,7 @@ private struct UITestSidebarOpener: UIViewControllerRepresentable {
     }
 }
 #endif
+
+private enum RootTab: Hashable {
+    case community, notifications, account
+}
