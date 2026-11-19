@@ -1,8 +1,7 @@
-import NodeSeekCore
 import SwiftUI
 
 struct MessageComposer: View {
-    @Binding var draft: MessageDraft
+    @Binding var text: String
     let isBusy: Bool
     let canSend: Bool
     var focus: FocusState<Bool>.Binding
@@ -14,25 +13,21 @@ struct MessageComposer: View {
         GlassEffectContainer(spacing: 4) {
             HStack(alignment: .bottom, spacing: 8) {
                 Menu {
-                    Toggle("Markdown", isOn: $draft.isMarkdown)
                     Button("表情", systemImage: "face.smiling", action: onStickers)
-                    if draft.isMarkdown {
-                        Button("预览", systemImage: "eye", action: onPreview)
-                            .disabled(draft.content.isEmpty)
-                    }
+                    Button("预览", systemImage: "eye", action: onPreview)
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 } label: {
                     Label("私信选项", systemImage: "ellipsis")
                         .labelStyle(.iconOnly)
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(draft.isMarkdown ? Color.seekGreen : Color.seekInk)
+                        .foregroundStyle(Color.seekInk)
                         .frame(width: 44, height: 44)
                         .contentShape(.circle)
                 }
                 .disabled(isBusy)
-                .accessibilityValue(draft.isMarkdown ? "Markdown 已开启" : "Markdown 已关闭")
                 .glassEffect(.regular.interactive(!isBusy), in: .circle)
 
-                TextField("写私信", text: $draft.content, axis: .vertical)
+                TextField("写私信", text: $text, axis: .vertical)
                     .accessibilityLabel("写私信")
                     .lineLimit(1...5)
                     .focused(focus)

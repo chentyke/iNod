@@ -22,6 +22,8 @@ struct ConversationView: View {
     @State private var showsStickers = false
     @FocusState private var isFocused: Bool
 
+    private var messageText: String { draft.content.trimmingCharacters(in: .whitespacesAndNewlines) }
+
     var body: some View {
         let peerName = conversation?.peer.name ?? peer.name
 
@@ -67,8 +69,8 @@ struct ConversationView: View {
         }
         .navigationTitle(peerName)
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            MessageComposer(draft: $draft, isBusy: isSending,
-                canSend: !isSending && !draft.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && conversation != nil && account.user?.id == userID,
+            MessageComposer(text: $draft.content, isBusy: isSending,
+                canSend: !isSending && !messageText.isEmpty && conversation != nil && account.user?.id == userID,
                 focus: $isFocused,
                 onStickers: { isFocused = false; showsStickers = true },
                 onPreview: { isFocused = false; showsPreview = true },
@@ -116,13 +118,13 @@ struct ConversationView: View {
         .refreshable { await refreshManually() }
         .sheet(isPresented: $showsPreview) {
             ForumNavigationStack {
-                ScrollView { ForumMarkdown(markdown: draft.content).padding(20).frame(maxWidth: .infinity, alignment: .leading) }
+                ScrollView { ForumMarkdown(markdown: messageText).padding(20).frame(maxWidth: .infinity, alignment: .leading) }
                     .navigationTitle("私信预览").navigationBarTitleDisplayMode(.inline)
                     .toolbar { Button("完成") { showsPreview = false } }
 
             }
         }
-        .sheet(isPresented:$showsStickers) { StickerPickerView { sticker in draft.isMarkdown = true; draft.content += ":\(sticker.code):" } }
+        .sheet(isPresented: $showsStickers) { StickerPickerView { sticker in draft.content += ":\(sticker.code):" } }
     }
 
     private func refreshManually() async {
@@ -157,14 +159,14 @@ struct ConversationView: View {
     }
 
     private func send() async {
-        let text = draft.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = messageText
         guard !text.isEmpty, !isSending, conversation != nil, account.user?.id == userID, peer.id != userID else { return }
         isSending = true
         error = nil
         let revision = account.revision
         do {
             defer { isSending = false }
-            try await account.inbox.send(text, markdown: draft.isMarkdown, peerID: peer.id, userID: userID)
+            try await account.inbox.send(text, markdown: true, peerID: peer.id, userID: userID)
             guard account.revision == revision else { return }
             draft.content = ""
             MessageDraftStore.save(draft, ownerID: userID, peerID: peer.id)
