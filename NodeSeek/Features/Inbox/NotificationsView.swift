@@ -13,14 +13,13 @@ struct NotificationsView: View {
     var body: some View {
         Group {
             if let user = account.user {
-                Group {
+                // Give the list's refresh control room below the fixed header.
+                VStack(spacing: 0) {
+                    header(userID: user.id)
                     switch selection {
                     case .activity: NoticesListView(userID: user.id)
                     case .messages: MessageThreadsView(userID: user.id)
                     }
-                }
-                .safeAreaBar(edge: .top, spacing: 0) {
-                    header(userID: user.id)
                 }
             } else {
                 MemberSignInView()
