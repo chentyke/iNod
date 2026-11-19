@@ -83,14 +83,18 @@ struct RootView: View {
               !Task.isCancelled else { return }
 
         // The system tab bar takes an image, so draw the circular crop and ring into it.
-        let renderer = ImageRenderer(content:
-            Image(decorative: avatar, scale: 1)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 28, height: 28)
-                .clipShape(.circle)
-                .overlay { Circle().strokeBorder(.black, lineWidth: 0.5) }
-        )
+        let circle = Image(decorative: avatar, scale: 1)
+            .resizable()
+            .scaledToFill()
+            .frame(width: 28, height: 28)
+            .clipShape(.circle)
+            .overlay { Circle().strokeBorder(.black, lineWidth: 0.5) }
+        #if targetEnvironment(macCatalyst)
+        // The sidebar reserves a 34-point slot for symbols but uses the bitmap's width for the avatar.
+        let renderer = ImageRenderer(content: circle.frame(width: 34))
+        #else
+        let renderer = ImageRenderer(content: circle)
+        #endif
         renderer.scale = displayScale
         if let image = renderer.uiImage {
             tabAvatar = (url, image.withRenderingMode(.alwaysOriginal))

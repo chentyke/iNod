@@ -8,6 +8,12 @@ public final class AvatarImageLoader {
     public static let shared = AvatarImageLoader()
     private nonisolated static let maxPixelSize = 384
 
+    #if DEBUG
+    private nonisolated static let fixtureResponses = ProcessInfo.processInfo.environment["NODESEEK_UI_TEST_WEBSITE"].flatMap {
+        try? JSONDecoder().decode(AccountSession.UITestWebsite.self, from: Data($0.utf8)).responses
+    }
+    #endif
+
     private final class Entry {
         let image: CGImage?
         let expiresAt: Date
@@ -49,15 +55,11 @@ public final class AvatarImageLoader {
         if let task = pending[url] { return try await task.value }
         let session = session
         let task = Task.detached(priority: .utility) {
-            var request = ForumImageRequest.make(url: url)
-            request.cachePolicy = .useProtocolCachePolicy
-            request.timeoutInterval = 15
-            let (data, response) = try await session.data(for: request)
-            guard let response = response as? HTTPURLResponse, response.statusCode == 200,
-                  data.count <= 4_000_000 else { throw SiteError.message("头像暂时无法加载。") }
+            let (data, mimeType) = try await Self.download(url, using: session)
+            guard data.count <= 4_000_000 else { throw SiteError.message("头像暂时无法加载。") }
 
             // NodeSeek serves SVG default avatars from .png URLs.
-            let imageData = response.mimeType == "image/svg+xml"
+            let imageData = mimeType == "image/svg+xml"
                 ? try await self.rasterizeSVG(data.base64EncodedString()) : data
             guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
                   CGImageSourceGetCount(source) > 0,
@@ -79,6 +81,23 @@ public final class AvatarImageLoader {
             cache.setObject(Entry(image: nil, lifetime: 30), forKey: url as NSURL)
             throw error
         }
+    }
+
+    private nonisolated static func download(_ url: URL, using session: URLSession) async throws -> (Data, String?) {
+        #if DEBUG
+        if let fixtureResponses {
+            guard let data = fixtureResponses[url.absoluteString] else { throw URLError(.resourceUnavailable) }
+            return (data, nil)
+        }
+        #endif
+        var request = ForumImageRequest.make(url: url)
+        request.cachePolicy = .useProtocolCachePolicy
+        request.timeoutInterval = 15
+        let (data, response) = try await session.data(for: request)
+        guard let response = response as? HTTPURLResponse, response.statusCode == 200 else {
+            throw SiteError.message("头像暂时无法加载。")
+        }
+        return (data, response.mimeType)
     }
 
     private func rasterizeSVG(_ base64: String) async throws -> Data {
