@@ -21,7 +21,6 @@ struct ThreadView: View {
     @Environment(\.openMemberDestination) private var openMember
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("showsBlockedContent") private var showsBlocked = false
-    @ScaledMetric(relativeTo: .body) private var bottomContentMargin = 96.0
     @State private var detail: PostDetail?
     @State private var createdDate: Date?
     @State private var page = 1
@@ -34,8 +33,8 @@ struct ThreadView: View {
     @State private var isLoading = true
     @State private var showsVerification = false
     @State private var showsSignIn = false
-    @State private var showsReply = false
-    @State private var pendingReply: EditorDraft?
+    @State private var isWritingReply = false
+    @State private var pendingReply: ThreadReplyRequest?
     @State private var editorRequest: EditorRequest?
     @State private var collectionError: (collected: Bool, revision: Int, message: String)?
     @State private var showsCollectionError = false
@@ -149,6 +148,7 @@ struct ThreadView: View {
             .padding(.horizontal, SeekLayout.gutter).padding(.vertical, 12)
             .background(TopOverscrollLock())
         }
+        .scrollDismissesKeyboard(.interactively)
         .scrollPosition($scrollPosition)
         .fadesUnderMacToolbar()
         // An open reaction dock folds away once the reader scrolls or taps anywhere outside it.
@@ -158,7 +158,7 @@ struct ThreadView: View {
             if phase == .interacting { heldFloor = nil }
         }
         .gesture(TapGesture().onEnded { foldActionDock() },
-                 including: expandedActionsCommentID == nil ? .subviews : .all)
+                 including: expandedActionsCommentID != nil ? .all : .subviews)
         .seekCanvas(margins: .keepsGutter, in: .scrollView)
         .environment(\.forumDocumentURL,NodeSeekRoute.thread(id:post.id,page:page).url)
         .environment(\.openURL, OpenURLAction { url in
@@ -186,8 +186,7 @@ struct ThreadView: View {
                 requestedFloor = nil
             }
         }
-        // The reply bar floats over the bottom of the page everywhere but the Mac.
-        .contentMargins(.bottom, usesMacToolbar ? 24 : bottomContentMargin, for: .scrollContent)
+        .contentMargins(.bottom, usesMacToolbar ? 24 : 0, for: .scrollContent)
         .id(page)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -226,25 +225,27 @@ struct ThreadView: View {
                 }
             }
         }
-        .overlay(alignment: .bottom) {
-            if !usesMacToolbar {
-            ThreadActionBar(
-                post: post,
-                canReply: detail != nil,
-                showsReply: accessError == nil,
-                isOpeningReply: pendingReply != nil,
-                isCollected: isCollected,
-                isUpdatingCollection: account.collections.updating.contains(post.id),
-                onCollection: {
-                    let collected = !isCollected
-                    Task { await setCollection(collected) }
-                }
-            ) {
-                requestReply()
-            }
-            .padding(.horizontal, 20)
-            .readableColumn()
-            .padding(.bottom, 12)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !usesMacToolbar || pendingReply != nil || isWritingReply {
+                ThreadActionBar(
+                    post: post,
+                    threadTitle: detail?.title ?? post.title,
+                    canReply: detail != nil,
+                    showsReply: accessError == nil,
+                    isCollected: isCollected,
+                    isUpdatingCollection: account.collections.updating.contains(post.id),
+                    request: $pendingReply,
+                    isWriting: $isWritingReply,
+                    onCollection: {
+                        let collected = !isCollected
+                        Task { await setCollection(collected) }
+                    },
+                    onSignIn: { showsSignIn = true },
+                    onPublished: { refreshID = UUID() }
+                )
+                .padding(.horizontal, 20)
+                .readableColumn()
+                .padding(.bottom, 12)
             }
         }
         .toolbar {
@@ -265,9 +266,6 @@ struct ThreadView: View {
         .task(id: requestedCommentPage) {
             if let requestedCommentPage { await loadCommentPage(requestedCommentPage) }
         }
-        .task(id: pendingReply) {
-            if let pendingReply { await openReply(pendingReply) }
-        }
         .task(id: reactionToPrepare?.commentID) {
             if let reactionToPrepare { await prepare(reactionToPrepare.reaction, commentID: reactionToPrepare.commentID) }
         }
@@ -275,6 +273,7 @@ struct ThreadView: View {
             openingGallery?.cancel()
             requestedCommentPage = nil
             pendingReply = nil
+            isWritingReply = false
             reactionToPrepare = nil
         }
         .sheet(isPresented: $showsVerification, onDismiss: { refreshID = UUID() }) {
@@ -283,9 +282,6 @@ struct ThreadView: View {
         .sheet(isPresented: $showsSignIn, onDismiss: {
             if accessError == .signInRequired, account.isLoggedIn { refreshID = UUID() }
         }) { SignInView() }
-        .sheet(isPresented: $showsReply) {
-            ReplyView(post: post) { refreshID = UUID() }
-        }
         .sheet(item: $editorRequest) { request in
             ForumEditorView(request: request) { _ in refreshID = UUID() }
         }
@@ -343,7 +339,7 @@ struct ThreadView: View {
             items.append(MacToolbarItem(id: MacToolbarItem.replyID,
                                         label: account.signInStatus == .signedOut ? "登录后回复" : "写回复",
                                         systemImage: "arrowshape.turn.up.left",
-                                        isEnabled: detail != nil && pendingReply == nil) { requestReply() })
+                                        isEnabled: detail != nil && pendingReply == nil) { pendingReply = .write })
         }
         items.append(MacToolbarItem(id: MacToolbarItem.collectionID, label: isCollected ? "取消收藏" : "收藏",
                                     systemImage: isCollected ? "bookmark.fill" : "bookmark",
@@ -380,7 +376,9 @@ struct ThreadView: View {
 
     private func commentView(_ comment: ForumComment, showsHeader: Bool = true) -> some View {
         CommentView(comment: comment, showsHeader: showsHeader, isAuthor: comment.poster.uid == detail?.op.uid, isBusy: busyCommentID == comment.id || reactionToPrepare?.commentID == comment.id, actionsDisabled: busyCommentID != nil || reactionToPrepare != nil || isLoading, canEdit: comment.poster.uid == account.user?.id && detail?.locked != true, canPin: comment.floorIndex > 0 && detail?.op.uid == account.user?.id, actionsExpanded: actionsExpanded(for: comment), pendingReaction: $pendingReaction, showsReactionConfirmation: $showsReactionConfirmation, onReply: { quote in
-            requestReply(content: EditorDraft.replyReference(postID: post.id, floor: comment.floorIndex, name: comment.poster.name, quote: quote ? comment.markdown : nil))
+            pendingReply = .respond(ThreadReplyTarget(name: comment.poster.name, floor: comment.floorIndex,
+                                                       quote: quote ? comment.markdown : nil))
+            foldActionDock()
         }, onEdit: { edit(comment) }, onPin: {
             Task { await pin(comment) }
         }, onOpenImages: { images in
@@ -432,29 +430,6 @@ struct ThreadView: View {
         }
         replyImagePages = value.map { [ImageGallery.prepareReplyImages(visibleReplies(in: $0))] } ?? []
         detail = value
-    }
-
-    private func requestReply(content: String = "") {
-        guard pendingReply == nil else { return }
-        pendingReply = EditorDraft(content: content)
-    }
-
-    private func openReply(_ draft: EditorDraft) async {
-        defer { if !Task.isCancelled { pendingReply = nil } }
-        do {
-            try await account.withConfirmedSignIn(onSignedOut: { showsSignIn = true }) { _ in
-                if draft.content.isEmpty {
-                    showsReply = true
-                } else {
-                    editorRequest = .init(mode: .reply(postID: post.id), seed: draft)
-                }
-            }
-        } catch is CancellationError {
-        } catch {
-            guard !Task.isCancelled else { return }
-            actionError = SiteError.displayMessage(for: error)
-            showsActionError = true
-        }
     }
 
     private func openPostEditor() async {

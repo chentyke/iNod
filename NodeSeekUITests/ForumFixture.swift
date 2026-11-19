@@ -14,11 +14,11 @@ enum ForumFixture {
     /// signed in as the thread's author when `signedInAsAuthor` is set.
     @MainActor static func launch(dark: Bool = false, opensThread: Bool = false, opensSidebar: Bool = false,
                                   opensConversation: Bool = false, signedInAsAuthor: Bool = false,
-                                  openingMarkdown: String = "周六下午两点开始读书。",
-                                  assetResponses: [String: Data] = [:]) -> XCUIApplication {
+                                  authorID: Int = 101, openingMarkdown: String = "周六下午两点开始读书。",
+                                  assetResponses: [String: Data] = [:], replyDraft: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor,
-                                                                    openingMarkdown: openingMarkdown, assetResponses: assetResponses)
+        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor, authorID: authorID,
+                                                                    openingMarkdown: openingMarkdown, assetResponses: assetResponses, replyDraft: replyDraft)
         if opensThread { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "\(threadID)" }
         if opensSidebar { app.launchArguments.append("--ui-test-open-sidebar") }
         if opensConversation { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_CONVERSATION"] = "\(peerID):\(peerName)" }
@@ -146,11 +146,11 @@ enum ForumFixture {
         return high - low
     }
 
-    private static func json(signedInAsAuthor: Bool, openingMarkdown: String, assetResponses: [String: Data]) throws -> String {
-        let author: [String: Any] = ["uid": 101, "name": "楼主"]
+    private static func json(signedInAsAuthor: Bool, authorID: Int, openingMarkdown: String, assetResponses: [String: Data], replyDraft: String?) throws -> String {
+        let author: [String: Any] = ["uid": authorID, "name": "楼主"]
         let reader: [String: Any] = ["uid": 102, "name": "读者"]
         func post(_ id: Int, _ title: String) -> [String: Any] {
-            ["id": id, "title": title, "author": "楼主", "authorID": 101, "avatar": "", "category": "日常",
+            ["id": id, "title": title, "author": "楼主", "authorID": authorID, "avatar": "", "category": "日常",
              "categoryKey": "daily", "views": 100, "replies": 6, "activityDate": timestamp, "pinned": false]
         }
         let replies: [[String: Any]] = (0...6).map { floor in
@@ -193,12 +193,13 @@ enum ForumFixture {
                 "comments": Array(replies.prefix(1))]
         ]
         let signedOut: [String: Any] = ["ready": true]
-        let authorSignedIn: [String: Any] = ["ready": true, "user": ["id": 101, "name": "楼主"]]
+        let authorSignedIn: [String: Any] = ["ready": true, "user": ["id": authorID, "name": "楼主"]]
         let encodedResponses = try responses.mapValues { try JSONSerialization.data(withJSONObject: $0).base64EncodedString() }
-        let fixture: [String: Any] = [
+        var fixture: [String: Any] = [
             "authentication": signedInAsAuthor ? authorSignedIn : signedOut,
             "responses": encodedResponses.merging(assetResponses.mapValues { $0.base64EncodedString() }) { response, _ in response }
         ]
+        if let replyDraft { fixture["replyDraft"] = ["postID": threadID, "content": replyDraft] }
         return String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
     }
 }

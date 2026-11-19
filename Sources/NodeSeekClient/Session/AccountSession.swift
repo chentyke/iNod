@@ -38,6 +38,12 @@ public final class AccountSession {
         let authentication: AuthenticationSnapshot
         let responses: [String: Data]
         let nodeImageKey: String?
+        let replyDraft: ReplyDraft?
+
+        struct ReplyDraft: Decodable {
+            let postID: Int
+            let content: String
+        }
     }
 
     public static func fixtureForUITests(_ json: String) throws -> AccountSession {
@@ -45,6 +51,9 @@ public final class AccountSession {
         NodeImageKeyStore.configureForUITests(userID: fixture.authentication.user?.id, key: fixture.nodeImageKey)
         let website = SiteDataStore(persistsResponses: false) { fixture.authentication }
         website.responsesForUITests = fixture.responses
+        if let reply = fixture.replyDraft, let owner = fixture.authentication.user {
+            EditorDraftStore.save(EditorDraft(content: reply.content), ownerID: owner.id, mode: .reply(postID: reply.postID))
+        }
         let session = AccountSession(website: website, loadAuthentication: { try await website.bootstrap(force: $0) })
         session.nodeImageHistory.configureForUITests(responses: fixture.responses)
         return session
