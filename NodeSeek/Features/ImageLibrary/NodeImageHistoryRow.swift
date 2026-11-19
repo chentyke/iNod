@@ -19,7 +19,7 @@ struct NodeImageThumbnail: View {
                         .resizable()
                         .scaledToFill()
                 } else if failed {
-                    Image(systemName: "arrow.clockwise")
+                    Image(.inkRetry)
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .accessibilityHidden(true)
@@ -75,7 +75,7 @@ struct NodeImageHistoryRow: View {
             if isSelecting {
                 Button(action: onToggleSelect) {
                     HStack(spacing: NodeImageMetrics.rowSpacing) {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        Image(isSelected ? .inkPhotoSelected : .inkPhotoUnselected)
                             .font(.title3)
                             .foregroundStyle(isSelected ? Color.seekGreen : Color(uiColor: .tertiaryLabel))
                             .accessibilityHidden(true)
@@ -164,7 +164,7 @@ struct NodeImageHistoryRow: View {
         Menu {
             menuItems
         } label: {
-            Image(systemName: "ellipsis")
+            Image(.inkPhotoActions)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: NodeImageMetrics.rowActionSize, height: NodeImageMetrics.rowActionSize)
@@ -179,7 +179,7 @@ struct NodeImageHistoryRow: View {
     @ViewBuilder
     private var menuItems: some View {
         Section {
-            Button("复制 \(preferredFormat.title)", systemImage: "doc.on.doc") {
+            Button("复制 \(preferredFormat.title)", image: .inkCopyLink) {
                 onCopy(preferredFormat)
             }
             ForEach(HostedImageLinkFormat.allCases.filter { $0 != preferredFormat }, id: \.self) { format in
@@ -189,13 +189,13 @@ struct NodeImageHistoryRow: View {
             }
         }
         Section {
-            Button("预览大图", systemImage: "arrow.up.left.and.arrow.down.right") {
+            Button("预览大图", image: .inkPhotoPreview) {
                 onPreview(loadedThumbnail)
             }
-            ShareLink("分享链接", item: image.url)
+            ShareLink(item: image.url) { Label("分享链接", image: .inkSharePhotoLink) }
         }
         Section {
-            Button("删除", systemImage: "trash", role: .destructive, action: onDelete)
+            Button("删除", image: .inkDeletePhoto, role: .destructive, action: onDelete)
                 .disabled(isBusy)
         }
     }
@@ -280,7 +280,7 @@ private struct NodeImageGridTile: View {
                 }
                 .overlay(alignment: .topTrailing) {
                     if isSelecting {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        Image(isSelected ? .inkPhotoSelected : .inkPhotoUnselected)
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(isSelected ? Color.seekGreen : Color.white.opacity(0.92))
                             .background {
@@ -303,7 +303,7 @@ private struct NodeImageGridTile: View {
         .contextMenu {
             if !isSelecting {
                 Section {
-                    Button("复制 \(preferredFormat.title)", systemImage: "doc.on.doc") {
+                    Button("复制 \(preferredFormat.title)", image: .inkCopyLink) {
                         onCopy(preferredFormat)
                     }
                     ForEach(HostedImageLinkFormat.allCases.filter { $0 != preferredFormat }, id: \.self) { format in
@@ -313,13 +313,13 @@ private struct NodeImageGridTile: View {
                     }
                 }
                 Section {
-                    Button("预览大图", systemImage: "arrow.up.left.and.arrow.down.right") {
+                    Button("预览大图", image: .inkPhotoPreview) {
                         onPreview(loadedThumbnail)
                     }
-                    ShareLink("分享链接", item: image.url)
+                    ShareLink(item: image.url) { Label("分享链接", image: .inkSharePhotoLink) }
                 }
                 Section {
-                    Button("删除", systemImage: "trash", role: .destructive, action: onDelete)
+                    Button("删除", image: .inkDeletePhoto, role: .destructive, action: onDelete)
                         .disabled(isBusy)
                 }
             }
@@ -374,7 +374,7 @@ struct NodeImageSelectionBar: View {
                     }
                 } label: {
                     HStack(spacing: 5) {
-                        Image(systemName: "doc.on.doc")
+                        Image(.inkCopyLink)
                             .font(.caption.weight(.semibold))
                             .accessibilityHidden(true)
                         Text("复制链接")
@@ -390,7 +390,7 @@ struct NodeImageSelectionBar: View {
 
                 Button(role: .destructive, action: onDelete) {
                     HStack(spacing: 5) {
-                        Image(systemName: "trash")
+                        Image(.inkDeletePhoto)
                             .font(.caption.weight(.semibold))
                             .accessibilityHidden(true)
                         Text("删除")

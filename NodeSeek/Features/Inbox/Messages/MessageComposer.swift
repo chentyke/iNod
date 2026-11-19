@@ -13,11 +13,11 @@ struct MessageComposer: View {
         GlassEffectContainer(spacing: 4) {
             HStack(alignment: .bottom, spacing: 8) {
                 Menu {
-                    Button("表情", systemImage: "face.smiling", action: onStickers)
-                    Button("预览", systemImage: "eye", action: onPreview)
+                    Button("表情", image: .inkSticker, action: onStickers)
+                    Button("预览", image: .inkPreviewMail, action: onPreview)
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 } label: {
-                    Label("私信选项", systemImage: "ellipsis")
+                    Label("私信选项", image: .inkMailActions)
                         .labelStyle(.iconOnly)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Color.seekInk)
@@ -39,7 +39,7 @@ struct MessageComposer: View {
                     .glassEffect(.regular.interactive(!isBusy), in: .rect(cornerRadius: 22))
 
                 Button(action: onSend) {
-                    Label(isBusy ? "发送中" : "发送", systemImage: "arrow.up")
+                    Label(isBusy ? "发送中" : "发送", image: .inkSendMail)
                         .labelStyle(.iconOnly)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(canSend ? Color.seekOnInk : .secondary)

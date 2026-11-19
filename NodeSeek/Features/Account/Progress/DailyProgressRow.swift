@@ -14,11 +14,11 @@ enum DailyProgressItemKind: Equatable {
         }
     }
 
-    var symbol: String {
+    var symbol: ImageResource {
         switch self {
-        case .postBonus: "text.bubble"
-        case .commentBonus: "bubble.left"
-        case .freeLike: "fork.knife"
+        case .postBonus: .inkPostBonus
+        case .commentBonus: .inkReplyBonus
+        case .freeLike: .inkFreeDrumstick
         }
     }
 
@@ -105,7 +105,7 @@ struct DailyProgressRow: View {
     private var countBadge: some View {
         HStack(spacing: 4) {
             if showsEarnedHighlight {
-                Image(systemName: "checkmark.circle.fill")
+                Image(.inkQuotaDone)
                     .font(.footnote)
                     .foregroundStyle(Color.seekGreen)
                     .accessibilityHidden(true)

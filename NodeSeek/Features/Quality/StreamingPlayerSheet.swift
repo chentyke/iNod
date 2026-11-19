@@ -62,7 +62,7 @@ struct StreamingPlayerSheet: View {
             ZStack {
                 Color.black
                 VStack(spacing: 8) {
-                    Image(systemName: "play.rectangle").font(.largeTitle)
+                    Image(.inkPlayVideo).font(.largeTitle)
                     Text("示例播放器，未联网").font(.footnote)
                 }
                 .foregroundStyle(.white.opacity(0.7))

@@ -41,7 +41,7 @@ struct TelegramSettingsView: View {
                         headerLayout {
                             HStack(spacing: AccountSettingsMetrics.rowSpacing) {
                                 SeekIconTile(
-                                    symbol: data.bound ? "paperplane.fill" : "paperplane",
+                                    symbol: data.bound ? .inkTelegramBound : .inkTelegramAlerts,
                                     tint: data.bound ? .seekGreen : .seekInk
                                 )
                                 Text(data.bound ? "已绑定 Telegram" : "未绑定 Telegram")
@@ -64,7 +64,7 @@ struct TelegramSettingsView: View {
 
                         SettingsActionPill(
                             title: data.bound ? "前往官网管理绑定" : "前往官网绑定 Telegram",
-                            symbol: "arrow.up.right",
+                            symbol: .inkOpenExternal,
                             primary: !data.bound,
                             surface: .seekTray
                         ) {
@@ -114,7 +114,7 @@ struct TelegramSettingsView: View {
                     Section {
                         SettingsActionPill(
                             title: "解除绑定",
-                            symbol: "link.badge.plus",
+                            symbol: .inkUnlinkAccount,
                             busyTitle: "正在解绑…",
                             isBusy: isUnbinding,
                             primary: false,

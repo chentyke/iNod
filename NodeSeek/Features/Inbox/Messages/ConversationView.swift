@@ -39,7 +39,7 @@ struct ConversationView: View {
                 .scrollEdgeEffectStyle(.soft, for: .bottom)
                 .overlay {
                     if data.items.isEmpty {
-                        ContentUnavailableView("暂无消息", systemImage: "bubble.left.and.bubble.right")
+                        ContentUnavailableView("暂无消息", image: .inkEmptyConversation)
                     }
                 }
                 .scrollDismissesKeyboard(.interactively)
@@ -59,7 +59,7 @@ struct ConversationView: View {
                 }
                 .overlay(alignment: .bottom) {
                     if hasNewMessages {
-                        Button("新消息", systemImage: "arrow.down") {
+                        Button("新消息", image: .inkNewMessage) {
                             proxy.scrollTo("conversation-bottom", anchor: .bottom)
                             hasNewMessages = false
                         }.buttonStyle(.glass).padding(.bottom, 8)

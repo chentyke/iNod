@@ -12,8 +12,8 @@ struct FeedSearchBar: View {
     var body: some View {
         HStack(spacing: 0) {
             Button(action: isExpanded ? onClose : onOpen) {
-                FeedSearchSymbol(alternate: .close, progress: isExpanded ? 1 : 0)
-                    .stroke(style: StrokeStyle(lineWidth: symbolSize * 0.095, lineCap: .round, lineJoin: .round))
+                Image(isExpanded ? .inkClose : .inkSearchPosts)
+                    .resizable().scaledToFit()
                     .frame(width: symbolSize, height: symbolSize)
                     .frame(width: 44, height: 44)
                     .contentShape(.rect)

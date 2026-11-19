@@ -42,7 +42,7 @@ struct HomepageSettingsView: View {
                         Toggle(isOn: $category.enabled) {
                             HStack(spacing: AccountSettingsMetrics.rowSpacing) {
                                 SeekIconTile(
-                                    symbol: category.symbol,
+                                    symbol: category.inkIcon,
                                     tint: category.enabled ? .categoryTint(category.id) : .seekInk
                                 )
                                 Text(category.title)

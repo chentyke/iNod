@@ -132,15 +132,15 @@ private struct StreamingHeader: View {
             .accessibilityElement(children: .combine)
             if run.isRunning {
                 QualityProgressLine(fraction: fraction)
-                Button("取消", systemImage: "xmark") { run.cancel() }
+                Button("取消", image: .inkStopTest) { run.cancel() }
                     .buttonStyle(.seekPill(primary: false))
                     .accessibilityIdentifier("streaming.cancel")
             } else if run.checks == nil {
-                Button("开始检查", systemImage: "play.fill") { run.start() }
+                Button("开始检查", image: .inkStartTest) { run.start() }
                     .buttonStyle(.seekPill)
                     .accessibilityIdentifier("streaming.start")
             } else {
-                Button("重新检查", systemImage: "arrow.counterclockwise") { run.start() }
+                Button("重新检查", image: .inkRepeatTest) { run.start() }
                     .buttonStyle(.seekPill(primary: false))
                     .accessibilityIdentifier("streaming.restart")
             }
@@ -207,7 +207,7 @@ private struct PlaybackRow: View {
             if let outcome = result?.value {
                 HStack(spacing: 6) { QualityDot(tint: outcome.tint); Text(outcome.title).foregroundStyle(.secondary) }.fixedSize()
             } else {
-                HStack(spacing: 4) { Image(systemName: "play.fill").font(.caption2); Text("试播") }
+                HStack(spacing: 4) { Image(.inkPlayVideo).font(.caption2); Text("试播") }
                     .foregroundStyle(.secondary).fixedSize()
             }
         }

@@ -68,7 +68,7 @@ struct PasswordView: View {
             Section {
                 SettingsActionPill(
                     title: "保存新密码",
-                    symbol: "checkmark",
+                    symbol: .inkSavePassword,
                     busyTitle: "正在保存…",
                     isBusy: busy
                 ) {
@@ -83,7 +83,7 @@ struct PasswordView: View {
             Section {
                 OfficialSettingsLink(
                     title: "通过邮箱或短信重设",
-                    symbol: "arrow.counterclockwise.circle",
+                    symbol: .inkResetPassword,
                     anchor: "security",
                     description: "验证码与人机验证在官网完成"
                 )

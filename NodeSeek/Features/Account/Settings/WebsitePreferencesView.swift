@@ -57,7 +57,7 @@ struct WebsitePreferencesView: View {
                         SettingsRowContent(
                             title: "官网节日装饰",
                             subtitle: "节日期间在 NodeSeek 网页端展示主题装饰",
-                            symbol: "sparkles",
+                            symbol: .inkFestival,
                             tint: holiday ? .seekGreen : .seekInk
                         )
                     }

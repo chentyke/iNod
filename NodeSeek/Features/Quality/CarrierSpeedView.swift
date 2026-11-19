@@ -63,14 +63,14 @@ private struct CarrierSpeedCard: View {
     private var idle: some View {
         Group {
             HStack(spacing: 12) {
-                SeekIconTile(symbol: "speedometer")
+                SeekIconTile(symbol: .inkCarrierSpeed)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name).font(.headline).foregroundStyle(Color.seekInk)
                     Text(note).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
             .accessibilityElement(children: .combine)
-            Button("测速", systemImage: "play.fill", action: start)
+            Button("测速", image: .inkStartTest, action: start)
                 .buttonStyle(.seekPill).disabled(!canStart)
                 .accessibilityIdentifier("carrierSpeed.start")
         }
@@ -109,7 +109,7 @@ private struct CarrierSpeedCard: View {
             .accessibilityElement(children: .combine)
             .accessibilityValue("已完成 \(Int((progress?.fraction ?? 0) * 100))%")
             QualityProgressLine(fraction: progress?.fraction ?? 0)
-            Button("取消", systemImage: "xmark", action: cancel)
+            Button("取消", image: .inkStopTest, action: cancel)
                 .buttonStyle(.seekPill(primary: false))
                 .accessibilityIdentifier("carrierSpeed.cancel")
         }
@@ -146,7 +146,7 @@ private struct CarrierSpeedCard: View {
                 Text(context(report)).font(.footnote).foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
-            Button("重新测速", systemImage: "arrow.counterclockwise", action: start)
+            Button("重新测速", image: .inkRepeatTest, action: start)
                 // With results on screen, running again is the quieter choice.
                 .buttonStyle(.seekPill(primary: speed == nil)).disabled(!canStart)
                 .accessibilityIdentifier("carrierSpeed.restart")

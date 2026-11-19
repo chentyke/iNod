@@ -94,11 +94,11 @@ struct AccountProgressView: View {
                 }
 
                 Section {
-                    AccountNavigationRow(title: "每日签到", symbol: "calendar.badge.checkmark", destination: .attendance)
+                    AccountNavigationRow(title: "每日签到", symbol: .inkAttendance, destination: .attendance)
                         .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] + ProgressMetrics.iconRowSeparatorInset }
                         .listRowInsets(ProgressMetrics.navigationRowInsets)
                         .listRowBackground(Color.seekCard)
-                    AccountNavigationRow(title: "鸡腿明细", symbol: "list.bullet.rectangle", destination: .ledger(.chicken))
+                    AccountNavigationRow(title: "鸡腿明细", symbol: .inkChickenLedger, destination: .ledger(.chicken))
                         .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] + ProgressMetrics.iconRowSeparatorInset }
                         .listRowInsets(ProgressMetrics.navigationRowInsets)
                         .listRowBackground(Color.seekCard)

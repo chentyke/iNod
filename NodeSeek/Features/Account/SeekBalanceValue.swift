@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SeekBalanceValue: View {
     let title: String
-    let symbol: String
+    let symbol: ImageResource
     let value: Int?
     let tint: Color
 
@@ -14,7 +14,7 @@ struct SeekBalanceValue: View {
         let shape = RoundedRectangle(cornerRadius: AccountBalanceMetrics.tileCornerRadius, style: .continuous)
         VStack(alignment: .leading, spacing: AccountBalanceMetrics.tileValueSpacing) {
             HStack(spacing: AccountBalanceMetrics.tileHeaderIconSpacing) {
-                Image(systemName: symbol)
+                Image(symbol)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(tint)
                     .accessibilityHidden(true)
@@ -22,7 +22,7 @@ struct SeekBalanceValue: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.right")
+                Image(.inkNext)
                     .font(.caption.weight(.semibold))
                     // Literal colour so `.tertiary` inside a button doesn't inherit accent tint.
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))

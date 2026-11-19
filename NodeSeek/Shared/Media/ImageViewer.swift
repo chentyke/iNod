@@ -37,7 +37,7 @@ struct ImageViewer: View {
                 if gallery.items.count > 1 {
                     ToolbarItem(placement: .principal) { pageCounter }
                 }
-                ToolbarItem(placement: .topBarTrailing) { ShareLink(item: gallery.items[currentIndex].url) }
+                ToolbarItem(placement: .topBarTrailing) { ShareLink(item: gallery.items[currentIndex].url) { Label("分享图片", image: .inkSharePhoto) } }
             }
             .toolbarColorScheme(.dark, for: .navigationBar)
             .preferredColorScheme(.dark)

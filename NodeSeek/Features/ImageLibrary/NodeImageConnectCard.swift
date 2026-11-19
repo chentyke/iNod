@@ -21,7 +21,7 @@ struct NodeImageConnectCard: View {
             Button(action: onConnect) {
                 ZStack {
                     HStack(spacing: 6) {
-                        Image(systemName: "link")
+                        Image(.inkConnectLibrary)
                             .accessibilityHidden(true)
                         Text("连接 NodeImage")
                             .lineLimit(1)
@@ -90,7 +90,7 @@ struct NodeImageKeySheet: View {
                 Section("连接状态") {
                     HStack(spacing: NodeImageMetrics.rowSpacing) {
                         SeekIconTile(
-                            symbol: savedKey.isEmpty ? "key" : "checkmark.shield",
+                            symbol: savedKey.isEmpty ? .inkImageKey : .inkLibraryConnected,
                             tint: savedKey.isEmpty ? .seekInk : .seekGreen
                         )
                         VStack(alignment: .leading, spacing: 2) {
@@ -115,7 +115,7 @@ struct NodeImageKeySheet: View {
 
                     Button(action: onSync) {
                         HStack {
-                            Label(savedKey.isEmpty ? "连接 NodeImage" : "同步密钥", systemImage: "arrow.triangle.2.circlepath")
+                            Label(savedKey.isEmpty ? "连接 NodeImage" : "同步密钥", image: .inkSyncImageKey)
                             Spacer()
                             if isSyncing {
                                 ProgressView().controlSize(.small)
@@ -130,7 +130,7 @@ struct NodeImageKeySheet: View {
                         confirmsRotate = true
                     } label: {
                         HStack {
-                            Label("更新密钥", systemImage: "key.radiowaves.forward")
+                            Label("更新密钥", image: .inkRotateImageKey)
                             Spacer()
                             if isRotating {
                                 ProgressView().controlSize(.small)
@@ -161,7 +161,7 @@ struct NodeImageKeySheet: View {
                             Button {
                                 revealsKey.toggle()
                             } label: {
-                                Image(systemName: revealsKey ? "eye.slash" : "eye")
+                                Image(revealsKey ? .inkHideImageKey : .inkRevealImageKey)
                                     .foregroundStyle(.secondary)
                                     .frame(width: 28, height: 28)
                             }

@@ -20,7 +20,7 @@ struct DirectoryView: View {
     }
     private func row(_ entry: DirectoryEntry) -> some View {
         HStack(spacing:14) {
-            AsyncImage(url:entry.image) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName:providers ? "building.2" : "link").foregroundStyle(Color.seekGreen) }
+            AsyncImage(url:entry.image) { image in image.resizable().scaledToFit() } placeholder: { Image(providers ? .inkMerchant : .inkFriendLink).foregroundStyle(Color.seekGreen) }
                 .frame(width:48,height:48).padding(4).background(.white,in:.rect(cornerRadius:10))
             VStack(alignment:.leading,spacing:5) { Text(entry.title).font(.headline).foregroundStyle(.primary); if !providers { Text(entry.url.host() ?? "").font(.caption).foregroundStyle(.secondary) } }
             Spacer()

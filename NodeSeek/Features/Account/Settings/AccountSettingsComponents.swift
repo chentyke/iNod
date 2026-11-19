@@ -73,7 +73,7 @@ struct SettingsStatusPill: View {
 struct SettingsRowContent: View {
     let title: String
     var subtitle: String?
-    let symbol: String
+    let symbol: ImageResource
     var tint: Color = .seekInk
     var badge: (text: String, active: Bool)?
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -120,7 +120,7 @@ struct SettingsRowContent: View {
 /// keeping surrounding card and list heights constant during async transitions.
 struct SettingsActionPill: View {
     let title: String
-    var symbol: String?
+    var symbol: ImageResource?
     var busyTitle: String = "处理中…"
     var isBusy = false
     var primary = true
@@ -140,7 +140,7 @@ struct SettingsActionPill: View {
             ZStack {
                 HStack(spacing: 6) {
                     if let symbol {
-                        Image(systemName: symbol)
+                        Image(symbol)
                             .accessibilityHidden(true)
                     }
                     Text(title)
@@ -184,7 +184,7 @@ struct SettingsFeedbackRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+            Image(isSuccess ? .inkFeedbackOK : .inkFeedbackError)
                 .foregroundStyle(isSuccess ? Color.seekGreen : .red)
                 .accessibilityHidden(true)
             Text(message)

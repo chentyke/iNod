@@ -10,7 +10,7 @@ struct ConnectionsView: View {
     var body: some View {
         ResourceContent(loader:loader,retry:{ await load(force:true) }) { result in
             List {
-                if result.memberList.isEmpty { ContentUnavailableView(follows ? "还没有关注用户" : "还没有粉丝",systemImage:"person.2") }
+                if result.memberList.isEmpty { ContentUnavailableView(follows ? "还没有关注用户" : "还没有粉丝",image: follows ? .inkFollowingList : .inkFollowers) }
                 ForEach(result.memberList) { member in
                     NavigationLink(value:MemberDestination.profile(member.id)) {
                         HStack(spacing:12) {

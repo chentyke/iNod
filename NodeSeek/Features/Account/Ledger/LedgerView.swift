@@ -15,13 +15,13 @@ struct LedgerView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(kind == .chicken ? "当前鸡腿" : "当前星尘", systemImage: kind.symbol).foregroundStyle(.secondary)
+                        Label(kind == .chicken ? "当前鸡腿" : "当前星尘", image: kind.symbol).foregroundStyle(.secondary)
                         Text((kind == .chicken ? account.user?.coins : account.user?.stardust).map { $0.formatted() } ?? "—")
                             .font(.largeTitle.bold().monospacedDigit())
                     }.padding(.vertical, 12)
                 }
                 Section("收支记录") {
-                    if data.items.isEmpty { ContentUnavailableView("暂无记录", systemImage: "list.bullet.rectangle") }
+                    if data.items.isEmpty { ContentUnavailableView("暂无记录", image: .inkLedger) }
                     ForEach(data.items) { LedgerRow(entry: $0) }
                     if hasNextPage(data) && loader.error == nil && !loader.isLoadingFirstPage {
                         LoadMoreRow(error: loader.nextPageError) { await load(nextPage: true) }
@@ -31,7 +31,7 @@ struct LedgerView: View {
             }
         }
         .seekGroupedList().navigationTitle(kind.title)
-        .toolbar { if kind == .stardust { NavigationLink { StardustTransferView(userID:userID) } label: { Label("转账",systemImage:"paperplane") } } }
+        .toolbar { if kind == .stardust { NavigationLink { StardustTransferView(userID:userID) } label: { Label("转账",image: .inkTransferDust) } } }
         .task { if loader.value == nil { await load() } }
         .refreshable { await load(force: true); await account.refresh() }
     }

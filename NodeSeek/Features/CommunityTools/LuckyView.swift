@@ -72,7 +72,7 @@ struct LuckyView: View {
                         apply(imported, message: "已将开奖链接中的参数填入表单。")
                     } label: {
                         HStack(spacing: CommunityMetrics.rowSpacing) {
-                            SeekIconTile(symbol: "link.badge.plus", tint: .seekGreen)
+                            SeekIconTile(symbol: .inkDrawPostLink, tint: .seekGreen)
                             VStack(alignment: .leading, spacing: CommunityMetrics.rowLineSpacing) {
                                 Text("识别到完整开奖链接")
                                     .font(.subheadline.weight(.semibold))
@@ -97,7 +97,7 @@ struct LuckyView: View {
 
                 numberFieldRow(
                     title: "中奖人数",
-                    symbol: "person.2",
+                    symbol: .inkWinners,
                     text: $count,
                     field: .count,
                     unit: "人",
@@ -107,7 +107,7 @@ struct LuckyView: View {
 
                 numberFieldRow(
                     title: "起始楼层",
-                    symbol: "number",
+                    symbol: .inkStartFloor,
                     text: $floor,
                     field: .floor,
                     unit: "楼起",
@@ -119,7 +119,7 @@ struct LuckyView: View {
                     SettingsRowContent(
                         title: "每位用户只参与一次",
                         subtitle: "同一用户多次回帖时仅保留最早楼层",
-                        symbol: "person.crop.circle.badge.checkmark"
+                        symbol: .inkUniqueMember
                     )
                 }
                 .tint(Color.seekGreen)
@@ -183,7 +183,7 @@ struct LuckyView: View {
 
     private var postInputRow: some View {
         HStack(spacing: CommunityMetrics.rowSpacing) {
-            SeekIconTile(symbol: "doc.text")
+            SeekIconTile(symbol: .inkDrawTarget)
             VStack(alignment: .leading, spacing: 2) {
                 Text("目标帖子或开奖链接")
                     .font(.caption)
@@ -210,7 +210,7 @@ struct LuckyView: View {
                     error = nil
                     notice = nil
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
+                    Image(.inkClearInput)
                         .foregroundStyle(.tertiary)
                         .frame(width: 30, height: 30)
                         .contentShape(.rect)
@@ -228,7 +228,7 @@ struct LuckyView: View {
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: CommunityMetrics.rowSpacing) {
-                        SeekIconTile(symbol: "clock")
+                        SeekIconTile(symbol: .inkDrawTime)
                         Text("开奖时间")
                             .foregroundStyle(Color.seekInk)
                     }
@@ -237,7 +237,7 @@ struct LuckyView: View {
                 }
             } else {
                 HStack(spacing: CommunityMetrics.rowSpacing) {
-                    SeekIconTile(symbol: "clock")
+                    SeekIconTile(symbol: .inkDrawTime)
                     DatePicker("开奖时间", selection: $revealTime)
                         .foregroundStyle(Color.seekInk)
                 }
@@ -248,7 +248,7 @@ struct LuckyView: View {
 
     private func numberFieldRow(
         title: String,
-        symbol: String,
+        symbol: ImageResource,
         text: Binding<String>,
         field: Field,
         unit: String,
@@ -298,7 +298,7 @@ struct LuckyView: View {
                 HStack(spacing: 10) {
                     SettingsActionPill(
                         title: "查看开奖结果",
-                        symbol: "gift",
+                        symbol: .inkDrawResult,
                         busyTitle: "正在开奖…",
                         isBusy: busy,
                         primary: true,
@@ -313,20 +313,20 @@ struct LuckyView: View {
                     .accessibilityIdentifier("lucky-reveal-button")
 
                     Menu {
-                        ShareLink("分享开奖链接", item: currentDraw.url)
-                        ShareLink("分享 Markdown 链接", item: currentDraw.markdownLink)
-                        Button("复制 Markdown 链接", systemImage: "doc.on.doc") {
+                        ShareLink(item: currentDraw.url) { Label("分享开奖链接", image: .inkShareDraw) }
+                        ShareLink(item: currentDraw.markdownLink) { Label("分享 Markdown 链接", image: .inkShareDrawLink) }
+                        Button("复制 Markdown 链接", image: .inkCopyDraw) {
                             UIPasteboard.general.string = currentDraw.markdownLink
                             notice = "已复制 Markdown 开奖链接。"
                             error = nil
                         }
                         if let address = PostAddress(String(currentDraw.postID)) {
-                            Button("查看目标帖子", systemImage: "doc.text") {
+                            Button("查看目标帖子", image: .inkReadPost) {
                                 openDestination(.post(address.summary, page: 1, floor: nil))
                             }
                         }
                     } label: {
-                        Image(systemName: "square.and.arrow.up")
+                        Image(.inkShareDraw)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Color.seekInk)
                             .frame(width: 48, height: 48)
@@ -365,11 +365,11 @@ struct LuckyView: View {
                     .accessibilityIdentifier("lucky-winner-\(String(winner.floor_id))")
                     .communityRowStyle()
                     .contextMenu {
-                        Button("查看个人主页", systemImage: "person.crop.circle") {
+                        Button("查看个人主页", image: .inkProfile) {
                             openMember(.profile(winner.member_id))
                         }
                         if let activeDraw, let address = PostAddress(String(activeDraw.postID)) {
-                            Button("跳转到 #\(String(winner.floor_id)) 楼", systemImage: "arrow.turn.down.right") {
+                            Button("跳转到 #\(String(winner.floor_id)) 楼", image: .inkJumpFloor) {
                                 openDestination(.post(
                                     address.summary,
                                     page: PostAddress.page(forFloor: winner.floor_id),
@@ -383,7 +383,7 @@ struct LuckyView: View {
                 if let activeDraw {
                     let announcement = activeDraw.winnersAnnouncement(items)
                     HStack(spacing: CommunityMetrics.rowSpacing) {
-                        SeekIconTile(symbol: "megaphone")
+                        SeekIconTile(symbol: .inkDrawNotice)
                         VStack(alignment: .leading, spacing: CommunityMetrics.rowLineSpacing) {
                             Text("中奖通知文案")
                                 .foregroundStyle(Color.seekInk)
@@ -402,7 +402,7 @@ struct LuckyView: View {
                     }
                     .frame(minHeight: 44)
                     .contextMenu {
-                        ShareLink("分享中奖名单", item: announcement)
+                        ShareLink(item: announcement) { Label("分享中奖名单", image: .inkShareWinners) }
                     }
                     .communityRowStyle(alignSeparator: false)
                 }

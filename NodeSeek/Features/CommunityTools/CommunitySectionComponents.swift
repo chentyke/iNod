@@ -65,20 +65,20 @@ enum CommunityMetrics {
 struct CommunityFeatureTile: View {
     let title: String
     let subtitle: String
-    let symbol: String
+    let symbol: ImageResource
     var tint: Color = .seekInk
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                Image(systemName: symbol)
+                Image(symbol)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(tint)
                     .frame(width: 30, height: 30)
                     .background(tint.opacity(0.10), in: .rect(cornerRadius: 9))
                     .accessibilityHidden(true)
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.right")
+                Image(.inkNext)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     .accessibilityHidden(true)
@@ -104,6 +104,7 @@ struct CommunityFeatureTile: View {
 }
 
 struct CommunitySearchFieldRow: View {
+    let searchIcon: ImageResource
     let prompt: String
     @Binding var text: String
     var identifier: String
@@ -123,7 +124,7 @@ struct CommunitySearchFieldRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
+            Image(searchIcon)
                 .font(.body.weight(.medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
@@ -142,7 +143,7 @@ struct CommunitySearchFieldRow: View {
                 Button {
                     onClear()
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
+                    Image(.inkClearInput)
                         .font(.body)
                         .foregroundStyle(.tertiary)
                         .frame(width: 32, height: 32)
@@ -177,7 +178,7 @@ struct CommunityActiveFilterRow: View {
     var body: some View {
         HStack(spacing: 8) {
             HStack(spacing: 5) {
-                Image(systemName: "line.3.horizontal.decrease")
+                Image(.inkFilter)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.seekGreen)
                     .accessibilityHidden(true)
@@ -232,7 +233,7 @@ struct CommunityCopyCapsule: View {
                 Text(title)
                     .opacity(copied ? 0 : 1)
                 HStack(spacing: 4) {
-                    Image(systemName: "checkmark")
+                    Image(.inkCheck)
                         .font(.caption2.weight(.bold))
                         .accessibilityHidden(true)
                     Text(copiedTitle)

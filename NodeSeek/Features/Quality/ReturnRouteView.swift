@@ -81,11 +81,11 @@ struct ReturnRouteView: View {
 
     @ViewBuilder private var actions: some View {
         if task != nil {
-            Button("取消", systemImage: "xmark") { task?.cancel() }
+            Button("取消", image: .inkStopTest) { task?.cancel() }
                 .buttonStyle(.seekPill(primary: false))
                 .accessibilityIdentifier("returnRoute.cancel")
         } else {
-            Button(routes == nil ? "开始测试" : "重新测试", systemImage: "play.fill") { editing = false; confirming = true }
+            Button(routes == nil ? "开始测试" : "重新测试", image: .inkStartTest) { editing = false; confirming = true }
                 // Once results are in they are the point of the page; running again is the quieter choice.
                 .buttonStyle(.seekPill(primary: routes == nil)).disabled(target == nil)
                 .accessibilityIdentifier("returnRoute.start")

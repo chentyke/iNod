@@ -65,7 +65,7 @@ struct ForumEditorView: View {
                             if draft.content.isEmpty { Text("写下你想分享的内容…").foregroundStyle(.secondary).padding(.top, 20).padding(.leading, 36).allowsHitTesting(false) }
                         }
                     HStack(spacing: 20) {
-                        Menu("文字格式", systemImage: "textformat") {
+                        Menu("文字格式", image: .inkFormatText) {
                             Button("加粗") { insert(prefix: "**", suffix: "**", placeholder: "加粗文字") }
                             Button("斜体") { insert(prefix: "*", suffix: "*", placeholder: "斜体文字") }
                             Button("标题") { insert(prefix: "\n## ", suffix: "\n", placeholder: "标题") }
@@ -74,15 +74,15 @@ struct ForumEditorView: View {
                             Button("链接") { insert(prefix: "[", suffix: "](https://)", placeholder: "链接文字") }
                             Button("列表") { insert(prefix: "\n- ", suffix: "\n", placeholder: "列表项") }
                             Button("表格") { insert(prefix: "\n| 项目 | 内容 |\n| --- | --- |\n| ", suffix: " |  |\n", placeholder: "项目") }
-                            Button("创建投票", systemImage: "chart.bar.xaxis") { isFocused = false; showsVote = true }
-                            Button("星尘收款",systemImage:"sparkles") { isFocused = false; showsReceive = true }
+                            Button("创建投票", image: .inkCreatePoll) { isFocused = false; showsVote = true }
+                            Button("星尘收款",image: .inkRequestDust) { isFocused = false; showsReceive = true }
                             if let legacyDraftKey,UserDefaults.standard.string(forKey:legacyDraftKey)?.isEmpty == false {
                                 Button("导入旧版草稿") { showsLegacyImport = true }
                             }
                         }
-                        Button("表情", systemImage: "face.smiling") { isFocused = false; showsStickers = true }
+                        Button("表情", image: .inkSticker) { isFocused = false; showsStickers = true }
                         PhotosPicker(selection: $pickedPhotos, maxSelectionCount: 10, selectionBehavior: .ordered, matching: .images) {
-                            Label("选择图片", systemImage: "photo")
+                            Label("选择图片", image: .inkAttachPhoto)
                         }
                         .disabled(insertingPhotos || ownerID == nil || ownerID != account.user?.id)
                         Spacer()

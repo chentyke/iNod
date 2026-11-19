@@ -262,7 +262,7 @@ private struct EgressRow: View {
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .contextMenu {
-            Button("复制地址", systemImage: "doc.on.doc") { UIPasteboard.general.string = egress.address }
+            Button("复制地址", image: .inkCopyAddress) { UIPasteboard.general.string = egress.address }
         }
     }
 }
@@ -307,7 +307,7 @@ private struct BGPRouteRow: View {
             }
         }
         .contextMenu {
-            if let prefix = route?.prefix { Button("复制地址段", systemImage: "doc.on.doc") { UIPasteboard.general.string = prefix } }
+            if let prefix = route?.prefix { Button("复制地址段", image: .inkCopyAddress) { UIPasteboard.general.string = prefix } }
         }
     }
 }
@@ -342,7 +342,7 @@ private extension View {
     /// A long-press "retry" on rows whose step failed or was cancelled.
     @ViewBuilder func retryMenu(_ step: NetworkQualityStep, retryable: Bool, retry: ((NetworkQualityStep) -> Void)?) -> some View {
         if let retry, retryable {
-            contextMenu { Button("重试\(step.title)", systemImage: "arrow.clockwise") { retry(step) } }
+            contextMenu { Button("重试\(step.title)", image: .inkRetryStep) { retry(step) } }
         } else { self }
     }
 }

@@ -30,7 +30,7 @@ struct MacToolbarItem: Identifiable, Equatable {
 
     let id: String
     var label: String
-    var systemImage: String
+    var image: ImageResource
     var kind: Kind = .button
     var isEnabled = true
     /// Back and other moves between pages sit at the toolbar's leading edge.
@@ -46,7 +46,7 @@ struct MacToolbarItem: Identifiable, Equatable {
     static let collectionID = "collection"
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.id == rhs.id && lhs.label == rhs.label && lhs.systemImage == rhs.systemImage
+        lhs.id == rhs.id && lhs.label == rhs.label && lhs.image == rhs.image
             && lhs.kind == rhs.kind && lhs.isEnabled == rhs.isEnabled && lhs.isNavigational == rhs.isNavigational
             && lhs.width == rhs.width
     }
@@ -55,13 +55,13 @@ struct MacToolbarItem: Identifiable, Equatable {
 struct MacToolbarMenuEntry: Identifiable, Equatable {
     let id: String
     var title: String
-    var systemImage: String?
+    var image: ImageResource?
     var isOn = false
     var isDestructive = false
     var action: @MainActor () -> Void
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.id == rhs.id && lhs.title == rhs.title && lhs.systemImage == rhs.systemImage
+        lhs.id == rhs.id && lhs.title == rhs.title && lhs.image == rhs.image
             && lhs.isOn == rhs.isOn && lhs.isDestructive == rhs.isDestructive
     }
 }

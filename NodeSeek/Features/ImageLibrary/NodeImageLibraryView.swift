@@ -150,7 +150,7 @@ struct NodeImageLibraryView: View {
                         key = ""
                         showsKeySheet = true
                     } label: {
-                        Label("密钥管理", systemImage: "key")
+                        Label("密钥管理", image: .inkImageKey)
                     }
                     .disabled(working)
                     .accessibilityIdentifier("nodeimage-key-button")
@@ -183,7 +183,7 @@ struct NodeImageLibraryView: View {
                     dismissToast()
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle.fill")
+                        Image(.inkFeedbackOK)
                             .foregroundStyle(Color.seekGreen)
                             .accessibilityHidden(true)
                         Text(toastMessage)
@@ -271,7 +271,7 @@ struct NodeImageLibraryView: View {
         Section {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Image(.inkWarning)
                         .foregroundStyle(.orange)
                         .padding(.top, 2)
                         .accessibilityHidden(true)
@@ -282,7 +282,7 @@ struct NodeImageLibraryView: View {
                     Button {
                         error = nil
                     } label: {
-                        Image(systemName: "xmark")
+                        Image(.inkClose)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                             .frame(width: 24, height: 24)
@@ -324,7 +324,7 @@ struct NodeImageLibraryView: View {
                 key = ""
                 showsKeySheet = true
             } label: {
-                SeekRowLabel(title: "手动设置密钥", symbol: "key")
+                SeekRowLabel(title: "手动设置密钥", symbol: .inkImageKey)
             }
             .disabled(!ownsLibrary || busy)
             .listRowBackground(Color.seekCard)
@@ -334,7 +334,7 @@ struct NodeImageLibraryView: View {
                 confirmsKeyRotation = true
             } label: {
                 HStack(spacing: 12) {
-                    SeekRowLabel(title: "更新密钥", symbol: "arrow.triangle.2.circlepath")
+                    SeekRowLabel(title: "更新密钥", symbol: .inkRotateImageKey)
                     Spacer(minLength: 0)
                     if mutation == .rotateKey {
                         ProgressView().controlSize(.small)
@@ -454,7 +454,7 @@ struct NodeImageLibraryView: View {
                             Button {
                                 copy([image], as: preferences.linkFormat)
                             } label: {
-                                Label("复制", systemImage: "doc.on.doc")
+                                Label("复制", image: .inkCopyLink)
                             }
                             .tint(Color.seekInk)
                         }
@@ -484,7 +484,7 @@ struct NodeImageLibraryView: View {
                 Button {
                     preferences.layoutMode = preferences.layoutMode == .list ? .grid : .list
                 } label: {
-                    Image(systemName: preferences.layoutMode == .list ? "square.grid.2x2" : "list.bullet")
+                    Image(preferences.layoutMode == .list ? .inkPhotoGrid : .inkPhotoList)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.seekInk)
                         .frame(width: 30, height: 30)

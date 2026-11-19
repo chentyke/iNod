@@ -14,7 +14,7 @@ struct MacSidebarHeader: View {
             Button {
                 model.requestCompose()
             } label: {
-                Label("发布帖子", systemImage: "square.and.pencil")
+                Label("发布帖子", image: .inkComposePost)
             }
             // Outlined, so it doesn't stack a second dark block on the selected tab below it.
             .buttonStyle(.seekPill(primary: false))
@@ -58,7 +58,7 @@ private struct MacSidebarSearchField: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
+            Image(.inkSearchPosts).foregroundStyle(.secondary).accessibilityHidden(true)
             TextField(prompt, text: $draft)
                 .textFieldStyle(.plain)
                 .focused($isFocused)
@@ -69,7 +69,7 @@ private struct MacSidebarSearchField: View {
                 }
                 .accessibilityLabel(item.label)
             if !draft.isEmpty {
-                Button("清除搜索", systemImage: "xmark.circle.fill") {
+                Button("清除搜索", image: .inkClearInput) {
                     draft = ""
                     item.onTextChange("")
                 }
@@ -105,10 +105,10 @@ private struct MacSidebarMenu: View {
             }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: item.systemImage).foregroundStyle(.secondary).accessibilityHidden(true)
+                Image(item.image).foregroundStyle(.secondary).accessibilityHidden(true)
                 Text(title).foregroundStyle(Color.seekInk).lineLimit(1)
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.secondary).accessibilityHidden(true)
+                Image(.inkChoose).font(.caption).foregroundStyle(.secondary).accessibilityHidden(true)
             }
             .modifier(MacSidebarCapsule())
         }

@@ -17,8 +17,8 @@ struct CommentFloorMark: View {
                 .font(.footnote.weight(.medium))
                 .monospacedDigit()
                 .foregroundStyle(.tertiary)
-            if isPinned { CommentBadge(title: "置顶", symbol: "pin.fill", tint: .seekGreen) }
-            else if isHot { CommentBadge(title: "热门", symbol: "flame.fill", tint: .red) }
+            if isPinned { CommentBadge(title: "置顶", symbol: .inkPinnedReply, tint: .seekGreen) }
+            else if isHot { CommentBadge(title: "热门", symbol: .inkHotReply, tint: .red) }
         }
         .lineLimit(1)
         .fixedSize()
@@ -30,12 +30,12 @@ struct CommentFloorMark: View {
 /// A small tinted tag, such as 楼主 or 置顶.
 struct CommentBadge: View {
     let title: String
-    var symbol: String?
+    var symbol: ImageResource?
     let tint: Color
 
     var body: some View {
         HStack(spacing: 2) {
-            if let symbol { Image(systemName: symbol).imageScale(.small) }
+            if let symbol { Image(symbol).imageScale(.small) }
             Text(title)
         }
         .font(.caption2.weight(.bold))

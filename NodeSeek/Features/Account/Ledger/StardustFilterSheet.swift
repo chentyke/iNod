@@ -16,7 +16,7 @@ struct StardustActiveFilterBar: View {
                         HStack(spacing: 4) {
                             Text(chip.label)
                                 .monospacedDigit()
-                            Image(systemName: "xmark")
+                            Image(.inkClearFilter)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundStyle(.secondary)
                                 .accessibilityHidden(true)

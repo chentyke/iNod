@@ -61,7 +61,7 @@ private struct NetworkQualityHeader: View {
                 }
             }
             .accessibilityElement(children: .combine)
-            Button("开始检测", systemImage: "play.fill") { run.start() }
+            Button("开始检测", image: .inkStartTest) { run.start() }
                 .buttonStyle(.seekPill).disabled(network.kind == .offline)
                 .accessibilityIdentifier("quality.start")
         }
@@ -98,7 +98,7 @@ private struct NetworkQualityHeader: View {
             .accessibilityElement(children: .combine)
             .accessibilityValue("已完成 \(Int(overall(report) * 100))%")
             QualityProgressLine(fraction: overall(report))
-            Button("取消", systemImage: "xmark") { run.cancel() }
+            Button("取消", image: .inkStopTest) { run.cancel() }
                 .buttonStyle(.seekPill(primary: false))
                 .accessibilityIdentifier("quality.cancel")
         }
@@ -160,11 +160,11 @@ private struct NetworkQualityHeader: View {
             if !retryable.isEmpty {
                 // After a cancel nothing failed; the rest simply never ran.
                 let resumes = run.report.map { report in retryable.allSatisfy { report.status(of: $0) == .cancelled } } ?? false
-                Button(resumes ? "继续剩余 \(retryable.count) 项" : "重试 \(retryable.count) 项", systemImage: resumes ? "play.fill" : "arrow.clockwise") { run.retry(retryable) }
+                Button(resumes ? "继续剩余 \(retryable.count) 项" : "重试 \(retryable.count) 项", image: resumes ? .inkResumeTest : .inkRetryStep) { run.retry(retryable) }
                     .buttonStyle(.seekPill)
                     .accessibilityIdentifier("quality.retry")
             }
-            Button("重新检测", systemImage: "arrow.counterclockwise") { run.start() }
+            Button("重新检测", image: .inkRepeatTest) { run.start() }
                 // The results are the point of the page now; running again is the quieter choice.
                 .buttonStyle(.seekPill(primary: false))
                 .accessibilityIdentifier("quality.restart")
@@ -181,12 +181,12 @@ private struct NetworkQualityShareMenu: View {
     var body: some View {
         let text = report.sharedText(hidingAddresses: hidesAddresses)
         Menu {
-            ShareLink(item: text, preview: SharePreview("iNod 网络检测")) { Label("分享报告", systemImage: "square.and.arrow.up") }
-            Button("复制报告", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
+            ShareLink(item: text, preview: SharePreview("iNod 网络检测")) { Label("分享报告", image: .inkShareReport) }
+            Button("复制报告", image: .inkCopyReport) { UIPasteboard.general.string = text }
             Divider()
-            Toggle(isOn: $hidesAddresses) { Label("隐藏完整 IP", systemImage: "eye.slash") }
+            Toggle(isOn: $hidesAddresses) { Label("隐藏完整 IP", image: .inkMaskAddress) }
         } label: {
-            Label("分享", systemImage: "square.and.arrow.up")
+            Label("分享", image: .inkShareReport)
         }
         .accessibilityIdentifier("quality.share")
     }

@@ -18,7 +18,7 @@ struct AccountSecurityView: View {
                         SettingsRowContent(
                             title: "修改密码",
                             subtitle: "更换当前账号的登录密码",
-                            symbol: "key"
+                            symbol: .inkPassword
                         )
                     }
                     .accessibilityIdentifier("security-row-password")
@@ -30,7 +30,7 @@ struct AccountSecurityView: View {
                         SettingsRowContent(
                             title: "双因素验证",
                             subtitle: "登录时校验动态验证码",
-                            symbol: data.twoFactorEnabled ? "lock.shield.fill" : "lock.shield",
+                            symbol: data.twoFactorEnabled ? .inkTwoFactorOn : .inkTwoFactor,
                             tint: data.twoFactorEnabled ? .seekGreen : .seekInk,
                             badge: (data.twoFactorEnabled ? "已开启" : "未开启", data.twoFactorEnabled)
                         )
@@ -44,7 +44,7 @@ struct AccountSecurityView: View {
                         SettingsRowContent(
                             title: "Telegram 提醒",
                             subtitle: "接收私信、回复与 @提及 通知",
-                            symbol: "paperplane"
+                            symbol: .inkTelegramAlerts
                         )
                     }
                     .accessibilityIdentifier("security-row-telegram")
@@ -52,7 +52,7 @@ struct AccountSecurityView: View {
 
                     OfficialSettingsLink(
                         title: "邮箱与手机号",
-                        symbol: "envelope.badge.shield.half.filled",
+                        symbol: .inkRecoveryContacts,
                         anchor: "contact",
                         description: "更换绑定需在官网完成验证码"
                     )
@@ -113,7 +113,7 @@ private struct LoginRecordRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: AccountSettingsMetrics.rowSpacing) {
             SeekIconTile(
-                symbol: isLatest ? "checkmark.shield" : "network",
+                symbol: isLatest ? .inkLatestLogin : .inkLoginAddress,
                 tint: isLatest ? .seekGreen : .seekInk
             )
 
@@ -140,7 +140,7 @@ private struct LoginRecordRow: View {
         .frame(minHeight: AccountSettingsMetrics.iconSize)
         .contentShape(.rect)
         .contextMenu {
-            Button("复制 IP 地址", systemImage: "doc.on.doc") {
+            Button("复制 IP 地址", image: .inkCopyAddress) {
                 UIPasteboard.general.string = record.ip
             }
         }

@@ -61,7 +61,7 @@ struct AccountBalances: View {
             Button {
                 navigate(.ledger(.chicken))
             } label: {
-                SeekBalanceValue(title: "鸡腿", symbol: "fork.knife", value: user.coins, tint: .orange)
+                SeekBalanceValue(title: "鸡腿", symbol: .inkDrumstick, value: user.coins, tint: .orange)
             }
             .buttonStyle(.seekCard)
             .accessibilityIdentifier("account-balance-chicken")
@@ -70,7 +70,7 @@ struct AccountBalances: View {
             Button {
                 navigate(.stardustHistory)
             } label: {
-                SeekBalanceValue(title: "星尘", symbol: "sparkles", value: user.stardust, tint: .indigo)
+                SeekBalanceValue(title: "星尘", symbol: .inkStardust, value: user.stardust, tint: .indigo)
             }
             .buttonStyle(.seekCard)
             .accessibilityIdentifier("account-balance-stardust")
@@ -83,7 +83,7 @@ struct AccountBalances: View {
 
 struct AccountBalanceNavigationRow: View {
     let title: String
-    let symbol: String
+    let symbol: ImageResource
     var progress: AccountLevel.Progress?
     let destination: AccountDestination
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -123,7 +123,7 @@ struct AccountBalanceNavigationRow: View {
     private func progressStatusLabel(_ progress: AccountLevel.Progress) -> some View {
         HStack(spacing: 4) {
             if progress.isMaxLevel {
-                Image(systemName: "checkmark.seal.fill")
+                Image(.inkLevelBadge)
                     .font(.caption)
                     .foregroundStyle(Color.seekGreen)
                     .accessibilityHidden(true)

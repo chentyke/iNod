@@ -180,9 +180,9 @@ struct StardustHistoryView: View {
             } label: {
                 Label(
                     appliedFilter.chips.isEmpty ? "筛选" : "筛选（已启用）",
-                    systemImage: appliedFilter.chips.isEmpty
-                        ? "line.3.horizontal.decrease"
-                        : "line.3.horizontal.decrease.circle.fill"
+                    image: appliedFilter.chips.isEmpty
+                        ? .inkLedgerFilter
+                        : .inkLedgerFiltered
                 )
             }
             .accessibilityIdentifier("stardust-filter-button")

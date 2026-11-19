@@ -26,7 +26,7 @@ struct TwoFactorView: View {
                         headerLayout {
                             HStack(spacing: AccountSettingsMetrics.rowSpacing) {
                                 SeekIconTile(
-                                    symbol: status.enabled ? "lock.shield.fill" : "lock.shield",
+                                    symbol: status.enabled ? .inkTwoFactorOn : .inkTwoFactor,
                                     tint: status.enabled ? .seekGreen : .seekInk
                                 )
                                 Text(status.enabled ? "双因素验证已开启" : "双因素验证未开启")
@@ -87,7 +87,7 @@ struct TwoFactorView: View {
                                 copiedSecret = true
                             } label: {
                                 HStack(spacing: 4) {
-                                    Image(systemName: copiedSecret ? "checkmark" : "doc.on.doc")
+                                    Image(copiedSecret ? .inkSecretCopied : .inkCopySecret)
                                         .accessibilityHidden(true)
                                     Text(copiedSecret ? "已复制" : "复制")
                                 }
@@ -107,7 +107,7 @@ struct TwoFactorView: View {
                             Link(destination: url) {
                                 SeekRowLabel(
                                     title: "在验证器 App 中打开",
-                                    symbol: "key.viewfinder",
+                                    symbol: .inkAuthenticator,
                                     opensExternally: true
                                 )
                             }
@@ -134,7 +134,7 @@ struct TwoFactorView: View {
                 Section {
                     SettingsActionPill(
                         title: status.enabled ? "关闭双因素验证" : "启用并生成密钥",
-                        symbol: status.enabled ? "lock.open" : "qrcode",
+                        symbol: status.enabled ? .inkDisableTwoFactor : .inkSetupCode,
                         busyTitle: "处理中…",
                         isBusy: loader.updating,
                         primary: !status.enabled,

@@ -130,29 +130,29 @@ struct CommentActionBar: View {
     private var openDock: some View {
         // Items reveal from the trailing edge, where the folded dots were, toward the leading edge.
         HStack(spacing: 0) {
-            reactionButton(.upvote, symbol: comment.upvoted == true ? "hand.thumbsup.fill" : "hand.thumbsup",
+            reactionButton(.upvote, symbol: comment.upvoted == true ? .inkUpvoted : .inkUpvote,
                            count: comment.upvoteCount, tint: .seekGreen, isSelected: comment.upvoted == true)
                 .accessibilityLabel("\(comment.upvoteCount) 个赞，\(comment.upvoted == true ? "已点赞" : "点赞")")
                 .modifier(DockItemReveal(isShown: revealsItems, order: 4))
-            reactionButton(.like, symbol: "fork.knife", count: comment.likeCount, tint: .orange, isSelected: comment.liked == true)
+            reactionButton(.like, symbol: .inkGiveDrumstick, count: comment.likeCount, tint: .orange, isSelected: comment.liked == true)
                 .accessibilityLabel("\(comment.likeCount) 个鸡腿，\(comment.liked == true ? "已投喂" : "投喂鸡腿")")
                 .modifier(DockItemReveal(isShown: revealsItems, order: 3))
-            reactionButton(.dislike, symbol: comment.disliked == true ? "hand.thumbsdown.fill" : "hand.thumbsdown",
+            reactionButton(.dislike, symbol: comment.disliked == true ? .inkDisliked : .inkDislike,
                            count: comment.dislikeCount, tint: .red, isSelected: comment.disliked == true)
                 .accessibilityLabel(comment.dislikeCount.map { "反对，\($0) 次" } ?? "反对")
                 .modifier(DockItemReveal(isShown: revealsItems, order: 2))
             Divider().frame(height: 20).padding(.horizontal, 2)
                 .modifier(DockItemReveal(isShown: revealsItems, order: 2))
-            Button { setExpanded(false); onReply(false) } label: { CommentToolButtonLabel(symbol: "arrowshape.turn.up.left") }
+            Button { setExpanded(false); onReply(false) } label: { CommentToolButtonLabel(symbol: .inkReply) }
                 .accessibilityLabel("回复")
                 .modifier(DockItemReveal(isShown: revealsItems, order: 1))
             Group {
                 // With nothing beyond a quote, the quote sits beside reply; otherwise it joins the rest under ⋯.
                 if canEdit || canPin {
-                    Menu { moreMenuItems } label: { CommentToolButtonLabel(symbol: "ellipsis") }
+                    Menu { moreMenuItems } label: { CommentToolButtonLabel(symbol: .inkReplyActions) }
                         .accessibilityLabel("更多回复操作")
                 } else {
-                    Button { setExpanded(false); onReply(true) } label: { CommentToolButtonLabel(symbol: "quote.opening") }
+                    Button { setExpanded(false); onReply(true) } label: { CommentToolButtonLabel(symbol: .inkQuoteReply) }
                         .accessibilityLabel("引用回复")
                 }
             }
@@ -162,7 +162,7 @@ struct CommentActionBar: View {
         .frame(height: DockMetrics.openHeight)
     }
 
-    private func reactionButton(_ reaction: CommentReaction, symbol: String, count: Int?, tint: Color, isSelected: Bool) -> some View {
+    private func reactionButton(_ reaction: CommentReaction, symbol: ImageResource, count: Int?, tint: Color, isSelected: Bool) -> some View {
         Button {
             setExpanded(false)
             onReact(reaction)
@@ -174,26 +174,26 @@ struct CommentActionBar: View {
 
     @ViewBuilder private var reactionMenuItems: some View {
         Button(comment.upvoted == true ? "已点赞 · \(comment.upvoteCount)" : "点赞 · \(comment.upvoteCount)",
-               systemImage: "hand.thumbsup") { onReact(.upvote) }
+               image: .inkUpvote) { onReact(.upvote) }
             .disabled(actionsDisabled || comment.upvoted == true)
         Button(comment.liked == true ? "已投喂 · \(comment.likeCount)" : "投喂鸡腿 · \(comment.likeCount)",
-               systemImage: "fork.knife") { onReact(.like) }
+               image: .inkGiveDrumstick) { onReact(.like) }
             .disabled(actionsDisabled || comment.liked == true)
-        Button(comment.disliked == true ? "已反对" : "反对", systemImage: "hand.thumbsdown") { onReact(.dislike) }
+        Button(comment.disliked == true ? "已反对" : "反对", image: .inkDislike) { onReact(.dislike) }
             .disabled(actionsDisabled || comment.disliked == true)
     }
 
     @ViewBuilder private var replyMenuItems: some View {
-        Button("回复", systemImage: "arrowshape.turn.up.left") { setExpanded(false); onReply(false) }
+        Button("回复", image: .inkReply) { setExpanded(false); onReply(false) }
         moreMenuItems
     }
 
     /// Everything past a plain reply. The open dock already has its own reply button, so its menu shows only these.
     @ViewBuilder private var moreMenuItems: some View {
-        Button("引用回复", systemImage: "quote.opening") { setExpanded(false); onReply(true) }
-        if canEdit { Button("编辑", systemImage: "pencil") { setExpanded(false); onEdit() } }
+        Button("引用回复", image: .inkQuoteReply) { setExpanded(false); onReply(true) }
+        if canEdit { Button("编辑", image: .inkEditReply) { setExpanded(false); onEdit() } }
         if canPin {
-            Button(comment.pined == true ? "取消置顶" : "置顶回复", systemImage: "pin") {
+            Button(comment.pined == true ? "取消置顶" : "置顶回复", image: comment.pined == true ? .inkUnpinReply : .inkPinReply) {
                 setExpanded(false)
                 if comment.pined == true { onPin() }
                 else { confirmsPin = true }

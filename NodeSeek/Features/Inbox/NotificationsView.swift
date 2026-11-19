@@ -47,7 +47,7 @@ struct NotificationsView: View {
                 tabPicker.pickerStyle(.segmented)
             }
             if hasUnread {
-                Button("全部标为已读", systemImage: "checkmark.circle") {
+                Button("全部标为已读", image: selection == .messages ? .inkMarkMailRead : .inkReadAll) {
                     if selection == .messages { confirmsRead = true }
                     else { Task { await markAllRead(.activity, userID: userID) } }
                 }

@@ -22,7 +22,7 @@ struct ThreadActionBar: View {
             HStack(spacing: 12) {
                 if showsReply {
                     Button(action: onReply) {
-                        Label(replyTitle, systemImage: "square.and.pencil")
+                        Label(replyTitle, image: .inkReply)
                             .font(.body.weight(.semibold))
                             .foregroundStyle(Color.seekOnInk)
                             .frame(maxWidth: .infinity, minHeight: 56)
@@ -40,7 +40,7 @@ struct ThreadActionBar: View {
                 }
 
                 Button(action: onCollection) {
-                    Image(systemName: isCollected ? "bookmark.fill" : "bookmark")
+                    Image(isCollected ? .inkSavedPost : .inkSavePost)
                         .font(.title3.weight(.semibold))
                         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .foregroundStyle(.primary)
@@ -53,7 +53,7 @@ struct ThreadActionBar: View {
                 .glassEffect(.regular.tint(Color.seekGreen.opacity(isCollected ? 0.4 : 0.18)).interactive(), in: .circle)
 
                 ShareLink(item: post.url) {
-                    Image(systemName: "square.and.arrow.up")
+                    Image(.inkSharePost)
                         .font(.title3.weight(.semibold))
                         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .foregroundStyle(.primary)

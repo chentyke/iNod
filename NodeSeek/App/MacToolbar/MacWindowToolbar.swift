@@ -129,7 +129,7 @@ final class MacWindowToolbar: NSObject, NSToolbarDelegate, UITextFieldDelegate {
         toolbarItem.isEnabled = item.isEnabled
         // The search field draws its own capsule; the toolbar's button bezel would box the text field in a second one.
         if case .search = item.kind { toolbarItem.isBordered = false } else { toolbarItem.isBordered = true }
-        let image = UIImage(systemName: item.systemImage)
+        let image = UIImage(resource: item.image)
         switch item.kind {
         case .button:
             toolbarItem.image = image
@@ -161,7 +161,7 @@ final class MacWindowToolbar: NSObject, NSToolbarDelegate, UITextFieldDelegate {
         let groups = sections.map { entries in
             UIMenu(options: .displayInline, children: entries.map { entry in
                 UIAction(title: entry.title,
-                         image: entry.systemImage.flatMap { UIImage(systemName: $0) },
+                         image: entry.image.map { UIImage(resource: $0) },
                          attributes: entry.isDestructive ? .destructive : [],
                          state: entry.isOn ? .on : .off) { [weak self] _ in
                     self?.model.performMenuEntry(entry.id, of: itemID, in: section)
@@ -230,8 +230,7 @@ final class MacToolbarSearchCapsule: UIView {
         capsule.translatesAutoresizingMaskIntoConstraints = false
 
         let font = UIFont.preferredFont(forTextStyle: .subheadline)
-        let icon = UIImageView(image: UIImage(systemName: "magnifyingglass",
-                                              withConfiguration: UIImage.SymbolConfiguration(font: font)))
+        let icon = UIImageView(image: UIImage(resource: .inkSearchPosts).applyingSymbolConfiguration(.init(font: font)))
         icon.tintColor = .secondaryLabel
         icon.contentMode = .center
         icon.translatesAutoresizingMaskIntoConstraints = false

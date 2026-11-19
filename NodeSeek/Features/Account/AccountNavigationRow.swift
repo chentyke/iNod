@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AccountNavigationRow: View {
     let title: String
-    let symbol: String
+    let symbol: ImageResource
     var count: Int?
     let destination: AccountDestination
     var body: some View {

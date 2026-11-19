@@ -8,20 +8,20 @@ struct StardustRecordRow: View {
     @Environment(\.openMemberDestination) private var openMember
     @Environment(\.dynamicTypeSize) private var typeSize
 
-    private var symbol: String {
+    private var symbol: ImageResource {
         switch record.type {
         case "transfer":
-            if record.diff > 0 { return "arrow.down.left" }
-            if record.diff < 0 { return "arrow.up.right" }
-            return "arrow.left.arrow.right"
+            if record.diff > 0 { return .inkReceivedDust }
+            if record.diff < 0 { return .inkSentDust }
+            return .inkExchangeDust
         case "upvote":
-            return "hand.thumbsup"
+            return .inkVoteIncome
         case "buyCode":
-            return "ticket"
+            return .inkBoughtInvite
         case "admin":
-            return "checkmark.shield"
+            return .inkAdminAdjustment
         default:
-            return "sparkles"
+            return .inkStardust
         }
     }
 
@@ -76,15 +76,15 @@ struct StardustRecordRow: View {
         .contentShape(.rect)
         .contextMenu {
             if let peerID = record.validPeerID {
-                Button("查看对方主页", systemImage: "person.crop.circle") {
+                Button("查看对方主页", image: .inkProfile) {
                     openMember(.profile(peerID))
                 }
-                Button("筛选此用户记录", systemImage: "line.3.horizontal.decrease") {
+                Button("筛选此用户记录", image: .inkFilterMember) {
                     onFilterPeer(peerID)
                 }
             }
             if let refID = record.validRefID {
-                Button("按此 Ref ID 筛选", systemImage: "number") {
+                Button("按此 Ref ID 筛选", image: .inkFilterReference) {
                     onFilterReference(refID)
                 }
             }
@@ -130,12 +130,12 @@ struct StardustRecordRow: View {
                     openMember(.profile(peerID))
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "person.crop.circle")
+                        Image(.inkProfile)
                             .font(.caption)
                             .accessibilityHidden(true)
                         Text("对方 UID \(String(peerID))")
                             .monospacedDigit()
-                        Image(systemName: "chevron.right")
+                        Image(.inkNext)
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(.tertiary)
                             .accessibilityHidden(true)

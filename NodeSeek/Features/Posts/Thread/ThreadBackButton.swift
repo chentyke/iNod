@@ -10,7 +10,7 @@ struct ThreadBackButton: UIViewRepresentable {
     func makeUIView(context: Context) -> UIButton {
         let button = UIButton(type: .system)
         let symbol = UIImage.SymbolConfiguration(textStyle: .headline, scale: .medium)
-        button.setImage(UIImage(systemName: "chevron.backward", withConfiguration: symbol), for: .normal)
+        button.setImage(UIImage(resource: .inkBack).imageFlippedForRightToLeftLayoutDirection().applyingSymbolConfiguration(symbol), for: .normal)
         button.tintColor = .label
         button.accessibilityLabel = "返回"
         button.addAction(UIAction { [weak coordinator = context.coordinator] _ in

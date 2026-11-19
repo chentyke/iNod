@@ -43,7 +43,7 @@ struct RulingsView: View {
             if recordID != nil, let record = loader.value?.data.first {
                 ToolbarItem(placement: .topBarTrailing) {
                     ShareLink(item: record.shareURL) {
-                        Label("分享记录", systemImage: "square.and.arrow.up")
+                        Label("分享记录", image: .inkShareRuling)
                     }
                 }
             }
@@ -67,6 +67,7 @@ struct RulingsView: View {
         List {
             Section {
                 CommunitySearchFieldRow(
+                    searchIcon: .inkSearchRulings,
                     prompt: "受处理用户名或 #记录编号",
                     text: $query,
                     identifier: "rulings-search-field",
@@ -83,7 +84,7 @@ struct RulingsView: View {
                         SettingsRowContent(
                             title: "打开记录 #\(String(targetID))",
                             subtitle: "直接查看该条管理公示的完整详情",
-                            symbol: "number",
+                            symbol: .inkRecordNumber,
                             tint: .seekGreen
                         )
                     }
@@ -120,21 +121,21 @@ struct RulingsView: View {
                         .accessibilityIdentifier("ruling-row-\(String(record.id))")
                         .communityRowStyle()
                         .contextMenu {
-                            Button("查看记录详情", systemImage: "doc.text.magnifyingglass") {
+                            Button("查看记录详情", image: .inkInspectRuling) {
                                 openDestination(.rulings(recordID: record.id))
                             }
-                            Button("查看 \(record.target_member_name) 主页", systemImage: "person.crop.circle") {
+                            Button("查看 \(record.target_member_name) 主页", image: .inkProfile) {
                                 openMember(.profile(record.target_member_id))
                             }
-                            Button("查看处理人（\(record.admin_member_name)）主页", systemImage: "checkmark.shield") {
+                            Button("查看处理人（\(record.admin_member_name)）主页", image: .inkModerator) {
                                 openMember(.profile(record.admin_member_id))
                             }
                             if let location = record.associatedPostLocation {
-                                Button(record.associatedTargetTitle, systemImage: "arrow.turn.down.right") {
+                                Button(record.associatedTargetTitle, image: record.floor_index == 0 ? .inkReadPost : .inkJumpFloor) {
                                     openDestination(.post(location.post, page: location.page, floor: location.floor))
                                 }
                             }
-                            ShareLink(item: record.shareURL)
+                            ShareLink(item: record.shareURL) { Label("分享记录", image: .inkShareRuling) }
                         }
                     }
                 }
@@ -164,7 +165,7 @@ struct RulingsView: View {
                 Section {
                     ForEach(record.actionItems) { item in
                         HStack(alignment: .top, spacing: CommunityMetrics.rowSpacing) {
-                            SeekIconTile(symbol: item.symbol)
+                            SeekIconTile(symbol: item.inkIcon)
                             VStack(alignment: .leading, spacing: CommunityMetrics.rowLineSpacing) {
                                 Text(item.summary)
                                     .font(.body.weight(.semibold))
@@ -182,7 +183,7 @@ struct RulingsView: View {
                     }
 
                     HStack(spacing: CommunityMetrics.rowSpacing) {
-                        SeekIconTile(symbol: "clock")
+                        SeekIconTile(symbol: .inkClock)
                         Text("处理时间")
                             .foregroundStyle(Color.seekInk)
                         Spacer(minLength: 8)
@@ -224,7 +225,7 @@ struct RulingsView: View {
                                 subtitle: record.floor_index == 0
                                     ? "原帖 #\(String(record.post_id))"
                                     : "原帖 #\(String(record.post_id)) · 定位至第 \(record.floor_index) 楼",
-                                symbol: "doc.text"
+                                symbol: .inkReadPost
                             )
                         }
                         .accessibilityIdentifier("ruling-detail-post")
@@ -236,7 +237,7 @@ struct RulingsView: View {
 
                 Section {
                     HStack(spacing: CommunityMetrics.rowSpacing) {
-                        SeekIconTile(symbol: "link")
+                        SeekIconTile(symbol: .inkRulingLink)
                         VStack(alignment: .leading, spacing: CommunityMetrics.rowLineSpacing) {
                             Text("公示链接")
                                 .foregroundStyle(Color.seekInk)
@@ -261,7 +262,7 @@ struct RulingsView: View {
                 Section {
                     ContentUnavailableView(
                         "未找到该管理记录",
-                        systemImage: "list.bullet.rectangle",
+                        image: .inkRulings,
                         description: Text(recordID.map { "记录 #\(String($0)) 不存在或已被移除。" } ?? "")
                     )
                     .listRowBackground(Color.clear)
@@ -322,7 +323,7 @@ private struct RulingListRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: CommunityMetrics.rowSpacing) {
-            SeekIconTile(symbol: record.primarySymbol)
+            SeekIconTile(symbol: record.actionItems.first?.inkIcon ?? .inkRulings)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(record.description)
@@ -359,7 +360,7 @@ private struct RulingListRow: View {
 
                     if let postLabel = record.associatedShortLabel {
                         HStack(spacing: 4) {
-                            Image(systemName: "doc.text")
+                            Image(.inkReadPost)
                                 .font(.caption2)
                                 .accessibilityHidden(true)
                             Text("\(postLabel) · 处理人 \(record.admin_member_name)")

@@ -42,13 +42,13 @@ struct LevelTierRow: View {
     private var tierBadge: some View {
         Group {
             if isCurrent {
-                Image(systemName: "checkmark")
+                Image(.inkCurrentLevel)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(Color.seekGreen)
                     .frame(width: ProgressMetrics.tierBadgeSize, height: ProgressMetrics.tierBadgeSize)
                     .background(Color.seekGreen.opacity(0.08), in: .circle)
             } else if isReached {
-                Image(systemName: "checkmark")
+                Image(.inkLevelReached)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: ProgressMetrics.tierBadgeSize, height: ProgressMetrics.tierBadgeSize)

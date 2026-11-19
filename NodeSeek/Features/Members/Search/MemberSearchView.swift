@@ -24,6 +24,7 @@ struct MemberSearchView: View {
         List {
             Section {
                 CommunitySearchFieldRow(
+                    searchIcon: .inkFindMember,
                     prompt: "用户名、UID 或主页链接",
                     text: $query,
                     identifier: "member-search-field",
@@ -46,7 +47,7 @@ struct MemberSearchView: View {
                         SettingsRowContent(
                             title: "打开 UID \(String(directID)) 的主页",
                             subtitle: "直接访问公开个人资料、主题与回复",
-                            symbol: "person.text.rectangle",
+                            symbol: .inkMemberDirectory,
                             tint: .seekGreen
                         )
                     }
@@ -103,7 +104,7 @@ struct MemberSearchView: View {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: CommunityMetrics.rowSpacing) {
-                        SeekIconTile(symbol: "person.crop.circle.badge.exclamationmark", tint: .seekGreen)
+                        SeekIconTile(symbol: .inkMemberLogin, tint: .seekGreen)
                         VStack(alignment: .leading, spacing: CommunityMetrics.rowLineSpacing) {
                             Text("按用户名查找需要先登录")
                                 .font(.headline)
@@ -113,7 +114,7 @@ struct MemberSearchView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    Button("登录账号", systemImage: "person.crop.circle") {
+                    Button("登录账号", image: .inkSignIn) {
                         showsSignIn = true
                     }
                     .buttonStyle(.seekPill)
@@ -139,7 +140,7 @@ struct MemberSearchView: View {
                         HStack(spacing: 10) {
                             SettingsActionPill(
                                 title: "重试",
-                                symbol: "arrow.clockwise",
+                                symbol: .inkRetrySearch,
                                 busyTitle: "查找中…",
                                 isBusy: loader.loading,
                                 primary: true,
@@ -201,19 +202,19 @@ struct MemberSearchView: View {
                             .accessibilityIdentifier("searched-member-\(String(member.id))")
                             .communityRowStyle(separatorInset: CommunityMetrics.avatarSeparatorInset)
                             .contextMenu {
-                                Button("查看个人主页", systemImage: "person.crop.circle") {
+                                Button("查看个人主页", image: .inkProfile) {
                                     openMember(.profile(member.id))
                                 }
                                 if let currentUser = account.user, currentUser.id != member.id {
                                     let recipient = MessageRecipient(id: member.id, name: member.member_name)
-                                    Button("发私信", systemImage: "bubble.left.and.bubble.right") {
+                                    Button("发私信", image: .inkWriteMail) {
                                         openMember(.conversation(recipient))
                                     }
-                                    Button("转账星尘", systemImage: "sparkles") {
+                                    Button("转账星尘", image: .inkTransferDust) {
                                         openAppDestination(.stardustTransfer(userID: currentUser.id, recipient: recipient))
                                     }
                                 }
-                                ShareLink(item: member.spaceURL)
+                                ShareLink(item: member.spaceURL) { Label("分享个人主页", image: .inkShareProfile) }
                             }
                         }
                     }

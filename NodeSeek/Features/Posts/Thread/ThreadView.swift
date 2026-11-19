@@ -97,7 +97,7 @@ struct ThreadView: View {
                                  showsAuthor: usesMacToolbar)
                     if let accessError {
                         VStack(alignment: .leading, spacing: 12) {
-                            Label(accessError.localizedDescription, systemImage: "lock")
+                            Label(accessError.localizedDescription, image: .inkRestrictedPost)
                                 .font(.headline)
                             if case .levelRequired = accessError, let level = account.user?.level {
                                 Text("当前等级 Lv \(level)").font(.subheadline).foregroundStyle(.secondary)
@@ -193,7 +193,7 @@ struct ThreadView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarVisibility(usesNavigationBar ? .visible : .hidden, for: .navigationBar)
         .macToolbar(.leading, items: presentation == .splitDetail ? [] : [
-            MacToolbarItem(id: "back", label: "返回", systemImage: "chevron.backward", isNavigational: true) { dismiss() }
+            MacToolbarItem(id: "back", label: "返回", image: .inkBack, isNavigational: true) { dismiss() }
         ])
         .macToolbar(.trailing, items: macToolbarItems)
         .hidesTabBarWhenPushed()
@@ -211,7 +211,7 @@ struct ThreadView: View {
                         Menu {
                             postMenuItems
                         } label: {
-                            Image(systemName: "ellipsis")
+                            Image(.inkPostActions)
                                 .font(.headline.weight(.semibold))
                                 .frame(width: 44, height: 44)
                         }
@@ -254,7 +254,7 @@ struct ThreadView: View {
                 }
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu("更多", systemImage: "ellipsis") {
+                    Menu("更多", image: .inkPostActions) {
                         postMenuItems
                     }
                 }
@@ -342,39 +342,39 @@ struct ThreadView: View {
         if accessError == nil {
             items.append(MacToolbarItem(id: MacToolbarItem.replyID,
                                         label: account.signInStatus == .signedOut ? "登录后回复" : "写回复",
-                                        systemImage: "arrowshape.turn.up.left",
+                                        image: .inkReply,
                                         isEnabled: detail != nil && pendingReply == nil) { requestReply() })
         }
         items.append(MacToolbarItem(id: MacToolbarItem.collectionID, label: isCollected ? "取消收藏" : "收藏",
-                                    systemImage: isCollected ? "bookmark.fill" : "bookmark",
+                                    image: isCollected ? .inkSavedPost : .inkSavePost,
                                     isEnabled: !account.collections.updating.contains(post.id)) {
             let collected = !isCollected
             Task { await setCollection(collected) }
         })
-        items.append(MacToolbarItem(id: "share", label: "分享帖子", systemImage: "square.and.arrow.up", kind: .share(post.url)))
+        items.append(MacToolbarItem(id: "share", label: "分享帖子", image: .inkSharePost, kind: .share(post.url)))
         var menu: [[MacToolbarMenuEntry]] = [[]]
         if let detail, detail.op.uid == account.user?.id, detail.locked != true, !openingEditor {
-            menu[0].append(MacToolbarMenuEntry(id: "edit", title: "编辑帖子", systemImage: "pencil") {
+            menu[0].append(MacToolbarMenuEntry(id: "edit", title: "编辑帖子", image: .inkEditPost) {
                 Task { await openPostEditor() }
             })
         }
-        menu[0].append(MacToolbarMenuEntry(id: "website", title: "在官网查看", systemImage: "globe") { Browser.open(post.url) })
+        menu[0].append(MacToolbarMenuEntry(id: "website", title: "在官网查看", image: .inkWebsite) { Browser.open(post.url) })
         if let onClose {
-            menu.append([MacToolbarMenuEntry(id: "close", title: "关闭帖子", systemImage: "xmark.circle") { onClose() }])
+            menu.append([MacToolbarMenuEntry(id: "close", title: "关闭帖子", image: .inkClose) { onClose() }])
         }
-        items.append(MacToolbarItem(id: "more", label: "更多", systemImage: "ellipsis", kind: .menu(title: nil, sections: menu)))
+        items.append(MacToolbarItem(id: "more", label: "更多", image: .inkPostActions, kind: .menu(title: nil, sections: menu)))
         return items
     }
 
     @ViewBuilder private var postMenuItems: some View {
         if let detail, detail.op.uid == account.user?.id {
-            Button("编辑帖子", systemImage: "pencil") { Task { await openPostEditor() } }
+            Button("编辑帖子", image: .inkEditPost) { Task { await openPostEditor() } }
                 .disabled(detail.locked == true || openingEditor)
         }
-        Button("在官网查看", systemImage: "globe") { Browser.open(post.url) }
+        Button("在官网查看", image: .inkWebsite) { Browser.open(post.url) }
         if let onClose {
             Divider()
-            Button("关闭帖子", systemImage: "xmark.circle") { onClose() }
+            Button("关闭帖子", image: .inkClose) { onClose() }
         }
     }
 
