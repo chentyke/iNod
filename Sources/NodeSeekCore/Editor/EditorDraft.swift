@@ -12,6 +12,39 @@ public struct EditorDraft: Codable, Equatable, Sendable {
         content += "\n\(HostedImageLinkFormat.markdown.text(for: url))\n"
     }
 
+    /// Pull out the image lines appended by the photo picker, preserving other Markdown and whitespace.
+    public mutating func removeTrailingHostedImages() -> [URL] {
+        var images: [URL] = []
+        let prefix = "\n![图片](<"
+        let suffix = ">)\n"
+        while content.hasSuffix(suffix), let start = content.range(of: prefix, options: .backwards) {
+            let address = content[start.upperBound...].dropLast(suffix.count)
+            guard !address.contains(where: { $0.isWhitespace || $0 == ">" }),
+                  let url = URL(string: String(address)), url.scheme == "https", url.host() != nil,
+                  url.absoluteString == address else { break }
+            images.append(url)
+            content.removeSubrange(start.lowerBound...)
+        }
+        return images.reversed()
+    }
+
+    /// Decode only the leading reference written by replyReference for this thread.
+    public mutating func removeReplyReference(postID: Int) -> (name: String, floor: Int, quote: String?)? {
+        guard let reference = content.prefixMatch(of: #/^@([^\r\n]+?) \[#([0-9]+)\]\([^)]+\) /#),
+              let floor = Int(reference.2) else { return nil }
+        let name = String(reference.1)
+        guard reference.0 == Self.replyReference(postID: postID, floor: floor, name: name) else { return nil }
+        let body = content[reference.range.upperBound...]
+        if let block = body.prefixMatch(of: #/^\n\n((?:> [^\n]*\n)+)\n/#) {
+            let lines = block.1.dropLast().split(separator: "\n", omittingEmptySubsequences: false)
+            let quote = lines.map { $0.dropFirst(2) }.joined(separator: "\n")
+            content = String(body[block.range.upperBound...])
+            return (name, floor, quote)
+        }
+        content = String(body)
+        return (name, floor, nil)
+    }
+
     public func validation(for mode: EditorMode) -> String? {
         if mode.editsTitle && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "请填写帖子标题。" }
         if content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "请填写正文。" }
