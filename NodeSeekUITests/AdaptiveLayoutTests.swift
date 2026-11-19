@@ -393,18 +393,18 @@ final class AdaptiveLayoutTests: XCTestCase {
 
     /// Whether the tabs are currently shown in a sidebar beside the page.
     private func hasSidebar(_ app: XCUIApplication) -> Bool {
-        sidebarTab(in: app).exists
+        app.cells.matching(communityTab).firstMatch.exists
     }
 
-    private func sidebarTab(in app: XCUIApplication) -> XCUIElement {
-        app.cells.matching(NSPredicate(format: "label == %@", "社区")).firstMatch
+    private var communityTab: NSPredicate {
+        NSPredicate(format: "elementType == %d AND label == %@", XCUIElement.ElementType.cell.rawValue, "社区")
     }
 
     /// The part of a page that a sidebar leaves free. The page runs on under the sidebar, but its cards
     /// centre or split in the area beside it.
     private func besideSidebar(_ page: CGRect, in app: XCUIApplication) -> CGRect {
         guard hasSidebar(app) else { return page }
-        let sidebar = app.collectionViews.containing(.cell, identifier: sidebarTab(in: app).identifier).firstMatch.frame
+        let sidebar = app.collectionViews.containing(communityTab).firstMatch.frame
         guard sidebar.maxX > page.minX, sidebar.maxX < page.maxX else { return page }
         return CGRect(x: sidebar.maxX, y: page.minY, width: page.maxX - sidebar.maxX, height: page.height)
     }
