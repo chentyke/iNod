@@ -105,6 +105,34 @@ import Testing
     #expect(RulingRecord.parseRecordID("alice") == nil)
 }
 
+@Test func rulingPageDecodesDetailsWithoutPaginationAndKeepsListTotal() throws {
+    let record = #"""
+    {
+      "id": 801,
+      "target_member_id": 9900201,
+      "target_member_name": "测试用户",
+      "admin_member_id": 9900001,
+      "admin_member_name": "测试版务",
+      "post_id": -1,
+      "floor_index": 0,
+      "request": "{}",
+      "created_at": "2026-11-17T08:30:00.000Z"
+    }
+    """#
+    let decoder = JSONDecoder()
+
+    let detail = try decoder.decode(RulingPage.self, from: Data(#"{"success":true,"data":[\#(record)]}"#.utf8))
+    #expect(detail.data.map(\.id) == [801])
+    #expect(detail.total == 1)
+
+    let emptyDetail = try decoder.decode(RulingPage.self, from: Data(#"{"success":true,"data":[]}"#.utf8))
+    #expect(emptyDetail.data.isEmpty)
+    #expect(emptyDetail.total == 0)
+
+    let list = try decoder.decode(RulingPage.self, from: Data(#"{"success":true,"data":[\#(record)],"total":45}"#.utf8))
+    #expect(list.total == 45)
+}
+
 @Test func invitationOptionComputesAffordabilityAndShortfall() throws {
     let config = try JSONDecoder().decode(
         InvitationConfig.self,

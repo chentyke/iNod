@@ -3,6 +3,17 @@ import Foundation
 public struct RulingPage: Decodable, Sendable {
     public var data: [RulingRecord]
     public let total: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case data, total
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        data = try container.decode([RulingRecord].self, forKey: .data)
+        // A single-record response can omit the pagination total.
+        total = try container.decodeIfPresent(Int.self, forKey: .total) ?? data.count
+    }
 }
 
 public struct RulingRecord: Decodable, Sendable, Identifiable, Equatable {

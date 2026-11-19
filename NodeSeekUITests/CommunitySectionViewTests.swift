@@ -324,7 +324,7 @@ final class CommunitySectionViewTests: XCTestCase {
                 ]
             ],
             "/api/admin/ruling/id-801": [
-                "total": 1,
+                "success": true,
                 "data": [
                     [
                         "id": 801,
