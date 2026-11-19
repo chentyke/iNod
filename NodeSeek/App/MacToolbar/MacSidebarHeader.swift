@@ -1,8 +1,9 @@
 #if targetEnvironment(macCatalyst)
 import SwiftUI
 
-/// The head of the Mac sidebar: New Post, then the controls the community feed puts there, such as its category menu.
-/// On a desktop these sit beside the tabs they serve instead of taking a row above the list.
+/// The head of the Mac sidebar: New Post, then the community feed's category menu.
+/// On a desktop these sit beside the tabs they serve instead of taking a row above the list;
+/// the feed's search sits in the window toolbar over the list instead.
 ///
 /// Each control is drawn as one of the sidebar's own rows: the tab rows' height, corner, width and
 /// icon and label columns, so the header and the tabs below read as one list.
@@ -26,11 +27,9 @@ struct MacSidebarHeader: View {
 
             ForEach(model.items(in: .sidebar)) { item in
                 switch item.kind {
-                case .search(let prompt, let text):
-                    MacSidebarSearchField(item: item, prompt: prompt, text: text, showFeed: showFeed)
                 case .menu(let title, let sections):
                     MacSidebarMenu(item: item, title: title ?? item.label, sections: sections, showFeed: showFeed)
-                case .button, .share:
+                case .button, .share, .search:
                     EmptyView()
                 }
             }
@@ -105,42 +104,6 @@ private struct MacSidebarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .opacity(configuration.isPressed ? 0.7 : 1)
-    }
-}
-
-private struct MacSidebarSearchField: View {
-    let item: MacToolbarItem
-    let prompt: String
-    /// The feed's query, which the field follows whenever the reader isn't typing in it.
-    let text: String
-    let showFeed: () -> Void
-    @State private var draft = ""
-    @FocusState private var isFocused: Bool
-
-    var body: some View {
-        MacSidebarRow(systemImage: "magnifyingglass") {
-            TextField(prompt, text: $draft)
-                .textFieldStyle(.plain)
-                .focused($isFocused)
-                .submitLabel(.search)
-                .onSubmit {
-                    showFeed()
-                    item.action()
-                }
-                .accessibilityLabel(item.label)
-        } trailing: {
-            if !draft.isEmpty {
-                Button("清除搜索", systemImage: "xmark.circle.fill") {
-                    draft = ""
-                    item.onTextChange("")
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-            }
-        }
-        .onChange(of: draft) { if isFocused { item.onTextChange(draft) } }
-        .onChange(of: text, initial: true) { if !isFocused, draft != text { draft = text } }
     }
 }
 
