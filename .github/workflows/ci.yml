@@ -41,6 +41,8 @@ jobs:
           ' >> "$GITHUB_OUTPUT"
       - name: Check SwiftUI code against docs/DESIGN.md
         run: node scripts/check-design.mjs
+      - name: Check hand-drawn symbol assets against their artwork
+        run: pipx run scripts/icons/manage.py check
 
   swift-and-website:
     needs: design-checks
