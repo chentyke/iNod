@@ -8,11 +8,11 @@ import UIKit
 struct CommunityRootView: View {
     @Environment(AccountSession.self) private var account
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Binding var selectedPost: PostSummary?
-    @Binding var detailPath: NavigationPath
+    @Environment(\.tabBarPlacement) private var tabPlacement
     let sharedTabRow: ReaderTabRow?
     @Binding var showsTopTabs: Bool
-    @Environment(\.tabBarPlacement) private var tabPlacement
+    @State private var selectedPost: PostSummary?
+    @State private var detailPath = NavigationPath()
     @State private var compactPath = NavigationPath()
 
     private var supportsSplit: Bool {
@@ -27,7 +27,7 @@ struct CommunityRootView: View {
     var body: some View {
         if supportsSplit {
             GeometryReader { proxy in
-                let usesSplit = sharedTabRow != nil || SeekLayout.usesFeedSplit(
+                let usesSplit = SeekLayout.usesFeedSplit(
                     forWidth: proxy.size.width,
                     supportsSplit: true,
                     isCompact: horizontalSizeClass == .compact
@@ -66,9 +66,34 @@ struct CommunityRootView: View {
     private func splitLayout(totalWidth: CGFloat) -> some View {
         let feedWidth = SeekLayout.feedPaneWidth(forTotalWidth: totalWidth)
         return HStack(spacing: 0) {
-            if sharedTabRow == nil {
-                CommunityFeedPane(selectedPost: $selectedPost, detailPath: $detailPath, width: feedWidth)
-            }
+            FeedView(selectedPostID: selectedPost?.id)
+                .safeAreaPadding(.top, sharedTabRow?.topInset ?? 0)
+                .ignoresSafeArea(.container, edges: sharedTabRow == nil ? [] : .top)
+                .frame(width: feedWidth)
+                // The reader background can extend under the list when its edge meets the tab bar inset.
+                .zIndex(sharedTabRow == nil ? 0 : 1)
+                .tint(Color.seekGreen)
+                .environment(\.openPost, PostNavigationAction { post in
+                    selectedPost = post
+                    detailPath = NavigationPath()
+                })
+                .environment(\.openMemberDestination, MemberNavigationAction { destination in
+                    detailPath.append(destination)
+                })
+                .environment(\.openAccountPost, AccountPostNavigationAction { post in
+                    detailPath.append(post)
+                })
+                .environment(\.openAccountDestination, AccountNavigationAction { destination in
+                    detailPath.append(destination)
+                })
+                .environment(\.openURL, detailOpenURLAction)
+
+            Rectangle()
+                .fill(Color.seekHairline.opacity(0.65))
+                .frame(width: SeekLayout.splitDividerWidth)
+                .ignoresSafeArea(edges: .bottom)
+                .accessibilityHidden(true)
+
             ForumNavigationStack(path: $detailPath) {
                 if let post = selectedPost {
                     ThreadView(
@@ -113,40 +138,6 @@ struct CommunityRootView: View {
                 path.append(post)
                 compactPath = path
             }
-        }
-    }
-}
-
-struct CommunityFeedPane: View {
-    @Binding var selectedPost: PostSummary?
-    @Binding var detailPath: NavigationPath
-    let width: CGFloat
-
-    var body: some View {
-        HStack(spacing: 0) {
-            FeedView(selectedPostID: selectedPost?.id)
-                .frame(width: width)
-                .tint(Color.seekGreen)
-                .environment(\.openPost, PostNavigationAction { post in
-                    selectedPost = post
-                    detailPath = NavigationPath()
-                })
-                .environment(\.openMemberDestination, MemberNavigationAction { destination in
-                    detailPath.append(destination)
-                })
-                .environment(\.openAccountPost, AccountPostNavigationAction { post in
-                    detailPath.append(post)
-                })
-                .environment(\.openAccountDestination, AccountNavigationAction { destination in
-                    detailPath.append(destination)
-                })
-                .environment(\.openURL, detailOpenURLAction)
-
-            Rectangle()
-                .fill(Color.seekHairline.opacity(0.65))
-                .frame(width: SeekLayout.splitDividerWidth)
-                .ignoresSafeArea(edges: .bottom)
-                .accessibilityHidden(true)
         }
     }
 

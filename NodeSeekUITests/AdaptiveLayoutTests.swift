@@ -119,6 +119,21 @@ final class AdaptiveLayoutTests: XCTestCase {
         assertClose(card.maxX - share.frame.maxX, replyBarInset, "Reply bar trailing edge")
         attachScreenshot(of: app, named: "Feed in landscape")
 
+        // Use the system toggle in both directions while a post is open.
+        let toggle = app.buttons.matching(NSPredicate(
+            format: "identifier ==[c] %@ OR label IN %@",
+            "ToggleSidebar", ["开关边栏", "隐藏边栏", "Toggle Sidebar", "Hide Sidebar"]
+        )).firstMatch
+        if hasSidebar(app) { toggle.tap() }
+        XCTAssertTrue(sidebarTab(in: app).waitForNonExistence(timeout: 5))
+        toggle.tap()
+        XCTAssertTrue(sidebarTab(in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(post.isSelected)
+        toggle.tap()
+        XCTAssertTrue(sidebarTab(in: app).waitForNonExistence(timeout: 5))
+        XCTAssertTrue(post.isSelected)
+        assertClose(author.frame.midY, community.frame.midY, "Author and tabs after collapsing sidebar")
+
         ForumFixture.tab("通知", in: app).tap()
         community.tap()
         XCTAssertTrue(post.isSelected)
