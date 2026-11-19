@@ -23,9 +23,10 @@ struct MessageComposer: View {
                         .foregroundStyle(Color.seekInk)
                         .frame(width: 44, height: 44)
                         .contentShape(.circle)
+                        .glassEffect(.regular, in: .circle)
                 }
+                .menuOrder(.fixed)
                 .disabled(isBusy)
-                .glassEffect(.regular.interactive(!isBusy), in: .circle)
 
                 TextField("写私信", text: $text, axis: .vertical)
                     .accessibilityLabel("写私信")
