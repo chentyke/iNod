@@ -44,7 +44,7 @@ private struct MacWindowToolbarInstaller: UIViewRepresentable {
 /// Controls drawn by the app can't sit in the toolbar strip: the toolbar takes every click there to move the window.
 /// So each page's controls become real toolbar items, which also gives them the standard Mac size and grouping.
 @MainActor
-final class MacWindowToolbar: NSObject, NSToolbarDelegate, UISearchTextFieldDelegate {
+final class MacWindowToolbar: NSObject, NSToolbarDelegate, UITextFieldDelegate {
     let toolbar = NSToolbar(identifier: "iNod.window")
     private let model: MacToolbarModel
     /// The item each identifier currently shows, so a click finds its action and a refresh can update it in place.
@@ -115,7 +115,7 @@ final class MacWindowToolbar: NSObject, NSToolbarDelegate, UISearchTextFieldDele
         case .button: toolbarItem = NSToolbarItem(itemIdentifier: identifier)
         case .menu: toolbarItem = NSMenuToolbarItem(itemIdentifier: identifier)
         case .share: toolbarItem = NSSharingServicePickerToolbarItem(itemIdentifier: identifier)
-        case .search: toolbarItem = NSUIViewToolbarItem(itemIdentifier: identifier, uiView: searchField(for: identifier))
+        case .search: toolbarItem = NSUIViewToolbarItem(itemIdentifier: identifier, uiView: searchCapsule(for: identifier))
         }
         configure(toolbarItem, with: entry.item, in: entry.section)
         return toolbarItem
@@ -127,7 +127,8 @@ final class MacWindowToolbar: NSObject, NSToolbarDelegate, UISearchTextFieldDele
         toolbarItem.isNavigational = item.isNavigational
         toolbarItem.autovalidates = false
         toolbarItem.isEnabled = item.isEnabled
-        toolbarItem.isBordered = true
+        // The search field draws its own capsule; the toolbar's button bezel would box the text field in a second one.
+        if case .search = item.kind { toolbarItem.isBordered = false } else { toolbarItem.isBordered = true }
         let image = UIImage(systemName: item.systemImage)
         switch item.kind {
         case .button:
@@ -149,11 +150,10 @@ final class MacWindowToolbar: NSObject, NSToolbarDelegate, UISearchTextFieldDele
             guard let shareItem = toolbarItem as? NSSharingServicePickerToolbarItem else { return }
             shareItem.activityItemsConfiguration = UIActivityItemsConfiguration(objects: [url as NSURL])
         case .search(let prompt, let text):
-            guard let field = (toolbarItem as? NSUIViewToolbarItem)?.uiView as? UISearchTextField else { return }
-            field.placeholder = prompt
-            field.accessibilityLabel = item.label
+            guard let capsule = searchCapsules[toolbarItem.itemIdentifier] else { return }
+            capsule.configure(prompt: prompt, label: item.label, width: item.width)
             // Leave the field alone while the reader types; follow the page when it clears or changes the search.
-            if !field.isFirstResponder, field.text != text { field.text = text }
+            if !capsule.field.isFirstResponder, capsule.field.text != text { capsule.field.text = text }
         }
     }
 
@@ -171,38 +171,29 @@ final class MacWindowToolbar: NSObject, NSToolbarDelegate, UISearchTextFieldDele
         return UIMenu(children: groups)
     }
 
-    private var searchFields: [NSToolbarItem.Identifier: UISearchTextField] = [:]
+    private var searchCapsules: [NSToolbarItem.Identifier: MacToolbarSearchCapsule] = [:]
 
-    private func searchField(for identifier: NSToolbarItem.Identifier) -> UISearchTextField {
-        if let field = searchFields[identifier] { return field }
-        let field = UISearchTextField()
-        field.delegate = self
-        field.returnKeyType = .search
-        // The toolbar item's glass capsule is the field; drop the text field's own filled background inside it.
-        field.borderStyle = .none
-        field.backgroundColor = .clear
-        field.translatesAutoresizingMaskIntoConstraints = false
-        field.widthAnchor.constraint(equalToConstant: Self.searchFieldWidth).isActive = true
-        field.addAction(UIAction { [weak self, weak field] _ in
-            guard let self, let field, let entry = self.entry(for: field) else { return }
-            self.model.updateSearchText(field.text ?? "", of: entry.item.id, in: entry.section)
+    private func searchCapsule(for identifier: NSToolbarItem.Identifier) -> MacToolbarSearchCapsule {
+        if let capsule = searchCapsules[identifier] { return capsule }
+        let capsule = MacToolbarSearchCapsule()
+        capsule.field.delegate = self
+        capsule.field.addAction(UIAction { [weak self, weak capsule] _ in
+            guard let self, let capsule, let entry = self.entry(for: capsule.field) else { return }
+            self.model.updateSearchText(capsule.field.text ?? "", of: entry.item.id, in: entry.section)
         }, for: .editingChanged)
-        searchFields[identifier] = field
-        return field
+        searchCapsules[identifier] = capsule
+        return capsule
     }
 
-    /// About as wide as the list's cards, so the field reads as the top of the list it searches.
-    private static let searchFieldWidth: CGFloat = 256
-
-    private func entry(for field: UISearchTextField) -> (section: MacToolbarSection, item: MacToolbarItem)? {
-        guard let identifier = searchFields.first(where: { $0.value === field })?.key else { return nil }
+    private func entry(for field: UITextField) -> (section: MacToolbarSection, item: MacToolbarItem)? {
+        guard let identifier = searchCapsules.first(where: { $0.value.field === field })?.key else { return nil }
         return shown[identifier]
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        guard let field = textField as? UISearchTextField, let entry = entry(for: field) else { return true }
+        guard let entry = entry(for: textField) else { return true }
         model.perform(entry.item.id, in: entry.section)
-        field.resignFirstResponder()
+        textField.resignFirstResponder()
         return false
     }
 
@@ -210,5 +201,104 @@ final class MacWindowToolbar: NSObject, NSToolbarDelegate, UISearchTextFieldDele
         guard let entry = shown[sender.itemIdentifier] else { return }
         model.perform(entry.item.id, in: entry.section)
     }
+}
+
+/// The feed's search field in the toolbar, drawn like the search bar above the list on iPhone and iPad: a capsule
+/// with the magnifier in a button-wide slot and the prompt right after it. Its fill is the platter the toolbar
+/// draws behind its own buttons, so it sits with them; UIKit's glass has nothing behind a toolbar item to refract
+/// and comes out as a flat dark block.
+final class MacToolbarSearchCapsule: UIView {
+    let field = UITextField()
+    /// The visible capsule. The toolbar lays the item out in Mac points but draws this view at the app's
+    /// Catalyst scale, centred in that frame, so the capsule is sized in app points to fill the frame instead.
+    private let capsule = UIView()
+    private var widthConstraint: NSLayoutConstraint!
+    private var capsuleWidthConstraint: NSLayoutConstraint!
+
+    init() {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        clipsToBounds = false
+
+        capsule.backgroundColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(white: 45 / 255, alpha: 1)
+                : UIColor(red: 235 / 255, green: 235 / 255, blue: 237 / 255, alpha: 1)
+        }
+        capsule.layer.cornerRadius = Self.height / 2
+        capsule.layer.cornerCurve = .continuous
+        capsule.translatesAutoresizingMaskIntoConstraints = false
+
+        let font = UIFont.preferredFont(forTextStyle: .subheadline)
+        let icon = UIImageView(image: UIImage(systemName: "magnifyingglass",
+                                              withConfiguration: UIImage.SymbolConfiguration(font: font)))
+        icon.tintColor = .secondaryLabel
+        icon.contentMode = .center
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.isAccessibilityElement = false
+
+        field.font = font
+        field.adjustsFontForContentSizeCategory = true
+        field.textColor = .label
+        field.borderStyle = .none
+        field.returnKeyType = .search
+        field.clearButtonMode = .whileEditing
+        field.autocapitalizationType = .none
+        field.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(capsule)
+        capsule.addSubview(icon)
+        capsule.addSubview(field)
+        widthConstraint = widthAnchor.constraint(equalToConstant: Self.defaultWidth * Self.catalystScale)
+        capsuleWidthConstraint = capsule.widthAnchor.constraint(equalToConstant: Self.defaultWidth)
+        NSLayoutConstraint.activate([
+            widthConstraint,
+            heightAnchor.constraint(equalToConstant: Self.height * Self.catalystScale),
+            capsuleWidthConstraint,
+            capsule.heightAnchor.constraint(equalToConstant: Self.height),
+            capsule.centerXAnchor.constraint(equalTo: centerXAnchor, constant: Self.toolbarInset),
+            capsule.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.leadingAnchor.constraint(equalTo: capsule.leadingAnchor),
+            icon.widthAnchor.constraint(equalToConstant: Self.iconSlot),
+            icon.topAnchor.constraint(equalTo: capsule.topAnchor),
+            icon.bottomAnchor.constraint(equalTo: capsule.bottomAnchor),
+            field.leadingAnchor.constraint(equalTo: icon.trailingAnchor),
+            field.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -14),
+            field.topAnchor.constraint(equalTo: capsule.topAnchor),
+            field.bottomAnchor.constraint(equalTo: capsule.bottomAnchor),
+        ])
+        // A click anywhere on the capsule starts typing, as on the search bar it stands in for.
+        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(focus)))
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        capsule.frame.contains(point)
+    }
+
+    /// Sets the prompt and the capsule's width in app points.
+    func configure(prompt: String, label: String, width: CGFloat?) {
+        field.attributedPlaceholder = NSAttributedString(string: prompt, attributes: [.foregroundColor: UIColor.secondaryLabel])
+        field.accessibilityLabel = label
+        let width = width ?? Self.defaultWidth
+        if capsuleWidthConstraint.constant != width {
+            capsuleWidthConstraint.constant = width
+            widthConstraint.constant = width * Self.catalystScale
+        }
+    }
+
+    @objc private func focus() { field.becomeFirstResponder() }
+
+    /// How much smaller a Catalyst app in the iPad idiom draws than the Mac points the toolbar lays out in.
+    private static let catalystScale: CGFloat = 0.77
+    /// The toolbar starts its first item this far short of the list's cards; nudging the capsule over lines their edges up.
+    private static let toolbarInset: CGFloat = 8
+    /// The width in a narrow window, where the field shares the toolbar with New Post and the category.
+    private static let defaultWidth: CGFloat = 280
+    /// As tall as the toolbar's buttons beside it.
+    private static let height: CGFloat = 45
+    /// The search bar's magnifier slot on iPhone and iPad.
+    private static let iconSlot: CGFloat = 44
 }
 #endif

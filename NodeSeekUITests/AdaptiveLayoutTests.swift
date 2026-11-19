@@ -178,7 +178,8 @@ final class AdaptiveLayoutTests: XCTestCase {
             // No reply bar floats over the page: reply and share sit in the window toolbar, above the cards.
             let reply = replyButton(in: app)
             XCTAssertTrue(reply.waitForExistence(timeout: 5), "The Mac toolbar should offer reply.")
-            XCTAssertLessThanOrEqual(reply.frame.maxY, scroll.minY + tolerance)
+            // The scroll view runs on under the transparent toolbar, so compare with the cards it shows.
+            XCTAssertLessThanOrEqual(reply.frame.maxY, card.minY + tolerance)
             attachScreenshot(of: app, named: "Thread")
             return
         }

@@ -35,6 +35,8 @@ struct MacToolbarItem: Identifiable, Equatable {
     var isEnabled = true
     /// Back and other moves between pages sit at the toolbar's leading edge.
     var isNavigational = false
+    /// A search field's width; nil keeps the toolbar's default.
+    var width: CGFloat?
     var action: @MainActor () -> Void = {}
     var onTextChange: @MainActor (String) -> Void = { _ in }
 
@@ -46,6 +48,7 @@ struct MacToolbarItem: Identifiable, Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.id == rhs.id && lhs.label == rhs.label && lhs.systemImage == rhs.systemImage
             && lhs.kind == rhs.kind && lhs.isEnabled == rhs.isEnabled && lhs.isNavigational == rhs.isNavigational
+            && lhs.width == rhs.width
     }
 }
 

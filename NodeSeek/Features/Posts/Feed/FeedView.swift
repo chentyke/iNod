@@ -16,6 +16,8 @@ struct FeedView: View {
     #endif
     @AppStorage("showsBlockedContent") private var showsBlocked = false
     private var categories: CategoryStore { account.categories }
+    /// The list column's width, which the Mac toolbar search field follows.
+    @State private var listWidth: CGFloat = 0
     @State private var posts: [PostSummary] = []
     @State private var pinnedPosts: [PostSummary] = []
     @State private var category = ""
@@ -254,6 +256,7 @@ struct FeedView: View {
         // On a Mac the filter row's controls live in the window toolbar and sidebar, so the list starts right under the toolbar.
         .modifier(OptionalFeedFilterBar(isEnabled: !recommended && !usesMacToolbar) { filterBar })
         .modifier(MacToolbarFadeIf(isEnabled: usesMacToolbar))
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { listWidth = $0 }
         // An open search folds away once the reader scrolls, taps outside it or leaves the page;
         // a search with results only drops the keyboard.
         .scrollDismissesKeyboard(.immediately)
@@ -378,9 +381,12 @@ struct FeedView: View {
     }
 
     private var macSearchItem: MacToolbarItem {
-        MacToolbarItem(id: "search", label: "搜索帖子", systemImage: "magnifyingglass",
-                       kind: .search(prompt: "搜索帖子", text: query), action: submitSearch,
-                       onTextChange: { query = $0 })
+        // Beside the sidebar the field sits alone over the list, so it spans the cards below it.
+        let cardWidth = min(listWidth - 2 * SeekLayout.gutter, SeekLayout.readableWidth)
+        return MacToolbarItem(id: "search", label: "搜索帖子", systemImage: "magnifyingglass",
+                              kind: .search(prompt: "搜索帖子", text: query),
+                              width: showsMacSidebar && cardWidth > 0 ? cardWidth.rounded() : nil,
+                              action: submitSearch, onTextChange: { query = $0 })
     }
 
     private var macCategoryItem: MacToolbarItem {
