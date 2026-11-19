@@ -12,6 +12,38 @@ import Testing
     #expect(MarkdownBlock.parse(draft.content) == [.text("原有正文"), .image(alt: "图片", url: first), .image(alt: "图片", url: second)])
 }
 
+@Test func replyReferenceRestoresQuotedLinesSeparatelyFromTheAnswer() {
+    let body = "\n我的回复\n\n> 我写的引用\n\n"
+    for quote: String? in [nil, "", "一行\n\n> 嵌套引用\n![图片](<https://example.com/test.png>)\n"] {
+        let reference = EditorDraft.replyReference(postID: 42, floor: 7, name: "读者", quote: quote)
+        var draft = EditorDraft(content: reference + body)
+        #expect(draft.removeReplyReference(postID: 24) == nil)
+        #expect(draft.content == reference + body)
+        let target = draft.removeReplyReference(postID: 42)
+        #expect(target?.name == "读者")
+        #expect(target?.floor == 7)
+        #expect(target?.quote == quote)
+        #expect(draft.content == body)
+    }
+}
+
+@Test func replyPhotoStripPreservesTextImageOrderAndImageOnlyReplies() throws {
+    let first = try #require(URL(string: "https://cdn.example.com/first(1).png"))
+    let second = try #require(URL(string: "https://cdn.example.com/second.jpg"))
+    for text in ["", "第一行\n![图片](<https://example.com/inline.jpg>)\n最后一行  \n"] {
+        var draft = EditorDraft(content: text)
+        draft.appendHostedImage(first)
+        draft.appendHostedImage(second)
+        let stored = draft
+        let images = draft.removeTrailingHostedImages()
+        #expect(draft.content == text)
+        #expect(images == [first, second])
+        for image in images { draft.appendHostedImage(image) }
+        #expect(draft == stored)
+        #expect(draft.validation(for: .reply(postID: 123)) == nil)
+    }
+}
+
 @Test func editorKeepsWebsiteModesAndAccountDraftsSeparate() {
     let draft = EditorDraft(title:"标题",content:"正文",category:"tech",rank:2)
     let new = draft.body(for:.newPost)
