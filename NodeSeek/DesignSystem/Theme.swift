@@ -10,8 +10,9 @@ extension Color {
     static let seekInk = Color("Ink")
     static let seekOnInk = Color("OnInk")
     static let seekHairline = Color("Hairline")
-    /// The Mac sidebar's highlight behind the open tab, which always draws its label in white:
-    /// ink in light mode, a grey in dark mode where ink turns white.
+    /// The Mac sidebar's tint: the highlight behind the open tab, which always draws its label in white,
+    /// and the colour of every sidebar icon. A mid grey in both modes, so the highlight stays quiet
+    /// while white still reads on it and the icons still read on the sidebar.
     static let seekSidebarSelection = Color("SidebarSelection")
 
     static func categoryTint(_ id: String) -> Color {
