@@ -99,13 +99,20 @@ final class ThreadHistoryTests: XCTestCase {
     }
 
     private func reveal(_ element: XCUIElement, in scrollView: XCUIElement) -> Bool {
+        let center = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         for _ in 0..<8 {
-            if element.exists, element.isHittable { return true }
-            if element.exists, element.frame.minY > scrollView.frame.midY {
-                scrollView.swipeUp(velocity: .slow)
-            } else {
+            guard element.exists else {
                 scrollView.swipeDown(velocity: .slow)
+                continue
             }
+            if element.isHittable { return true }
+            // Rows reported just off screen can be skipped by another full swipe.
+            let frame = scrollView.frame
+            let distance = element.frame.midY - frame.midY
+            let limit = frame.height / 3
+            let step = min(max(distance, -limit), limit)
+            let destination = center.withOffset(CGVector(dx: 0, dy: -step))
+            center.press(forDuration: 0, thenDragTo: destination, withVelocity: .slow, thenHoldForDuration: 0.15)
         }
         return element.exists && element.isHittable
     }
