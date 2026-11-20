@@ -22,13 +22,17 @@ struct ProfileView: View {
                     if !isOwnProfile {
                         HStack(spacing: 12) {
                             Button { openMember(.conversation(profile.recipient)) } label: {
-                                Label("私聊", image: .inkWriteMail)
+                                SeekPillLabel(title: "私聊", symbol: .inkWriteMail)
                                     .frame(maxWidth: .infinity, minHeight: 36)
                             }
                             .buttonStyle(.seekPill)
                             if let followed = profile.followed {
                                 Button { Task { await changeFollow(followed) } } label: {
-                                    Label(followed ? "已关注" : "关注", image: followed ? .inkFollowing : .inkFollowMember)
+                                    SeekPillLabel(
+                                        title: followed ? "已关注" : "关注",
+                                        symbol: followed ? .inkFollowing : .inkFollowMember,
+                                        primary: false
+                                    )
                                         .frame(maxWidth: .infinity, minHeight: 36)
                                 }
                                 .buttonStyle(.seekPill(primary: false)).disabled(loader.isUpdating || loader.isLoading || isConfirmingFollow)

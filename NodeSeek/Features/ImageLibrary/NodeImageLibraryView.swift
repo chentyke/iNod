@@ -284,7 +284,7 @@ struct NodeImageLibraryView: View {
                     } label: {
                         Image(.inkClose)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.seekButtonIcon)
                             .frame(width: 24, height: 24)
                     }
                     .buttonStyle(.plain)
@@ -456,7 +456,7 @@ struct NodeImageLibraryView: View {
                             } label: {
                                 Label("复制", image: .inkCopyLink)
                             }
-                            .tint(Color.seekInk)
+                            .tint(Color.seekButtonIcon)
                         }
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -486,7 +486,7 @@ struct NodeImageLibraryView: View {
                 } label: {
                     Image(preferences.layoutMode == .list ? .inkPhotoGrid : .inkPhotoList)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.seekInk)
+                        .foregroundStyle(Color.seekButtonIcon)
                         .frame(width: 30, height: 30)
                         .background(Color.seekTray, in: .circle)
                 }

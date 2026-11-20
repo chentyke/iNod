@@ -84,8 +84,7 @@ struct RulingsView: View {
                         SettingsRowContent(
                             title: "打开记录 #\(String(targetID))",
                             subtitle: "直接查看该条管理公示的完整详情",
-                            symbol: .inkRecordNumber,
-                            tint: .seekGreen
+                            symbol: .inkInspectRuling
                         )
                     }
                     .accessibilityIdentifier("rulings-direct-record-\(String(targetID))")

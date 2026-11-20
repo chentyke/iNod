@@ -17,7 +17,7 @@ struct StardustRequestCreator: View {
                     TextField("说明",text:$description)
                     TextField("数量",text:$amount).keyboardType(.numberPad)
                     TextField("Ref ID",text:$reference).keyboardType(.numberPad)
-                    Toggle("每人只需支付一次",isOn:$once)
+                    Toggle("每人只需支付一次",isOn:$once).tint(Color.seekGreen)
                 }
                 Section { Text("插入后会显示原生收款按钮。对方需要核对收款人并确认，才会转出星尘。").font(.subheadline).foregroundStyle(.secondary) }
             }.seekCanvas().listSectionSpacing(20).navigationTitle("星尘收款").navigationBarTitleDisplayMode(.inline)

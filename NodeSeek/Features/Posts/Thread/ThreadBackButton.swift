@@ -11,7 +11,7 @@ struct ThreadBackButton: UIViewRepresentable {
         let button = UIButton(type: .system)
         let symbol = UIImage.SymbolConfiguration(textStyle: .headline, scale: .medium)
         button.setImage(UIImage(resource: .inkBack).imageFlippedForRightToLeftLayoutDirection().applyingSymbolConfiguration(symbol), for: .normal)
-        button.tintColor = .label
+        button.tintColor = UIColor(Color.seekButtonIcon)
         button.accessibilityLabel = "返回"
         button.addAction(UIAction { [weak coordinator = context.coordinator] _ in
             coordinator?.action()

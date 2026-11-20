@@ -412,7 +412,7 @@ struct FeedView: View {
             Image(.inkComposePost)
                 .resizable().scaledToFit()
                 .frame(width: size, height: size)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.seekButtonIconOnDark)
                 .frame(width: 48, height: 48)
                 .contentShape(.circle)
         }

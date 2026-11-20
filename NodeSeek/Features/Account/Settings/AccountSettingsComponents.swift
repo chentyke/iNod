@@ -74,7 +74,7 @@ struct SettingsRowContent: View {
     let title: String
     var subtitle: String?
     let symbol: ImageResource
-    var tint: Color = .seekInk
+    var tint: Color = .seekButtonIcon
     var badge: (text: String, active: Bool)?
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -141,6 +141,7 @@ struct SettingsActionPill: View {
                 HStack(spacing: 6) {
                     if let symbol {
                         Image(symbol)
+                            .foregroundStyle(primary && !destructive && isEnabled ? Color.seekButtonIconOnFill : .seekButtonIcon)
                             .accessibilityHidden(true)
                     }
                     Text(title)

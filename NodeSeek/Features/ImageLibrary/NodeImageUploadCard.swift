@@ -87,6 +87,7 @@ struct NodeImageUploadCard: View {
             Button(action: onOpenOptions) {
                 HStack(spacing: 5) {
                     Image(.inkUploadOptions)
+                        .foregroundStyle(Color.seekButtonIcon)
                         .font(.caption.weight(.semibold))
                         .accessibilityHidden(true)
                     Text("上传选项")
@@ -202,7 +203,7 @@ struct NodeImageUploadCard: View {
                 } label: {
                     Image(.inkClose)
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.seekOnInk)
+                        .foregroundStyle(Color.seekButtonIconOnFill)
                         .frame(width: NodeImageMetrics.pendingRemoveSize, height: NodeImageMetrics.pendingRemoveSize)
                         .background(Color.seekInk.opacity(0.76), in: .circle)
                         .padding(.top, inset)
@@ -231,6 +232,7 @@ struct NodeImageUploadCard: View {
                 ZStack {
                     HStack(spacing: 6) {
                         Image(.inkUploadPhoto)
+                            .foregroundStyle(isUploading || isPreparing ? Color.seekButtonIcon : .seekButtonIconOnFill)
                             .accessibilityHidden(true)
                         Text(uploadTitle)
                             .lineLimit(1)
@@ -274,6 +276,7 @@ private struct NodeImageSourcePillLabel: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(symbol)
+                .foregroundStyle(Color.seekButtonIcon)
                 .font(.subheadline.weight(.medium))
                 .accessibilityHidden(true)
             Text(title)
@@ -324,6 +327,7 @@ struct NodeImageUploadResultRow: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(.inkCopyLink)
+                            .foregroundStyle(Color.seekButtonIcon)
                             .font(.caption)
                             .accessibilityHidden(true)
                         Text("复制\(preferredFormat.title)")

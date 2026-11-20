@@ -27,7 +27,7 @@ struct OfficialSettingsLink: View {
                 Spacer(minLength: 8)
                 Image(.inkOpenExternal)
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    .foregroundStyle(Color.seekButtonIcon)
                     .accessibilityHidden(true)
             }
             .frame(minHeight: 44)

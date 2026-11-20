@@ -19,7 +19,7 @@ struct FeedSearchBar: View {
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(isExpanded ? Color.seekInk : .secondary)
+            .foregroundStyle(Color.seekButtonIcon)
             .accessibilityLabel("关闭搜索")
             .accessibilityHidden(!isExpanded)
             TextField("搜索帖子", text: $query)

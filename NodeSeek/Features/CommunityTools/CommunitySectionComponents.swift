@@ -73,14 +73,14 @@ struct CommunityFeatureTile: View {
             HStack(spacing: 6) {
                 Image(symbol)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(Color.seekButtonIcon)
                     .frame(width: 30, height: 30)
                     .background(tint.opacity(0.10), in: .rect(cornerRadius: 9))
                     .accessibilityHidden(true)
                 Spacer(minLength: 4)
                 Image(.inkNext)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    .foregroundStyle(Color.seekButtonIcon)
                     .accessibilityHidden(true)
             }
 
@@ -145,7 +145,7 @@ struct CommunitySearchFieldRow: View {
                 } label: {
                     Image(.inkClearInput)
                         .font(.body)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color.seekButtonIcon)
                         .frame(width: 32, height: 32)
                         .contentShape(.rect)
                 }
@@ -234,6 +234,7 @@ struct CommunityCopyCapsule: View {
                     .opacity(copied ? 0 : 1)
                 HStack(spacing: 4) {
                     Image(.inkCheck)
+                        .foregroundStyle(Color.seekButtonIcon)
                         .font(.caption2.weight(.bold))
                         .accessibilityHidden(true)
                     Text(copiedTitle)

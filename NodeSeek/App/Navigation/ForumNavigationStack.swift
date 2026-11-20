@@ -77,7 +77,7 @@ struct ForumNavigationStack<Content: View>: View {
                 }
         }
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .tint(Color.seekGreen)
+        .tint(Color.seekButtonIcon)
         .environment(\.openMemberDestination, MemberNavigationAction { activePath.wrappedValue.append($0) })
         .environment(\.openAccountPost, AccountPostNavigationAction { activePath.wrappedValue.append($0) })
         .environment(\.openPost, PostNavigationAction { post in

@@ -34,7 +34,7 @@ struct NodeImageUploadOptionsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Toggle("压缩图片", isOn: $compressImages)
+                    Toggle("压缩图片", isOn: $compressImages).tint(Color.seekGreen)
                         .listRowBackground(Color.seekCard)
 
                     if compressImages {
@@ -54,13 +54,13 @@ struct NodeImageUploadOptionsView: View {
                         .listRowBackground(Color.seekCard)
                     }
 
-                    Toggle("添加水印", isOn: $addWatermark)
+                    Toggle("添加水印", isOn: $addWatermark).tint(Color.seekGreen)
                         .listRowBackground(Color.seekCard)
 
                     if addWatermark {
-                        Toggle("NodeImage 网址", isOn: $watermarkWebsite)
+                        Toggle("NodeImage 网址", isOn: $watermarkWebsite).tint(Color.seekGreen)
                             .listRowBackground(Color.seekCard)
-                        Toggle("论坛用户名", isOn: $watermarkUsername)
+                        Toggle("论坛用户名", isOn: $watermarkUsername).tint(Color.seekGreen)
                             .listRowBackground(Color.seekCard)
                     }
                 } header: {
@@ -107,7 +107,7 @@ struct NodeImageUploadOptionsView: View {
                     .padding(.vertical, 4)
                     .listRowBackground(Color.seekCard)
 
-                    Toggle("上传后复制链接", isOn: $copyAfterUpload)
+                    Toggle("上传后复制链接", isOn: $copyAfterUpload).tint(Color.seekGreen)
                         .listRowBackground(Color.seekCard)
                 } header: {
                     Text("链接与复制")
@@ -116,7 +116,7 @@ struct NodeImageUploadOptionsView: View {
                 }
 
                 Section {
-                    Toggle("到期自动删除", isOn: $autoDelete)
+                    Toggle("到期自动删除", isOn: $autoDelete).tint(Color.seekGreen)
                         .listRowBackground(Color.seekCard)
 
                     if autoDelete {

@@ -77,7 +77,7 @@ struct NodeImageHistoryRow: View {
                     HStack(spacing: NodeImageMetrics.rowSpacing) {
                         Image(isSelected ? .inkPhotoSelected : .inkPhotoUnselected)
                             .font(.title3)
-                            .foregroundStyle(isSelected ? Color.seekGreen : Color(uiColor: .tertiaryLabel))
+                            .foregroundStyle(Color.seekButtonIcon)
                             .accessibilityHidden(true)
                         rowMainContent
                     }
@@ -282,7 +282,7 @@ private struct NodeImageGridTile: View {
                     if isSelecting {
                         Image(isSelected ? .inkPhotoSelected : .inkPhotoUnselected)
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(isSelected ? Color.seekGreen : Color.white.opacity(0.92))
+                            .foregroundStyle(isSelected ? Color.seekButtonIcon : .seekButtonIconOnDark)
                             .background {
                                 Circle()
                                     .fill(isSelected ? Color.seekCard : Color.black.opacity(0.32))
@@ -375,6 +375,7 @@ struct NodeImageSelectionBar: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(.inkCopyLink)
+                            .foregroundStyle(selectedCount == 0 || isWorking ? Color.seekButtonIcon : .seekButtonIconOnFill)
                             .font(.caption.weight(.semibold))
                             .accessibilityHidden(true)
                         Text("复制链接")
@@ -391,6 +392,7 @@ struct NodeImageSelectionBar: View {
                 Button(role: .destructive, action: onDelete) {
                     HStack(spacing: 5) {
                         Image(.inkDeletePhoto)
+                            .foregroundStyle(Color.seekButtonIcon)
                             .font(.caption.weight(.semibold))
                             .accessibilityHidden(true)
                         Text("删除")

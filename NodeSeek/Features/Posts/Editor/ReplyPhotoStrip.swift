@@ -15,7 +15,7 @@ struct ReplyPhotoStrip: View {
                                 Image(.inkRemovePhoto)
                                     .font(.body.weight(.medium))
                                     .symbolRenderingMode(.palette)
-                                    .foregroundStyle(.white, .black.opacity(0.65))
+                                    .foregroundStyle(Color.seekButtonIconOnDark, .black.opacity(0.65))
                                     .padding(4)
                                     .frame(width: 44, height: 44, alignment: .topTrailing)
                                     .contentShape(.rect)
