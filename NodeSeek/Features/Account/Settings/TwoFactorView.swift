@@ -92,7 +92,7 @@ struct TwoFactorView: View {
                                     Text(copiedSecret ? "已复制" : "复制")
                                 }
                                 .font(.footnote.weight(.semibold))
-                                .foregroundStyle(copiedSecret ? Color.seekGreen : Color.seekInk)
+                                .foregroundStyle(Color.seekButtonIcon)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
                                 .background(Color.seekTray, in: .capsule)

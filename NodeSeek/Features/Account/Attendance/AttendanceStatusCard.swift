@@ -115,6 +115,7 @@ struct AttendanceStatusCard: View {
             ZStack {
                 HStack(spacing: 6) {
                     Image(isPrimary ? .inkClaimReward : .inkRandomReward)
+                        .foregroundStyle(isPrimary && !isOtherActive ? Color.seekButtonIconOnFill : .seekButtonIcon)
                         .accessibilityHidden(true)
                     Text(isPrimary ? "领取 5 鸡腿" : "试试手气")
                         .lineLimit(singleLine ? 1 : nil)

@@ -84,7 +84,7 @@ struct RootView: View {
         #if targetEnvironment(macCatalyst)
         .tint(Color.seekSidebarSelection)
         #else
-        .tint(Color.seekInk)
+        .tint(Color.seekButtonIcon)
         #endif
         .task(id: avatarURL) { await loadTabAvatar(from: avatarURL) }
         #if targetEnvironment(macCatalyst)

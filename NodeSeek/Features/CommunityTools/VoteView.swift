@@ -24,7 +24,7 @@ struct VoteView: View {
                             else if !selected.insert(item.id).inserted { selected.remove(item.id) }
                         } label: {
                             HStack(spacing: 12) {
-                                Image(selected.contains(item.id) || item.voted == true ? .inkVoted : .inkVoteOption).foregroundStyle(Color.seekGreen)
+                                Image(selected.contains(item.id) || item.voted == true ? .inkVoted : .inkVoteOption).foregroundStyle(Color.seekButtonIcon)
                                 Text(item.text).foregroundStyle(.primary).multilineTextAlignment(.leading)
                                 Spacer()
                                 if vote.hasVoted || vote.locked { Text(item.count.map { $0.formatted() } ?? "—").foregroundStyle(.secondary).monospacedDigit() }

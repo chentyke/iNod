@@ -53,6 +53,7 @@ struct StardustBalanceCard: View {
         Button(action: onTransfer) {
             HStack(spacing: 6) {
                 Image(.inkTransferDust)
+                    .foregroundStyle(Color.seekButtonIconOnFill)
                     .accessibilityHidden(true)
                 Text("转账")
                     .lineLimit(1)

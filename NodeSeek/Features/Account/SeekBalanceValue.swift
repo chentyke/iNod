@@ -4,7 +4,6 @@ struct SeekBalanceValue: View {
     let title: String
     let symbol: ImageResource
     let value: Int?
-    let tint: Color
 
     private var formattedValue: String {
         value.map { $0.formatted() } ?? "—"
@@ -16,7 +15,7 @@ struct SeekBalanceValue: View {
             HStack(spacing: AccountBalanceMetrics.tileHeaderIconSpacing) {
                 Image(symbol)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(Color.seekButtonIcon)
                     .accessibilityHidden(true)
                 Text(title)
                     .font(.subheadline.weight(.medium))
@@ -24,8 +23,7 @@ struct SeekBalanceValue: View {
                 Spacer(minLength: 4)
                 Image(.inkNext)
                     .font(.caption.weight(.semibold))
-                    // Literal colour so `.tertiary` inside a button doesn't inherit accent tint.
-                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    .foregroundStyle(Color.seekButtonIcon)
                     .accessibilityHidden(true)
             }
             Text(formattedValue)

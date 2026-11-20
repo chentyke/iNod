@@ -55,7 +55,9 @@ struct ImageViewer: View {
         GlassEffectContainer(spacing: 8) {
             HStack {
                 Button { dismiss() } label: {
-                    Image(.inkClose).frame(width: 44, height: 44).contentShape(.circle)
+                    Image(.inkClose)
+                        .foregroundStyle(Color.seekButtonIcon)
+                        .frame(width: 44, height: 44).contentShape(.circle)
                 }
                 .buttonStyle(.plain)
                 .glassEffect(.regular.interactive(), in: .circle)

@@ -52,7 +52,7 @@ struct MarkdownCalloutView<Embedded: View>: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Image(callout.kind.symbol)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(callout.kind.tint)
+                .foregroundStyle(callout.folding == .none ? callout.kind.tint : Color.seekButtonIcon)
                 .accessibilityHidden(true)
             Text(ForumText.attributed(callout.title ?? callout.kind.defaultTitle, baseURL: documentURL))
                 .font(.subheadline.weight(.semibold))
@@ -60,7 +60,7 @@ struct MarkdownCalloutView<Embedded: View>: View {
             if callout.folding != .none {
                 Image(.inkFoldNote)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Color.seekButtonIcon)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .accessibilityHidden(true)
             }

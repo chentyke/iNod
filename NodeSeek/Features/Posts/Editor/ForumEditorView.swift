@@ -57,7 +57,7 @@ struct ForumEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button { saveForLater(); dismiss() } label: {
-                        if replyTitle != nil { Image(.inkCollapseEditor) }
+                        if replyTitle != nil { Image(.inkCollapseEditor).foregroundStyle(Color.seekButtonIcon) }
                         else { Text("稍后再写") }
                     }
                     .accessibilityLabel("稍后再写")
@@ -67,12 +67,13 @@ struct ForumEditorView: View {
                     Button(action: submitOrConfirm) {
                         if replyTitle != nil {
                             if sending { ProgressView() }
-                            else { Image(.inkSendReply).fontWeight(.semibold) }
+                            else { Image(.inkSendReply).fontWeight(.semibold).foregroundStyle(Color.seekButtonIcon) }
                         } else {
                             Text(sending ? "提交中…" : (request.mode.rawValue.hasPrefix("edit") ? "保存" : "发布"))
                         }
                     }
                     .accessibilityLabel(replyTitle != nil ? "发送回复" : (request.mode.rawValue.hasPrefix("edit") ? "保存" : "发布"))
+                    .tint(replyTitle == nil ? Color.seekGreen : .seekButtonIcon)
                     .disabled(!canPublish)
                 }
             }
@@ -252,7 +253,7 @@ struct ForumEditorView: View {
                 }
                 .labelStyle(.iconOnly).buttonStyle(.plain)
                 .font(.body.weight(.medium))
-                .foregroundStyle(Color.seekInk)
+                .foregroundStyle(Color.seekButtonIcon)
             }
             .padding(.vertical, 8)
         }

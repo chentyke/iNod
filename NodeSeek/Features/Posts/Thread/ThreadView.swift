@@ -219,7 +219,7 @@ struct ThreadView: View {
                                 .frame(width: 44, height: 44)
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(Color.seekGreen)
+                        .foregroundStyle(Color.seekButtonIcon)
                         .glassEffect(.regular.interactive(), in: .circle)
                         .accessibilityLabel("更多")
                     }

@@ -138,7 +138,7 @@ struct ThreadActionBar: View {
     @ViewBuilder private var readingActions: some View {
         Button(action: onCollection) {
             Image(isCollected ? .inkSavedPost : .inkSavePost)
-                .foregroundStyle(isCollected ? Color.seekGreen : .primary)
+                .foregroundStyle(Color.seekButtonIcon)
                 .frame(width: 46, height: 46)
                 .contentShape(.circle)
         }
@@ -147,6 +147,7 @@ struct ThreadActionBar: View {
         .glassEffect(.regular.interactive(), in: .circle)
         ShareLink(item: post.url) {
             Image(.inkSharePost)
+                .foregroundStyle(Color.seekButtonIcon)
                 .frame(width: 46, height: 46)
                 .contentShape(.circle)
         }
@@ -184,7 +185,7 @@ struct ThreadActionBar: View {
                         draft.target = nil
                         save()
                     } label: {
-                        Image(.inkDiscardReply).frame(minWidth: 44, minHeight: 44)
+                        Image(.inkDiscardReply).foregroundStyle(Color.seekButtonIcon).frame(minWidth: 44, minHeight: 44)
                             .contentShape(.rect)
                     }
                     .accessibilityLabel("取消回复此楼")
@@ -263,7 +264,7 @@ struct ThreadActionBar: View {
             Button { showsPhotos = true } label: {
                 Group {
                     if uploading { ProgressView().controlSize(.small) }
-                    else { Image(.inkAttachPhoto) }
+                    else { Image(.inkAttachPhoto).foregroundStyle(Color.seekButtonIcon) }
                 }
                 .frame(width: 44, height: 44).contentShape(.rect)
             }
@@ -272,17 +273,21 @@ struct ThreadActionBar: View {
             Spacer(minLength: 0)
             Button { openEditor() } label: {
                 Image(.inkExpandEditor)
+                    .foregroundStyle(Color.seekButtonIcon)
                     .frame(width: 44, height: 44).contentShape(.rect)
             }
             .accessibilityLabel("完整编辑")
             .disabled(uploading)
             Button { Task { await send() } } label: {
                 Group {
-                    if sending { ProgressView().controlSize(.small) }
-                    else { Image(.inkSendReply).font(.body.weight(.bold)) }
+                    if sending { ProgressView().controlSize(.small).tint(Color.seekButtonIcon) }
+                    else {
+                        Image(.inkSendReply)
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(canSend ? Color.seekButtonIconOnFill : .seekButtonIcon)
+                    }
                 }
                 .frame(width: 36, height: 36)
-                .foregroundStyle(canSend ? Color.seekButtonText : Color(uiColor: .tertiaryLabel))
                 .background(canSend ? Color.seekGreen : Color(uiColor: .quaternarySystemFill), in: .circle)
                 .frame(width: 44, height: 44)
                 .contentShape(.circle)

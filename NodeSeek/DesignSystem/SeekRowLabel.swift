@@ -14,8 +14,7 @@ struct SeekRowLabel: View {
                 Spacer(minLength: 0)
                 Image(.inkOpenExternal)
                     .font(.footnote.weight(.semibold))
-                    // A literal colour, because `.tertiary` inside a button picks up the green tint.
-                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    .foregroundStyle(Color.seekButtonIcon)
                     .accessibilityHidden(true)
             }
         }.frame(minHeight: 44)

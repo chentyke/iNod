@@ -18,7 +18,7 @@ struct StardustActiveFilterBar: View {
                                 .monospacedDigit()
                             Image(.inkClearFilter)
                                 .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.seekButtonIcon)
                                 .accessibilityHidden(true)
                         }
                         .font(.caption.weight(.medium))

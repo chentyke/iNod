@@ -49,7 +49,7 @@ struct FeedFilterBar<Search: View, Actions: View>: View {
         Button(action: onCategories) {
             HStack(spacing: 6) {
                 Text(category)
-                Image(.inkChoose).font(.caption.bold())
+                Image(.inkChoose).font(.caption.bold()).foregroundStyle(Color.seekButtonIcon)
             }
             .font(.subheadline.bold()).foregroundStyle(Color.seekInk)
             .lineLimit(1)

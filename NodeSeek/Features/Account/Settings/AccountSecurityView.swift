@@ -31,7 +31,6 @@ struct AccountSecurityView: View {
                             title: "双因素验证",
                             subtitle: "登录时校验动态验证码",
                             symbol: data.twoFactorEnabled ? .inkTwoFactorOn : .inkTwoFactor,
-                            tint: data.twoFactorEnabled ? .seekGreen : .seekInk,
                             badge: (data.twoFactorEnabled ? "已开启" : "未开启", data.twoFactorEnabled)
                         )
                     }

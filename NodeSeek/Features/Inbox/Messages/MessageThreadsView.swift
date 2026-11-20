@@ -96,11 +96,11 @@ struct MessageThreadsView: View {
                     searchFocused = true
                 } label: {
                     Image(.inkClearInput)
+                        .foregroundStyle(Color.seekButtonIcon)
                         .frame(width: 44, height: 44)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
                 .accessibilityLabel("清除搜索")
             }
         }

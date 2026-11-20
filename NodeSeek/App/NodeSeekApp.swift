@@ -31,7 +31,7 @@ struct NodeSeekApp: App {
                 .modifier(UITestDynamicTypeModifier())
                 .environment(account)
                 .environment(\.pageRefresh, pageRefresh)
-                .tint(.seekGreen)
+                .tint(.seekButtonIcon)
                 .preferredColorScheme(appearance.colorScheme)
                 .task { await account.refresh() }
                 .task(id: "\(scenePhase.isPollingActive)|\(account.revision)") {

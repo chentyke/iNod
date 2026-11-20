@@ -47,8 +47,7 @@ struct MemberSearchView: View {
                         SettingsRowContent(
                             title: "打开 UID \(String(directID)) 的主页",
                             subtitle: "直接访问公开个人资料、主题与回复",
-                            symbol: .inkMemberDirectory,
-                            tint: .seekGreen
+                            symbol: .inkProfile
                         )
                     }
                     .accessibilityIdentifier("member-search-direct-\(String(directID))")

@@ -20,7 +20,7 @@ struct MessageComposer: View {
                     Label("私信选项", image: .inkMailActions)
                         .labelStyle(.iconOnly)
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(Color.seekInk)
+                        .foregroundStyle(Color.seekButtonIcon)
                         .frame(width: 44, height: 44)
                         .contentShape(.circle)
                         .glassEffect(.regular, in: .circle)
@@ -42,7 +42,7 @@ struct MessageComposer: View {
                     Label(isBusy ? "发送中" : "发送", image: .inkSendMail)
                         .labelStyle(.iconOnly)
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(canSend ? Color.seekOnInk : .secondary)
+                        .foregroundStyle(canSend ? Color.seekButtonIconOnFill : .seekButtonIcon)
                         .frame(width: 44, height: 44)
                         .contentShape(.circle)
                 }
