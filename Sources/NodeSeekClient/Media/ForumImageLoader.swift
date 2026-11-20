@@ -1,6 +1,7 @@
 import NodeSeekCore
 import Foundation
 import ImageIO
+import UniformTypeIdentifiers
 
 public actor ForumImageLoader {
     public static let shared = ForumImageLoader()
@@ -112,18 +113,42 @@ public actor ForumImageLoader {
         for waiter in download.waiters.values { waiter.resume(with: result) }
     }
 
+    public struct OriginalImage: Sendable {
+        public let data: Data
+        public let type: UTType
+    }
+
+    public func originalImage(for url: URL) async throws -> OriginalImage {
+        try await ImageWorkLimiter.load(prioritized: true) { [session] in
+            try await Self.imageData(for: url, session: session, cachePolicy: .returnCacheDataElseLoad)
+        } decode: { data in
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+                  CGImageSourceGetCount(source) > 0, let identifier = CGImageSourceGetType(source),
+                  let type = UTType(identifier as String), type.conforms(to: .image) else {
+                throw SiteError.message("无法读取图片文件。")
+            }
+            return OriginalImage(data: data, type: type)
+        }
+    }
+
+    private static func imageData(for url: URL, session: URLSession,
+                                  cachePolicy: URLRequest.CachePolicy = .useProtocolCachePolicy) async throws -> Data {
+        guard ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { throw SiteError.invalidResponse }
+        #if DEBUG
+        if let data = Self.fixtureResponses?[url.absoluteString] { return data }
+        #endif
+        var request = ForumImageRequest.make(url: url)
+        request.cachePolicy = cachePolicy
+        let (data, response) = try await session.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 20_000_000 else {
+            throw SiteError.message("图片暂时无法加载，请重试。")
+        }
+        return data
+    }
+
     private func download(_ key: Key, prioritized: Bool) async throws -> CGImage {
         try await ImageWorkLimiter.load(prioritized: prioritized) { [session] in
-            #if DEBUG
-            if let data = Self.fixtureResponses?[key.url.absoluteString] { return data }
-            #endif
-            var request = ForumImageRequest.make(url: key.url)
-            request.cachePolicy = .useProtocolCachePolicy
-            let (data, response) = try await session.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 20_000_000 else {
-                throw SiteError.message("图片暂时无法加载，请重试。")
-            }
-            return data
+            try await Self.imageData(for: key.url, session: session)
         } decode: { data in
             guard let source = CGImageSourceCreateWithData(data as CFData, nil),
                   let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [

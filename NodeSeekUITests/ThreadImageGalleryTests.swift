@@ -21,27 +21,59 @@ final class ThreadImageGalleryTests: XCTestCase {
         let second = app.buttons["正文第二张"]
         XCTAssertTrue(second.waitForExistence(timeout: 8))
         second.tap()
-        assertPicture("正文第二张", position: "第 2 张，共 2 张", in: app)
+        assertPicture("正文第二张", position: "第 2 张，共 5 张", in: app)
+
+        let attribution = app.descendants(matching: .any)["image-gallery-attribution"].firstMatch
+        XCTAssertTrue(attribution.label.contains("正文"))
+        XCTAssertTrue(attribution.label.contains("楼主"))
 
         let image = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.52))
+        image.tap()
+        XCTAssertTrue(app.buttons["完成"].waitForNonExistence(timeout: 3))
+        image.tap()
+        XCTAssertTrue(app.buttons["完成"].waitForExistence(timeout: 3))
         image.doubleTap()
         swipeGallery(in: app, forward: false)
-        assertPicture("正文第二张", position: "第 2 张，共 2 张", in: app)
+        assertPicture("正文第二张", position: "第 2 张，共 5 张", in: app)
         image.doubleTap()
         swipeGallery(in: app, forward: false)
-        assertPicture("正文第一张", position: "第 1 张，共 2 张", in: app)
-        app.buttons["完成"].tap()
+        assertPicture("正文第一张", position: "第 1 张，共 5 张", in: app)
+        swipeGallery(in: app, forward: true)
+        swipeGallery(in: app, forward: true)
+        assertPicture("第一条评论第一张", position: "第 3 张，共 5 张", in: app)
+        attribution.tap()
+        XCTAssertTrue(app.buttons["完成"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["第一条评论第一张"].isHittable)
 
         let reply = app.buttons["第一条评论第二张"]
         guard reveal(reply, in: app.scrollViews.firstMatch) else {
             return XCTFail("The reply image should be visible in the thread.")
         }
         reply.tap()
-        assertPicture("第一条评论第二张", position: "第 2 张，共 3 张", in: app)
+        assertPicture("第一条评论第二张", position: "第 4 张，共 5 张", in: app)
+        XCTAssertTrue(attribution.label.contains("#1"))
         swipeGallery(in: app, forward: true)
-        assertPicture("第二条评论第一张", position: "第 3 张，共 3 张", in: app)
+        assertPicture("第二条评论第一张", position: "第 5 张，共 5 张", in: app)
         swipeGallery(in: app, forward: true)
-        assertPicture("第二条评论第一张", position: "第 3 张，共 3 张", in: app)
+        assertPicture("第二条评论第一张", position: "第 5 张，共 5 张", in: app)
+        XCTAssertTrue(attribution.label.contains("#3"))
+        XCTAssertTrue(attribution.label.contains("读者"))
+
+        let current = app.images["第二条评论第一张"].firstMatch
+        let fittedScale = try XCTUnwrap(current.value as? String)
+        #if targetEnvironment(macCatalyst)
+        current.doubleTap()
+        #else
+        current.pinch(withScale: 2.5, velocity: 2)
+        #endif
+        XCTAssertNotEqual(try XCTUnwrap(current.value as? String), fittedScale)
+        current.swipeDown()
+        assertPicture("第二条评论第一张", position: "第 5 张，共 5 张", in: app)
+        image.doubleTap()
+        XCTAssertEqual(current.value as? String, fittedScale)
+        current.swipeDown()
+        XCTAssertTrue(app.buttons["完成"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(reply.isHittable)
     }
 
     func testIncludesImagesAfterLoadingAnotherReplyPage() throws {
@@ -58,12 +90,27 @@ final class ThreadImageGalleryTests: XCTestCase {
         XCTAssertTrue(post.waitForExistence(timeout: 8))
         post.tap()
 
-        let laterImage = app.buttons["第二条评论第一张"]
+        let laterImage = app.buttons["70157.png"]
         XCTAssertTrue(reveal(laterImage, in: app.scrollViews.firstMatch))
         laterImage.tap()
-        assertPicture("第二条评论第一张", position: "第 3 张，共 3 张", in: app)
+        assertPicture("70157.png", position: "第 5 张，共 5 张", in: app)
+        let source = app.buttons["image-gallery-attribution"]
+        XCTAssertTrue(source.label.contains("@admin 下山前拍到了最后一束光"))
+        XCTAssertFalse(source.label.contains("70157.png"))
+        let preview = XCTAttachment(screenshot: app.screenshot())
+        preview.name = "评论图片与楼层"
+        preview.lifetime = .keepAlways
+        add(preview)
         swipeGallery(in: app, forward: false)
-        assertPicture("第一条评论第二张", position: "第 2 张，共 3 张", in: app)
+        assertPicture("第一条评论第二张", position: "第 4 张，共 5 张", in: app)
+        XCTAssertTrue(source.label.contains("周末照片"))
+        XCTAssertFalse(source.label.contains("第一条评论第二张"))
+        swipeGallery(in: app, forward: false)
+        swipeGallery(in: app, forward: false)
+        assertPicture("正文第二张", position: "第 2 张，共 5 张", in: app)
+        app.buttons["image-gallery-attribution"].tap()
+        XCTAssertTrue(app.buttons["完成"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["正文第一张"].isHittable)
     }
 
     func testCollapsedCalloutsShowImagesAfterOpening() throws {
@@ -102,9 +149,46 @@ final class ThreadImageGalleryTests: XCTestCase {
         XCTAssertTrue(picture.wait(for: \.isHittable, toEqual: true, timeout: 8))
         XCTAssertFalse(app.buttons["选项二截图"].exists, "Opening one callout should leave the other folded.")
         picture.tap()
-        assertPicture("选项一截图", position: "第 1 张，共 2 张", in: app)
+        assertPicture("选项一截图", position: "第 1 张，共 5 张", in: app)
         swipeGallery(in: app, forward: true)
-        assertPicture("选项二截图", position: "第 2 张，共 2 张", in: app)
+        assertPicture("选项二截图", position: "第 2 张，共 5 张", in: app)
+    }
+
+    func testSavingAndSharingTheCurrentPicture() throws {
+        continueAfterFailure = false
+        let server = try imageServer()
+        defer { server.cancel() }
+        let port = try XCTUnwrap(server.port)
+        let app = XCUIApplication()
+        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture(port: port.rawValue)
+        app.launchArguments += ["-showsBlockedContent", "NO"]
+        app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "123"
+        app.launch()
+
+        let first = app.buttons["正文第一张"]
+        XCTAssertTrue(first.waitForExistence(timeout: 12))
+        first.tap()
+        swipeGallery(in: app, forward: true)
+        assertPicture("正文第二张", position: "第 2 张，共 5 张", in: app)
+        app.buttons["保存图片"].tap()
+
+        let alert = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.firstMatch
+        if alert.waitForExistence(timeout: 3) {
+            let allow = alert.buttons.matching(NSPredicate(format: "label IN %@",
+                ["Allow", "允许", "好", "OK", "仅添加照片", "Allow Adding Photos"])).firstMatch
+            XCTAssertTrue(allow.exists, alert.debugDescription)
+            allow.tap()
+        }
+        XCTAssertTrue(app.buttons["已保存到相册"].waitForExistence(timeout: 8))
+        swipeGallery(in: app, forward: true)
+        XCTAssertTrue(app.buttons["保存图片"].isEnabled)
+        app.buttons["分享图片"].tap()
+        let sheet = app.descendants(matching: .any)["ActivityListView"].firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 8), app.debugDescription)
+        let preview = XCTAttachment(screenshot: app.screenshot())
+        preview.name = "分享当前图片"
+        preview.lifetime = .keepAlways
+        add(preview)
     }
 
     private func swipeGallery(in app: XCUIApplication, forward: Bool) {
@@ -176,7 +260,7 @@ final class ThreadImageGalleryTests: XCTestCase {
             comment(0, opening ?? image("正文第一张", 0) + "\n正文\n" + image("正文第二张", 1)),
             comment(1, image("第一条评论第一张", 2) + "\n" + image("第一条评论第二张", 3)),
             comment(2, image("被屏蔽的评论图片", 4), blocked: true),
-            comment(3, image("第二条评论第一张", 4))
+            comment(3, paged ? image("70157.png", 4) + "\n\n@admin 下山前拍到了最后一束光。" : image("第二条评论第一张", 4))
         ]
         let feedPost: [String: Any] = ["id": 123, "title": "周末照片", "author": "楼主", "authorID": 101,
                                       "avatar": "", "category": "日常", "categoryKey": "daily", "views": 100,

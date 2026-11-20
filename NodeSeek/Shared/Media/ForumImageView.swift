@@ -7,19 +7,21 @@ struct ForumImageView: View {
     var size: ForumImageLoader.Size = .full
     var onOpenImages: ((ImageGallery) -> Void)?
     @Environment(\.defersForumImagesUntilVisible) private var defersLoading
+    @Namespace private var source
     @State private var gallery: ImageGallery?
 
     var body: some View {
         let item = ImageGallery.Item(url: url, alt: alt)
         ForumImageContent(url: url, size: size, defersLoading: defersLoading, prioritized: defersLoading || size == .thumbnail) { image in
             Button {
-                let opened = ImageGallery(items: [item], startIndex: 0, initialImage: image)
+                let opened = ImageGallery(items: [item], startIndex: 0, initialImage: image, source: source)
                 if let onOpenImages { onOpenImages(opened) }
                 else { gallery = opened }
             } label: {
-                Image(image, scale: 1, label: item.label).resizable().scaledToFit()
+                Image(image, scale: 1, label: Text(verbatim: item.label)).resizable().scaledToFit()
                     .clipShape(.rect(cornerRadius: 12))
             }
+            .matchedTransitionSource(id: source, in: source) { $0.clipShape(.rect(cornerRadius: 12)) }
             .buttonStyle(.plain)
             .accessibilityHint("打开全屏图片")
         }
