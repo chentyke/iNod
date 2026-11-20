@@ -35,14 +35,23 @@ final class PostTextSelectionTests: XCTestCase {
         afterDrag.name = "正文跨段选择"
         afterDrag.lifetime = .keepAlways
         add(afterDrag)
-        app.typeKey("c", modifierFlags: .command)
+        let copy = copyAction(in: app)
+        XCTAssertTrue(copy.wait(for: \.isHittable, toEqual: true, timeout: 5))
+        copy.tap()
+
         app.buttons["写回复"].tap()
         let reply = ForumFixture.element("回复正文", in: app)
-        XCTAssertTrue(reply.wait(for: \.isHittable, toEqual: true, timeout: 5))
-        reply.tap()
-        app.typeKey("v", modifierFlags: .command)
-        let pasted = reply.value as? String ?? ""
-        XCTAssertTrue(pasted.hasPrefix("Reading starts at two.\nBring"), pasted)
+        XCTAssertTrue(reply.wait(for: \.isHittable, toEqual: true, timeout: 8))
+        reply.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5)).press(forDuration: 1)
+        let paste = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label IN %@", ["Paste", "粘贴", "貼上"])).firstMatch
+        XCTAssertTrue(paste.wait(for: \.isHittable, toEqual: true, timeout: 8))
+        paste.tap()
+        let pasted = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value BEGINSWITH %@", "Reading starts at two.\nBring"),
+            object: reply
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [pasted], timeout: 8), .completed, reply.value as? String ?? "")
     }
 
     func testReplyTextCanBeSelectedInItsCard() {
@@ -92,8 +101,7 @@ final class PostTextSelectionTests: XCTestCase {
         let lineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
         let word = text.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: 26, dy: lineHeight / 2))
-        let copy = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label IN %@", ["Copy", "拷贝", "复制"])).firstMatch
+        let copy = copyAction(in: app)
         for _ in 0..<2 {
             word.press(forDuration: 1)
             if copy.waitForExistence(timeout: 5) {
@@ -102,6 +110,11 @@ final class PostTextSelectionTests: XCTestCase {
             }
         }
         XCTFail("Long-pressing the post text should show the system Copy menu.", line: line)
+    }
+
+    private func copyAction(in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label IN %@", ["Copy", "拷贝", "复制", "複製"])).firstMatch
     }
 }
 #endif
