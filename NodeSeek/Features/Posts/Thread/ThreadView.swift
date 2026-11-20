@@ -41,6 +41,8 @@ struct ThreadView: View {
     @State private var collectionError: (collected: Bool, revision: Int, message: String)?
     @State private var showsCollectionError = false
     @State private var requestedFloor: Int?
+    @State private var hasVisibleReplies = false
+    @State private var threadHeadingHeight: CGFloat = 0
     @State private var scrollPosition = ScrollPosition(idType: Int.self)
     /// The floor a link or notification opened, held at the top until the reader scrolls. On a tall screen the
     /// earlier-page loader is already visible above it, and the replies it inserts would push the floor away.
@@ -130,6 +132,16 @@ struct ThreadView: View {
                         commentView(original, showsHeader: false)
                     }
                 }.seekCard(padding: 0).id(0)
+                    .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height in
+                        threadHeadingHeight = height
+                        if page == 1, !isLoading, requestedFloor == nil, let heldFloor, heldFloor > 0 {
+                            // An image can resize the opening post after we have reached the reply.
+                            scrollPosition = ScrollPosition(idType: Int.self)
+                            requestedFloor = heldFloor
+                        } else if !hasVisibleReplies {
+                            locateRequestedFloor()
+                        }
+                    }
                 if let detail {
                     SeekSectionTitle(title: "讨论")
                         .padding(.horizontal, 4).padding(.top, 8)
@@ -160,7 +172,20 @@ struct ThreadView: View {
         // Touch tracking is left out so a tap on the dock's own buttons isn't cancelled.
         .onScrollPhaseChange { _, phase in
             if phase == .interacting || phase == .decelerating || phase == .animating { foldActionDock() }
-            if phase == .interacting { heldFloor = nil }
+            if phase == .interacting {
+                if requestedFloor == heldFloor { requestedFloor = nil }
+                heldFloor = nil
+            }
+        }
+        .onScrollTargetVisibilityChange(idType: Int.self, threshold: 0.01) { ids in
+            hasVisibleReplies = ids.contains { $0 > 0 }
+        }
+        .task(id: hasVisibleReplies) {
+            // Let the scroll view finish laying out the replies before issuing a second scroll.
+            if hasVisibleReplies { locateRequestedFloor() }
+        }
+        .task(id: requestedFloor) {
+            locateRequestedFloor()
         }
         .gesture(TapGesture().onEnded { foldActionDock() },
                  including: expandedActionsCommentID != nil ? .all : .subviews)
@@ -186,10 +211,7 @@ struct ThreadView: View {
             return .handled
         })
         .onChange(of: isLoading) { _, loading in
-            if !loading, error == nil, detail?.postPage == page, let floor = requestedFloor {
-                if !scrollToFloor(floor) { showMissingFloor() }
-                requestedFloor = nil
-            }
+            if !loading { locateRequestedFloor() }
         }
         .contentMargins(.bottom, usesMacToolbar ? 24 : 0, for: .scrollContent)
         .id(page)
@@ -344,8 +366,23 @@ struct ThreadView: View {
         }
     }
 
+    private func locateRequestedFloor() {
+        guard !isLoading, error == nil, detail?.postPage == page, let floor = requestedFloor else { return }
+        if floor > 0, page == 1, !hasVisibleReplies, hasVisibleFloor(floor) {
+            // Lay out the first replies before SwiftUI estimates a target below a long post body.
+            scrollPosition.scrollTo(y: threadHeadingHeight)
+            return
+        }
+        if !scrollToFloor(floor) { showMissingFloor() }
+        requestedFloor = nil
+    }
+
+    private func hasVisibleFloor(_ floor: Int) -> Bool {
+        detail?.comments.contains { $0.floorIndex == floor && (showsBlocked || !$0.blocked) } == true
+    }
+
     private func scrollToFloor(_ floor: Int) -> Bool {
-        guard detail?.comments.contains(where: { $0.floorIndex == floor && (showsBlocked || !$0.blocked) }) == true else { return false }
+        guard hasVisibleFloor(floor) else { return false }
         scrollPosition.scrollTo(id: floor, anchor: .top)
         heldFloor = floor
         return true
