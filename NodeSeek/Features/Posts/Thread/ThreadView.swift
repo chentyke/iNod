@@ -74,6 +74,7 @@ struct ThreadView: View {
         #endif
     }
     private var usesFloatingTopBar: Bool { !usesMacToolbar && (presentation == .zoom || presentation == .splitDetail) }
+    private var showsCollapsedBackButton: Bool { presentation == .splitDetail && horizontalSizeClass == .compact }
     private var usesNavigationBar: Bool { !usesMacToolbar && !usesFloatingTopBar }
 
     init(
@@ -195,7 +196,8 @@ struct ThreadView: View {
         .id(page)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarVisibility(usesNavigationBar ? .visible : .hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(showsCollapsedBackButton)
+        .toolbarVisibility(usesNavigationBar || showsCollapsedBackButton ? .visible : .hidden, for: .navigationBar)
         .macToolbar(.leading, items: presentation == .splitDetail ? [] : [
             MacToolbarItem(id: "back", label: "返回", image: .inkBack, isNavigational: true) { dismiss() }
         ])
@@ -205,11 +207,8 @@ struct ThreadView: View {
             if usesFloatingTopBar {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
-                        if presentation == .zoom || (presentation == .splitDetail && horizontalSizeClass == .compact) {
-                            ThreadBackButton {
-                                if presentation == .splitDetail { onClose?() }
-                                else { dismiss() }
-                            }
+                        if presentation == .zoom {
+                            ThreadBackButton { dismiss() }
                             .frame(width: 44, height: 44)
                             .glassEffect(.regular.interactive(), in: .circle)
                         }
@@ -259,7 +258,12 @@ struct ThreadView: View {
             }
         }
         .toolbar {
-            if usesNavigationBar {
+            if showsCollapsedBackButton, let onClose {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("返回", image: .inkBack, action: onClose)
+                        .tint(.primary)
+                }
+            } else if usesNavigationBar {
                 ToolbarItem(placement: .topBarLeading) {
                     ThreadAuthorBar(post: post, detail: detail)
                 }
