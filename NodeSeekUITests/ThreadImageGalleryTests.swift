@@ -61,7 +61,11 @@ final class ThreadImageGalleryTests: XCTestCase {
 
         let current = app.images["第二条评论第一张"].firstMatch
         let fittedScale = try XCTUnwrap(current.value as? String)
+        #if targetEnvironment(macCatalyst)
+        current.doubleTap()
+        #else
         current.pinch(withScale: 2.5, velocity: 2)
+        #endif
         XCTAssertNotEqual(try XCTUnwrap(current.value as? String), fittedScale)
         current.swipeDown()
         assertPicture("第二条评论第一张", position: "第 5 张，共 5 张", in: app)
