@@ -33,7 +33,7 @@ struct MemberSignInView: View {
     /// leaves a wider gap before its actions than after its image.
     private var signInPrompt: some View {
         VStack(spacing: 0) {
-            Image(systemName: "person.crop.circle")
+            Image(.inkSignIn)
                 .font(.system(size: 44)).foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             VStack(spacing: 6) {

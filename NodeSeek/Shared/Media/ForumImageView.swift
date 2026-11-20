@@ -56,7 +56,7 @@ struct ForumImageContent<Content: View>: View {
                     }
             } else if failed {
                 VStack(spacing: 12) {
-                    Label("图片暂时无法加载", systemImage: "photo").foregroundStyle(.secondary)
+                    Label("图片暂时无法加载", image: .inkBrokenPhoto).foregroundStyle(.secondary)
                     Button("重试") { attempt += 1 }
                 }.frame(maxWidth: .infinity).padding(24).background(Color.seekSurface, in: .rect(cornerRadius: 12))
             } else { ProgressView().frame(maxWidth: .infinity, minHeight: 120) }

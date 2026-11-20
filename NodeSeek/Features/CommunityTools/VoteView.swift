@@ -14,7 +14,7 @@ struct VoteView: View {
     @State private var votersItem: VoteItem?
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label(vote?.title ?? "投票", systemImage: "chart.bar.xaxis").font(.headline)
+            Label(vote?.title ?? "投票", image: .inkPoll).font(.headline)
             if let vote {
                 Text("\(vote.multiple ? "多选" : "单选") · \(vote.isPublic ? "公开投票" : "匿名投票")\(vote.locked ? " · 已结束" : "")").font(.caption).foregroundStyle(.secondary)
                 ForEach(vote.items) { item in
@@ -24,7 +24,7 @@ struct VoteView: View {
                             else if !selected.insert(item.id).inserted { selected.remove(item.id) }
                         } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: selected.contains(item.id) || item.voted == true ? "checkmark.circle.fill" : "circle").foregroundStyle(Color.seekGreen)
+                                Image(selected.contains(item.id) || item.voted == true ? .inkVoted : .inkVoteOption).foregroundStyle(Color.seekGreen)
                                 Text(item.text).foregroundStyle(.primary).multilineTextAlignment(.leading)
                                 Spacer()
                                 if vote.hasVoted || vote.locked { Text(item.count.map { $0.formatted() } ?? "—").foregroundStyle(.secondary).monospacedDigit() }

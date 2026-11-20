@@ -21,7 +21,7 @@ struct AccountPostsView: View {
             let items = kind == .collections ? data.items.filter { account.collections.status($0.postID) != false } : data.items
             List {
                 if items.isEmpty {
-                    ContentUnavailableView("暂无\(kind == .collections ? "收藏" : kind == .replies ? "回复" : "主题")", systemImage: kind.symbol)
+                    ContentUnavailableView("暂无\(kind == .collections ? "收藏" : kind == .replies ? "回复" : "主题")", image: kind.symbol)
                         .listRowSeparator(.hidden)
                 }
                 ForEach(items) { item in
@@ -29,7 +29,7 @@ struct AccountPostsView: View {
                         .listRowSeparator(.visible, edges: .bottom)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if kind == .collections {
-                                Button("取消收藏", systemImage: "bookmark.slash", role: .destructive) { removing = item; confirmsRemoval = true }
+                                Button("取消收藏", image: .inkUnsavePost, role: .destructive) { removing = item; confirmsRemoval = true }
                                     .disabled(account.collections.updating.contains(item.postID))
                             }
                         }

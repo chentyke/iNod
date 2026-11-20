@@ -86,7 +86,7 @@ struct NodeImageUploadCard: View {
             }
             Button(action: onOpenOptions) {
                 HStack(spacing: 5) {
-                    Image(systemName: "slider.horizontal.3")
+                    Image(.inkUploadOptions)
                         .font(.caption.weight(.semibold))
                         .accessibilityHidden(true)
                     Text("上传选项")
@@ -143,7 +143,7 @@ struct NodeImageUploadCard: View {
                 selectionBehavior: .ordered,
                 matching: .images
             ) {
-                NodeImageSourcePillLabel(title: "相册", symbol: "photo.on.rectangle", isDisabled: sourcesDisabled)
+                NodeImageSourcePillLabel(title: "相册", symbol: .inkPhotoLibrary, isDisabled: sourcesDisabled)
             }
             .buttonStyle(.seekRow)
             .disabled(sourcesDisabled)
@@ -151,7 +151,7 @@ struct NodeImageUploadCard: View {
             .accessibilityIdentifier("nodeimage-pick-photos")
 
             Button(action: onOpenFiles) {
-                NodeImageSourcePillLabel(title: "文件", symbol: "folder", isDisabled: sourcesDisabled)
+                NodeImageSourcePillLabel(title: "文件", symbol: .inkImportFiles, isDisabled: sourcesDisabled)
             }
             .buttonStyle(.seekRow)
             .disabled(sourcesDisabled)
@@ -159,7 +159,7 @@ struct NodeImageUploadCard: View {
             .accessibilityIdentifier("nodeimage-pick-files")
 
             Button(action: onPaste) {
-                NodeImageSourcePillLabel(title: "粘贴", symbol: "doc.on.clipboard", isDisabled: sourcesDisabled)
+                NodeImageSourcePillLabel(title: "粘贴", symbol: .inkPastePhoto, isDisabled: sourcesDisabled)
             }
             .buttonStyle(.seekRow)
             .disabled(sourcesDisabled)
@@ -200,7 +200,7 @@ struct NodeImageUploadCard: View {
                 Button {
                     onRemovePending(item.id)
                 } label: {
-                    Image(systemName: "xmark")
+                    Image(.inkClose)
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Color.seekOnInk)
                         .frame(width: NodeImageMetrics.pendingRemoveSize, height: NodeImageMetrics.pendingRemoveSize)
@@ -230,7 +230,7 @@ struct NodeImageUploadCard: View {
             Button(action: onUpload) {
                 ZStack {
                     HStack(spacing: 6) {
-                        Image(systemName: "arrow.up.circle")
+                        Image(.inkUploadPhoto)
                             .accessibilityHidden(true)
                         Text(uploadTitle)
                             .lineLimit(1)
@@ -268,12 +268,12 @@ struct NodeImageUploadCard: View {
 
 private struct NodeImageSourcePillLabel: View {
     let title: String
-    let symbol: String
+    let symbol: ImageResource
     let isDisabled: Bool
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: symbol)
+            Image(symbol)
                 .font(.subheadline.weight(.medium))
                 .accessibilityHidden(true)
             Text(title)
@@ -306,7 +306,7 @@ struct NodeImageUploadResultRow: View {
 
         layout {
             HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
+                Image(.inkUploadComplete)
                     .foregroundStyle(Color.seekGreen)
                     .accessibilityHidden(true)
                 Text(uploaded.count == 1 ? "图片已上传" : "已上传 \(uploaded.count) 张图片")
@@ -323,7 +323,7 @@ struct NodeImageUploadResultRow: View {
                     onCopy(preferredFormat)
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "doc.on.doc")
+                        Image(.inkCopyLink)
                             .font(.caption)
                             .accessibilityHidden(true)
                         Text("复制\(preferredFormat.title)")
@@ -345,10 +345,10 @@ struct NodeImageUploadResultRow: View {
                     }
                     if uploaded.count == 1, let first = uploaded.first {
                         Divider()
-                        ShareLink("分享链接", item: first.url)
+                        ShareLink(item: first.url) { Label("分享链接", image: .inkSharePhotoLink) }
                     }
                 } label: {
-                    Image(systemName: "ellipsis")
+                    Image(.inkPhotoActions)
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 28, height: 28)
@@ -358,7 +358,7 @@ struct NodeImageUploadResultRow: View {
                 .accessibilityLabel("更多复制格式与分享")
 
                 Button(action: onDismiss) {
-                    Image(systemName: "xmark")
+                    Image(.inkClose)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 28, height: 28)

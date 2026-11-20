@@ -42,14 +42,14 @@ struct CommentReactionDot: View {
 
 /// A reaction in the opened dock: tinted icon, count only when there is one, and a soft tint once chosen.
 struct CommentReactionPill: View {
-    let symbol: String
+    let symbol: ImageResource
     let count: Int?
     let tint: Color
     var isSelected = false
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: symbol).foregroundStyle(tint.opacity(isSelected ? 1 : 0.75))
+            Image(symbol).foregroundStyle(tint.opacity(isSelected ? 1 : 0.75))
             if let count, count > 0 {
                 Text(count.formatted()).foregroundStyle(isSelected ? tint : Color.secondary)
             }
@@ -66,10 +66,10 @@ struct CommentReactionPill: View {
 
 /// A neutral icon for reply and the overflow menu inside the opened dock.
 struct CommentToolButtonLabel: View {
-    let symbol: String
+    let symbol: ImageResource
 
     var body: some View {
-        Image(systemName: symbol)
+        Image(symbol)
             .font(.body.weight(.semibold))
             .foregroundStyle(.secondary)
             .frame(width: DockMetrics.itemWidth, height: DockMetrics.openHeight)

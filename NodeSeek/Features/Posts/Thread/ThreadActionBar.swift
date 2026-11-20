@@ -141,7 +141,7 @@ struct ThreadActionBar: View {
 
     @ViewBuilder private var readingActions: some View {
         Button(action: onCollection) {
-            Image(systemName: isCollected ? "bookmark.fill" : "bookmark")
+            Image(isCollected ? .inkSavedPost : .inkSavePost)
                 .foregroundStyle(isCollected ? Color.seekGreen : .primary)
                 .frame(width: 46, height: 46)
                 .contentShape(.circle)
@@ -150,7 +150,7 @@ struct ThreadActionBar: View {
         .disabled(isUpdatingCollection)
         .glassEffect(.regular.interactive(), in: .circle)
         ShareLink(item: post.url) {
-            Image(systemName: "square.and.arrow.up")
+            Image(.inkSharePost)
                 .frame(width: 46, height: 46)
                 .contentShape(.circle)
         }
@@ -182,13 +182,13 @@ struct ThreadActionBar: View {
                 .disabled(sending)
             } else if isWriting, let target = draft.target {
                 HStack(spacing: 6) {
-                    Image(systemName: "arrowshape.turn.up.left")
+                    Image(.inkReply)
                     Text("回复 \(target.name)  #\(target.floor)").lineLimit(1)
                     Button {
                         draft.target = nil
                         save()
                     } label: {
-                        Image(systemName: "xmark.circle.fill").frame(minWidth: 44, minHeight: 44)
+                        Image(.inkDiscardReply).frame(minWidth: 44, minHeight: 44)
                             .contentShape(.rect)
                     }
                     .accessibilityLabel("取消回复此楼")
@@ -267,7 +267,7 @@ struct ThreadActionBar: View {
             Button { showsPhotos = true } label: {
                 Group {
                     if uploading { ProgressView().controlSize(.small) }
-                    else { Image(systemName: "photo") }
+                    else { Image(.inkAttachPhoto) }
                 }
                 .frame(width: 44, height: 44).contentShape(.rect)
             }
@@ -275,7 +275,7 @@ struct ThreadActionBar: View {
             .disabled(uploading)
             Spacer(minLength: 0)
             Button { openEditor() } label: {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                Image(.inkExpandEditor)
                     .frame(width: 44, height: 44).contentShape(.rect)
             }
             .accessibilityLabel("完整编辑")
@@ -283,7 +283,7 @@ struct ThreadActionBar: View {
             Button { Task { await send() } } label: {
                 Group {
                     if sending { ProgressView().controlSize(.small) }
-                    else { Image(systemName: "arrow.up").font(.body.weight(.bold)) }
+                    else { Image(.inkSendReply).font(.body.weight(.bold)) }
                 }
                 .frame(width: 36, height: 36)
                 .foregroundStyle(canSend ? Color.seekButtonText : Color(uiColor: .tertiaryLabel))

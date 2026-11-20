@@ -77,10 +77,10 @@ struct BlockedMembersView: View {
                             pendingUnblock = member
                         }
                         .contextMenu {
-                            Button("查看个人主页", systemImage: "person.crop.circle") {
+                            Button("查看个人主页", image: .inkProfile) {
                                 openMember(.profile(member.id))
                             }
-                            Button("解除屏蔽", systemImage: "person.badge.plus") {
+                            Button("解除屏蔽", image: .inkUnblockMember) {
                                 pendingUnblock = member
                             }
                         }
@@ -129,7 +129,7 @@ struct BlockedMembersView: View {
 
     private var inputFieldRow: some View {
         HStack(spacing: AccountSettingsMetrics.rowSpacing) {
-            SeekIconTile(symbol: "person.badge.minus")
+            SeekIconTile(symbol: .inkBlockMember)
             TextField("输入要屏蔽的用户名", text: $name)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()

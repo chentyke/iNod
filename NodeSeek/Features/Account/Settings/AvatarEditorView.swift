@@ -63,7 +63,7 @@ struct AvatarEditorView: View {
                         if avatar != nil {
                             SettingsActionPill(
                                 title: "保存头像",
-                                symbol: "checkmark",
+                                symbol: .inkSaveAvatar,
                                 busyTitle: "正在上传…",
                                 isBusy: busy
                             ) {
@@ -76,7 +76,7 @@ struct AvatarEditorView: View {
                         PhotosPicker(selection: $item, matching: .images) {
                             ZStack {
                                 HStack(spacing: 6) {
-                                    Image(systemName: "photo.on.rectangle")
+                                    Image(.inkChooseAvatar)
                                         .accessibilityHidden(true)
                                     Text(hasAvatar ? "重新选择照片" : "选择照片")
                                         .lineLimit(1)

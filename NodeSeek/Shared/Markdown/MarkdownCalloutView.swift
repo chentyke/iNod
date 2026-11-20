@@ -50,7 +50,7 @@ struct MarkdownCalloutView<Embedded: View>: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Image(systemName: callout.kind.symbol)
+            Image(callout.kind.symbol)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(callout.kind.tint)
                 .accessibilityHidden(true)
@@ -58,7 +58,7 @@ struct MarkdownCalloutView<Embedded: View>: View {
                 .font(.subheadline.weight(.semibold))
             Spacer(minLength: 0)
             if callout.folding != .none {
-                Image(systemName: "chevron.right")
+                Image(.inkFoldNote)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
@@ -80,13 +80,13 @@ private extension MarkdownCallout.Kind {
         }
     }
 
-    var symbol: String {
+    var symbol: ImageResource {
         switch self {
-        case .note: "info.circle"
-        case .tip: "lightbulb"
-        case .important: "exclamationmark.bubble"
-        case .warning: "exclamationmark.triangle"
-        case .caution: "exclamationmark.octagon"
+        case .note: .inkNote
+        case .tip: .inkTip
+        case .important: .inkImportant
+        case .warning: .inkWarning
+        case .caution: .inkCaution
         }
     }
 

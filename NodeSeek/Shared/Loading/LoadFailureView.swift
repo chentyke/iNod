@@ -22,7 +22,7 @@ struct LoadFailureView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Image(systemName: failure.systemImage)
+            Image(failure.inkIcon)
                 .font(.system(size: 40)).foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             VStack(spacing: 6) {
@@ -105,7 +105,7 @@ struct LoadFailureBanner: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: failure.systemImage)
+            Image(failure.inkIcon)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text(failure.kind == .other ? failure.advice : failure.title)

@@ -42,7 +42,7 @@ struct DeviceBenchmarkView: View {
     private var idle: some View {
         Group {
             HStack(spacing: 12) {
-                SeekIconTile(symbol: "iphone")
+                SeekIconTile(symbol: .inkDevice)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(UIDevice.current.model + "，iOS " + UIDevice.current.systemVersion).font(.headline).foregroundStyle(Color.seekInk)
                     Text("温度\(thermal.title)。可离线测试，临时使用 \(QualityFormat.bytes(run.benchmark.scratchBytes)) 存储空间。")
@@ -53,7 +53,7 @@ struct DeviceBenchmarkView: View {
             if thermal >= .serious {
                 Text("设备现在较热，成绩可能偏低。可以等它凉下来再测。").font(.footnote).foregroundStyle(.secondary)
             }
-            Button("开始测试", systemImage: "play.fill") { run.start() }
+            Button("开始测试", image: .inkStartBench) { run.start() }
                 .buttonStyle(.seekPill).accessibilityIdentifier("benchmark.start")
         }
     }
@@ -70,7 +70,7 @@ struct DeviceBenchmarkView: View {
             .accessibilityValue("已完成 \(Int(overall(report) * 100))%")
             QualityProgressLine(fraction: overall(report))
             Text("测试时请保持 App 在前台。").font(.footnote).foregroundStyle(.secondary)
-            Button("取消", systemImage: "xmark") { run.cancel() }
+            Button("取消", image: .inkStopTest) { run.cancel() }
                 .buttonStyle(.seekPill(primary: false)).accessibilityIdentifier("benchmark.cancel")
         }
     }
@@ -97,7 +97,7 @@ struct DeviceBenchmarkView: View {
             if report.mayBeThrottled {
                 Text("测试时设备较热，系统可能已降低性能，成绩可能偏低。").font(.footnote).foregroundStyle(.secondary)
             }
-            Button(report.isComplete ? "再测一次" : "重新测试", systemImage: "arrow.counterclockwise") { run.start() }
+            Button(report.isComplete ? "再测一次" : "重新测试", image: .inkRepeatBench) { run.start() }
                 .buttonStyle(.seekPill(primary: false)).accessibilityIdentifier("benchmark.restart")
         }
     }
@@ -179,7 +179,7 @@ struct DeviceBenchmarkView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
-                .swipeActions { Button("删除", systemImage: "trash", role: .destructive) { run.forget(past) } }
+                .swipeActions { Button("删除", image: .inkDeleteRun, role: .destructive) { run.forget(past) } }
             }
         } header: { Text("历史成绩") } footer: {
             Text("只保存在这台设备上，最多 20 次。左滑可以删除。")

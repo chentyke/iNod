@@ -26,7 +26,7 @@ struct SignInView: View {
                         // The page centres the 65-point widget, so the row's padding stays even above and below it.
                         WebView(session.page).webViewContentBackground(.hidden).webViewBackForwardNavigationGestures(.disabled).frame(height: 72)
                             .overlay { if session.verification == "loading" { ProgressView("正在加载验证").font(.footnote) } }
-                        if session.verification == "ready" { Label("验证完成", systemImage: "checkmark.circle").foregroundStyle(Color.seekGreen) }
+                        if session.verification == "ready" { Label("验证完成", image: .inkVerified).foregroundStyle(Color.seekGreen) }
                         if ["error", "expired"].contains(session.verification) {
                             Text(session.verification == "expired" ? "验证已过期，请重新验证。" : "验证暂时不可用，请重新验证。").font(.footnote).foregroundStyle(.secondary)
                             Button("重新验证") { Task { await session.resetVerification() } }
@@ -48,7 +48,7 @@ struct SignInView: View {
                 .listRowBackground(Color.clear)
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 Section {
-                    Button("在官网注册或找回密码", systemImage: "globe") { Browser.open(NodeSeekRoute.signIn.url) }
+                    Button("在官网注册或找回密码", image: .inkRecoverAccount) { Browser.open(NodeSeekRoute.signIn.url) }
                 } footer: { Text("密码只用于本次登录，App 不会保存密码。") }
             }
             .seekCanvas().navigationTitle(otpSession == nil ? "登录 NodeSeek" : "双因素验证").navigationBarTitleDisplayMode(.inline)

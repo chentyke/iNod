@@ -30,7 +30,7 @@ struct WebsiteView: View {
                         }
                     }
                     ToolbarItem(placement: .bottomBar) {
-                        Button("重新加载", systemImage: "arrow.clockwise") { page.reload() }
+                        Button("重新加载", image: .inkReloadPage) { page.reload() }
                     }
                 }
                 .task {

@@ -17,7 +17,7 @@ struct NoticesListView: View {
 
     var body: some View {
         let items = activity
-        InboxList(items: items, emptyTitle: "暂无互动通知", emptySymbol: "bell",
+        InboxList(items: items, emptyTitle: "暂无互动通知", emptySymbol: .inkNoActivity,
                   error: updateError ?? loadErrors[.replies] ?? loadErrors[.mentions],
                   isBusy: isLoading || isUpdating, reload: { await load(force: true) },
                   leadingContent: EmptyView()) { item in
@@ -35,11 +35,11 @@ struct NoticesListView: View {
             }
             .buttonStyle(.plain)
             .contextMenu {
-                Button("查看作者主页", systemImage: "person.crop.circle") { openMember(.profile(notice.authorID)) }
+                Button("查看作者主页", image: .inkProfile) { openMember(.profile(notice.authorID)) }
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 if !notice.viewed {
-                    Button("标为已读", systemImage: "checkmark") {
+                    Button("标为已读", image: .inkMarkRead) {
                         Task { await mark(notice.id, kind: item.kind) }
                     }
                     .tint(.seekGreen)

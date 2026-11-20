@@ -5,7 +5,7 @@ import SwiftUI
 struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
     let items: [Item]?
     let emptyTitle: String
-    let emptySymbol: String
+    let emptySymbol: ImageResource
     let error: LoadFailure?
     let isBusy: Bool
     let reload: () async -> Void
@@ -57,7 +57,7 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
                 } else if items == nil || isBusy {
                     ProgressView().accessibilityLabel("正在加载")
                 } else {
-                    ContentUnavailableView(emptyTitle, systemImage: emptySymbol)
+                    ContentUnavailableView(emptyTitle, image: emptySymbol)
                         .allowsHitTesting(false)
                 }
             }

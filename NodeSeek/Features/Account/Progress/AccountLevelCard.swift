@@ -61,7 +61,7 @@ struct AccountLevelCard: View {
     private var eyebrow: some View {
         if progress?.isMaxLevel == true {
             HStack(spacing: 6) {
-                Image(systemName: "checkmark.seal.fill")
+                Image(.inkLevelBadge)
                     .foregroundStyle(Color.seekGreen)
                     .accessibilityHidden(true)
                 Text("已达最高等级")

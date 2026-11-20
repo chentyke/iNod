@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SeekRowLabel: View {
     let title: String
-    let symbol: String
+    let symbol: ImageResource
     /// Marks a row that leaves the app, in place of the chevron a navigation row gets.
     var opensExternally = false
 
@@ -12,7 +12,7 @@ struct SeekRowLabel: View {
             Text(title).foregroundStyle(Color.seekInk)
             if opensExternally {
                 Spacer(minLength: 0)
-                Image(systemName: "arrow.up.right")
+                Image(.inkOpenExternal)
                     .font(.footnote.weight(.semibold))
                     // A literal colour, because `.tertiary` inside a button picks up the green tint.
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))

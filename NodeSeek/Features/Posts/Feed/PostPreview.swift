@@ -42,7 +42,7 @@ struct PostPreview: View {
                         }
                     }
                 } else if let error {
-                    Label(LoadFailure(error).message, systemImage: error is PostAccessError ? "lock" : LoadFailure(error).systemImage)
+                    Label(LoadFailure(error).message, image: error is PostAccessError ? .inkRestrictedPost : LoadFailure(error).inkIcon)
                         .font(.callout).foregroundStyle(.secondary)
                 } else {
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 40)

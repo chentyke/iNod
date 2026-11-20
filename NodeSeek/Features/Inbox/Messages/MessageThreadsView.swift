@@ -21,7 +21,7 @@ struct MessageThreadsView: View {
 
         InboxList(items: matches,
                   emptyTitle: emptyTitle(for: search),
-                  emptySymbol: search.isEmpty ? "bubble.left.and.bubble.right" : "magnifyingglass",
+                  emptySymbol: search.isEmpty ? .inkEmptyInbox : .inkNoMatchingMail,
                   error: memberResults?.error ?? error,
                   isBusy: isLoading || (!search.isEmpty && memberResults == nil),
                   reload: { await refresh(search) },
@@ -80,7 +80,7 @@ struct MessageThreadsView: View {
 
     private var searchField: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
+            Image(.inkSearchMail)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             TextField("搜索私聊或找人", text: $query)
@@ -95,7 +95,7 @@ struct MessageThreadsView: View {
                     query = ""
                     searchFocused = true
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
+                    Image(.inkClearInput)
                         .frame(width: 44, height: 44)
                         .contentShape(.rect)
                 }

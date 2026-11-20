@@ -4,7 +4,7 @@ import SwiftUI
 /// A row that opens a section of the website's settings in the reader's browser.
 struct OfficialSettingsLink: View {
     let title: String
-    var symbol: String = "globe"
+    var symbol: ImageResource = .inkWebsite
     let anchor: String
     var description: String = ""
 
@@ -25,7 +25,7 @@ struct OfficialSettingsLink: View {
                     }
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "arrow.up.right")
+                Image(.inkOpenExternal)
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     .accessibilityHidden(true)

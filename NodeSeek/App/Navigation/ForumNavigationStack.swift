@@ -130,6 +130,6 @@ struct ForumNavigationStack<Content: View>: View {
             case .profile: ProfileView(userID: user.id)
             case .settings: AccountSettingsView(userID: user.id)
             }
-        } else { ContentUnavailableView("请先登录", systemImage: "person.crop.circle") }
+        } else { ContentUnavailableView("请先登录", image: .inkSignIn) }
     }
 }

@@ -64,13 +64,13 @@ struct RootView: View {
                     }
                     #endif
             } label: {
-                tabLabel("社区", icon: Image(systemName: "bubble.left.and.bubble.right"))
+                tabLabel("社区", icon: Image(.inkCommunity))
             }
             .accessibilityLabel("社区")
             Tab(value: RootTab.notifications) {
                 ForumNavigationStack { NotificationsView().id(account.revision) }
             } label: {
-                tabLabel("通知", icon: Image(systemName: "bell"))
+                tabLabel("通知", icon: Image(.inkNotices))
             }
             .accessibilityLabel("通知")
             .badge(account.inbox.unreadCount)
@@ -117,7 +117,7 @@ struct RootView: View {
 
     private func tabIcon(for url: URL?) -> Image {
         guard let tabAvatar, tabAvatar.url == url else {
-            return Image(systemName: "person.crop.circle")
+            return Image(.inkMyAccount)
         }
         return Image(uiImage: tabAvatar.image)
     }

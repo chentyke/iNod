@@ -22,7 +22,7 @@ struct StardustRequestView: View {
 
     var body: some View {
         VStack(alignment:.leading,spacing:12) {
-            Label(request.description,systemImage:"sparkles").font(.headline)
+            Label(request.description,image: .inkRequestDust).font(.headline)
             Text("\(request.amount) 个星尘，收款人 UID \(request.memberID)").font(.subheadline).foregroundStyle(.secondary)
             if request.memberID == account.user?.id {
                 NavigationLink("查看收款记录") { StardustHistoryView(memberID:request.memberID,initialReference:String(request.reference)) }

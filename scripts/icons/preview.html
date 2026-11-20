@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iNod 手绘图标</title>
+<style>
+:root { color-scheme:light dark; font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; }
+* { box-sizing:border-box; }
+body { max-width:1080px; margin:0 auto; padding:32px clamp(16px,4vw,48px) 64px; }
+h1 { margin:0 0 20px; font-size:24px; }
+h2 { margin:24px 0 12px; font-size:17px; }
+.samples, .controls, .sample, .item { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.samples { gap:18px 48px; padding-bottom:20px; border-bottom:.5px solid GrayText; }
+.sample { min-height:32px; }
+.stat { display:inline-flex; align-items:center; gap:4px; }
+.meta { color:GrayText; font-size:12px; }
+.controls { margin:24px 0 12px; }
+input, select { padding:7px 10px; font:inherit; color:inherit; background:Canvas; border:.5px solid GrayText; border-radius:5px; }
+input { max-width:100%; width:19em; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:4px 16px; }
+.item { color:inherit; text-decoration:none; min-height:44px; flex-wrap:nowrap; }
+.item:hover, .item:focus-visible { text-decoration:underline; }
+.item > span:first-child, .item > .size-M, .item > .size-L { width:32px; text-align:center; }
+.item svg { vertical-align:middle; }
+[data-size="M"] :is(.size-S,.size-L), [data-size="S"] :is(.size-M,.size-L), [data-size="L"] :is(.size-S,.size-M), [hidden] { display:none; }
+</style>
+<body data-size="M">
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>{{defs}}</defs></svg>
+<h1>iNod 手绘图标</h1>
+<div class="samples">
+  <div><h2>帖子列表</h2><div class="sample meta"><span class="stat">{{InkReplyCount S 12}} 18</span><span class="stat">{{InkReadCount S 12}} 326</span><span>2 小时前</span></div></div>
+  <div><h2>帖子操作</h2><div class="sample"><span class="stat">{{InkReply M 17}} 写回复</span>{{InkSavePost M 20}}{{InkSharePost M 20}}{{InkPostActions M 17}}</div></div>
+  <div><h2>主导航</h2><div class="sample"><span class="stat">{{InkCommunity M 17}} 社区</span><span class="stat">{{InkNotices M 17}} 通知</span><span class="stat">{{InkMyAccount M 17}} 我的</span></div></div>
+</div>
+<div class="controls">
+  <input type="search" aria-label="查找图标" placeholder="搜索用途、场景或图标名">
+  <select aria-label="图标目录预览尺寸"><option value="S">小号 12 pt</option><option value="M" selected>中号 17 pt</option><option value="L">大号 24 pt</option></select>
+</div>
+<main>{{sections}}</main>
+<p id="empty" hidden>没有找到图标。</p>
+<script>
+document.querySelector("select").addEventListener("change", event => { document.body.dataset.size = event.target.value; });
+document.querySelector("input").addEventListener("input", event => {
+  const query = event.target.value.trim().toLowerCase();
+  for (const section of document.querySelectorAll(".group")) {
+    const group = section.querySelector("h2").textContent;
+    for (const item of section.querySelectorAll(".item")) {
+      item.hidden = !(group + " " + item.textContent + " " + item.dataset.key).toLowerCase().includes(query);
+    }
+    section.hidden = !section.querySelector(".item:not([hidden])");
+  }
+  document.querySelector("#empty").hidden = !!document.querySelector(".group:not([hidden])");
+});
+</script>
+</body>
+</html>

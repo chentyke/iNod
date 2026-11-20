@@ -69,17 +69,17 @@ struct InvitationsView: View {
                                 .accessibilityIdentifier("invitation-row-\(item.code)")
                                 .communityRowStyle()
                                 .contextMenu {
-                                    Button("复制邀请码", systemImage: "doc.on.doc") {
+                                    Button("复制邀请码", image: .inkCopyInvite) {
                                         UIPasteboard.general.string = item.code
                                     }
                                     if !item.applied {
-                                        ShareLink("分享邀请码", item: item.code)
+                                        ShareLink(item: item.code) { Label("分享邀请码", image: .inkShareInvite) }
                                     }
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     if !item.applied {
                                         ShareLink(item: item.code) {
-                                            Label("分享", systemImage: "square.and.arrow.up")
+                                            Label("分享", image: .inkShareInvite)
                                         }
                                         .tint(.seekGreen)
                                     }
@@ -143,7 +143,7 @@ struct InvitationsView: View {
                 InvitationPurchaseRow(
                     title: "用鸡腿兑换",
                     unit: "鸡腿",
-                    symbol: "fork.knife",
+                    symbol: .inkRedeemChickenInvite,
                     tint: .orange,
                     option: config.payment.coin,
                     balance: account.user?.coins,
@@ -160,7 +160,7 @@ struct InvitationsView: View {
                 InvitationPurchaseRow(
                     title: "用星尘兑换",
                     unit: "星尘",
-                    symbol: "sparkles",
+                    symbol: .inkRedeemDustInvite,
                     tint: .indigo,
                     option: config.payment.stardust,
                     balance: account.user?.stardust,
@@ -177,7 +177,7 @@ struct InvitationsView: View {
                 SettingsRowContent(
                     title: "暂未开放兑换",
                     subtitle: "官网当前关闭了邀请码购买通道",
-                    symbol: "clock"
+                    symbol: .inkInviteExpiry
                 )
                 .communityRowStyle(alignSeparator: false)
             }
@@ -265,7 +265,7 @@ struct InvitationsView: View {
 private struct InvitationPurchaseRow: View {
     let title: String
     let unit: String
-    let symbol: String
+    let symbol: ImageResource
     let tint: Color
     let option: InvitationConfig.Option
     let balance: Int?
@@ -388,7 +388,7 @@ private struct InvitationCodeRow: View {
 
     private var iconTile: some View {
         SeekIconTile(
-            symbol: item.applied ? "checkmark.circle" : "ticket",
+            symbol: item.applied ? .inkUsedInvite : .inkInvite,
             tint: item.applied ? .secondary : .seekGreen
         )
     }

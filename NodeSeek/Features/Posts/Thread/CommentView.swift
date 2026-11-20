@@ -32,7 +32,7 @@ struct CommentView: View {
         VStack(alignment: .leading, spacing: 8) {
             if showsHeader { header }
             if comment.blocked {
-                Label("来自已屏蔽的用户", systemImage: "eye.slash").font(.caption).foregroundStyle(.secondary)
+                Label("来自已屏蔽的用户", image: .inkBlockedComment).font(.caption).foregroundStyle(.secondary)
             }
             // Measure the opening post as one card so image updates don't shift its beginning.
             ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: showsHeader, onOpenImages: onOpenImages)

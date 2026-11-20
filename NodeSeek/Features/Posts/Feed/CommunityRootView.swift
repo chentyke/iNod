@@ -163,7 +163,7 @@ struct CommunityRootView: View {
 private struct FeedDetailPlaceholder: View {
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.text.bubble.right")
+            Image(.inkReadPost)
                 .font(.system(size: 36, weight: .regular))
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)

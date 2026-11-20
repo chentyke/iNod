@@ -12,7 +12,7 @@ struct MemberMentionView: View {
             if let member = result.memberList.first(where: { $0.member_name.caseInsensitiveCompare(name) == .orderedSame }) {
                 ProfileView(userID: member.id)
             } else {
-                ContentUnavailableView("没有找到 @\(name)", systemImage: "person.crop.circle.badge.questionmark")
+                ContentUnavailableView("没有找到 @\(name)", image: .inkMissingMember)
             }
         }
         .task(id: account.revision) { await load() }

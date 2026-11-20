@@ -17,11 +17,11 @@ struct AccountView: View {
                         .listRowSeparator(.hidden)
                 }
                 Section {
-                    AccountNavigationRow(title: "收藏", symbol: "bookmark", destination: .content(.collections))
-                    AccountNavigationRow(title: "我的主题", symbol: "text.bubble", count: user.topicCount, destination: .content(.topics))
-                    AccountNavigationRow(title: "我的回复", symbol: "bubble.left", count: user.commentCount, destination: .content(.replies))
-                    NavigationLink(value: AppDestination.connections(follows: true, userID: user.id)) { SeekRowLabel(title: "我的关注", symbol: "person.badge.plus") }
-                    NavigationLink(value: AppDestination.connections(follows: false, userID: user.id)) { SeekRowLabel(title: "我的粉丝", symbol: "person.2") }
+                    AccountNavigationRow(title: "收藏", symbol: .inkSavedCollection, destination: .content(.collections))
+                    AccountNavigationRow(title: "我的主题", symbol: .inkMyTopics, count: user.topicCount, destination: .content(.topics))
+                    AccountNavigationRow(title: "我的回复", symbol: .inkMyReplies, count: user.commentCount, destination: .content(.replies))
+                    NavigationLink(value: AppDestination.connections(follows: true, userID: user.id)) { SeekRowLabel(title: "我的关注", symbol: .inkFollowingList) }
+                    NavigationLink(value: AppDestination.connections(follows: false, userID: user.id)) { SeekRowLabel(title: "我的粉丝", symbol: .inkFollowers) }
                 } header: { SeekSectionTitle(title: "社区记录") }
                 Section {
                     AccountBalances(user: user)
@@ -29,14 +29,14 @@ struct AccountView: View {
                         .listRowSeparator(.hidden)
                     AccountBalanceNavigationRow(
                         title: "签到",
-                        symbol: "calendar.badge.checkmark",
+                        symbol: .inkAttendance,
                         destination: .attendance
                     )
                     .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] + AccountBalanceMetrics.separatorLeading }
                     .listRowInsets(AccountBalanceMetrics.middleRowInsets)
                     AccountBalanceNavigationRow(
                         title: "等级与进度",
-                        symbol: "chart.bar",
+                        symbol: .inkLevelProgress,
                         progress: AccountLevel.progress(forCoins: user.coins),
                         destination: .progress
                     )
@@ -45,10 +45,10 @@ struct AccountView: View {
                 .listRowBackground(Color.seekCard)
                 Section {
                     NavigationLink(value: AppDestination.imageLibrary(userID: user.id)) {
-                        SeekRowLabel(title: "图片上传与管理", symbol: "photo.on.rectangle")
+                        SeekRowLabel(title: "图片上传与管理", symbol: .inkPhotoLibrary)
                     }
-                    AccountNavigationRow(title: "账号设置", symbol: "gearshape", destination: .settings)
-                    NavigationLink(value: AppDestination.invitations(userID: user.id)) { SeekRowLabel(title: "邀请朋友", symbol: "ticket") }
+                    AccountNavigationRow(title: "账号设置", symbol: .inkSettings, destination: .settings)
+                    NavigationLink(value: AppDestination.invitations(userID: user.id)) { SeekRowLabel(title: "邀请朋友", symbol: .inkInvite) }
                 }
             } else if !account.hasLoaded {
                 Section {
@@ -65,24 +65,24 @@ struct AccountView: View {
                         }
                         .padding(.vertical, 4)
                         Button { Task { await account.refresh(force: true) } } label: {
-                            SeekRowLabel(title: "重试", symbol: "arrow.clockwise")
+                            SeekRowLabel(title: "重试", symbol: .inkRetry)
                         }
                     }
                     // Only the website inside the app shares its cookies with the app, so the check is finished there.
                     if account.failure?.kind == .verificationRequired {
-                        Button { showsVerification = true } label: { SeekRowLabel(title: "打开官网完成验证", symbol: "checkmark.shield") }
+                        Button { showsVerification = true } label: { SeekRowLabel(title: "打开官网完成验证", symbol: .inkVerifySite) }
                     } else if account.failure?.kind != .offline { // Offline, the website can't load either.
-                        Button { Browser.open(NodeSeekRoute.home.url) } label: { SeekRowLabel(title: "打开官网", symbol: "globe", opensExternally: true) }
+                        Button { Browser.open(NodeSeekRoute.home.url) } label: { SeekRowLabel(title: "打开官网", symbol: .inkWebsite, opensExternally: true) }
                     }
                 }
             } else {
                 Section {
                     VStack(alignment: .leading, spacing: 14) {
-                        Image(systemName: "person.crop.circle").font(.largeTitle).foregroundStyle(Color.seekGreen)
+                        Image(.inkMyAccount).font(.largeTitle).foregroundStyle(Color.seekGreen)
                         Text("登录 NodeSeek").font(.title2.bold())
                         Text("登录后可以回复、点赞和投喂鸡腿。")
                             .font(.subheadline).foregroundStyle(.secondary)
-                        Button("登录", systemImage: "person.crop.circle") { showsSignIn = true }
+                        Button("登录", image: .inkSignIn) { showsSignIn = true }
                             .buttonStyle(.seekPill)
                     }
                     // The symbol's frame carries a few points of air above its glyph; trim the top to match the button below.
@@ -93,17 +93,17 @@ struct AccountView: View {
             if account.hasLoaded, let error = account.error {
                 Section {
                     Text(error).font(.subheadline).foregroundStyle(.secondary)
-                    Button("重新读取登录状态", systemImage: "arrow.clockwise") { Task { await account.refresh() } }
+                    Button("重新读取登录状态", image: .inkRefreshAccount) { Task { await account.refresh() } }
                         .disabled(account.isRefreshing)
                 }
             }
             Section {
-                NavigationLink(value: AppDestination.communityTools) { SeekRowLabel(title: "社区工具", symbol: "square.grid.2x2") }
+                NavigationLink(value: AppDestination.communityTools) { SeekRowLabel(title: "社区工具", symbol: .inkToolbox) }
             }
             Section {
                 AccountAboutRow(version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
                 Button { Browser.open(NodeSeekRoute.home.url) } label: {
-                    SeekRowLabel(title: "NodeSeek 官网", symbol: "globe", opensExternally: true)
+                    SeekRowLabel(title: "NodeSeek 官网", symbol: .inkWebsite, opensExternally: true)
                 }
             } header: { SeekSectionTitle(title: "关于") }
         }
@@ -124,7 +124,7 @@ private struct AccountAboutRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            SeekIconTile(symbol: "info.circle")
+            SeekIconTile(symbol: .inkAbout)
             VStack(alignment: .leading, spacing: 2) {
                 Text("iNod").foregroundStyle(Color.seekInk)
                 Text("非官方 NodeSeek 客户端").font(.footnote).foregroundStyle(.secondary)

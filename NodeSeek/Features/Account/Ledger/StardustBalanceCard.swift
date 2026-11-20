@@ -32,7 +32,7 @@ struct StardustBalanceCard: View {
     private var balanceSummary: some View {
         VStack(alignment: .leading, spacing: StardustMetrics.balanceLabelSpacing) {
             HStack(spacing: 6) {
-                Image(systemName: "sparkles")
+                Image(.inkStardust)
                     .foregroundStyle(.indigo)
                     .accessibilityHidden(true)
                 Text("当前星尘")
@@ -52,7 +52,7 @@ struct StardustBalanceCard: View {
     private func transferButton(fullWidth: Bool) -> some View {
         Button(action: onTransfer) {
             HStack(spacing: 6) {
-                Image(systemName: "paperplane")
+                Image(.inkTransferDust)
                     .accessibilityHidden(true)
                 Text("转账")
                     .lineLimit(1)

@@ -24,7 +24,7 @@ struct AttendanceStatusCard: View {
         VStack(alignment: .leading, spacing: AttendanceMetrics.blockSpacing) {
             VStack(alignment: .leading, spacing: AttendanceMetrics.textSpacing) {
                 HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
+                    Image(.inkAttended)
                         .foregroundStyle(Color.seekGreen)
                         .accessibilityHidden(true)
                     Text("今日已签到")
@@ -114,7 +114,7 @@ struct AttendanceStatusCard: View {
         } label: {
             ZStack {
                 HStack(spacing: 6) {
-                    Image(systemName: isPrimary ? "checkmark" : "dice")
+                    Image(isPrimary ? .inkClaimReward : .inkRandomReward)
                         .accessibilityHidden(true)
                     Text(isPrimary ? "领取 5 鸡腿" : "试试手气")
                         .lineLimit(singleLine ? 1 : nil)

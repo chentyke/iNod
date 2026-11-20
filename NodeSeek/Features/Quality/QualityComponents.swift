@@ -8,16 +8,16 @@ struct QualityStatusMark: View {
     var body: some View {
         switch status {
         case .running: ProgressView().controlSize(.small)
-        case .pending: symbol("circle.dashed", .tertiary)
-        case .failed: symbol("exclamationmark.triangle.fill", .orange)
-        case .unavailable: symbol("minus.circle", .secondary)
-        case .cancelled: symbol("xmark.circle", .secondary)
+        case .pending: symbol(.inkWaiting, .tertiary)
+        case .failed: symbol(.inkTestFailed, .orange)
+        case .unavailable: symbol(.inkUnavailable, .secondary)
+        case .cancelled: symbol(.inkTestCancelled, .secondary)
         case .measured, .notIncluded: EmptyView()
         }
     }
 
-    private func symbol(_ name: String, _ style: some ShapeStyle) -> some View {
-        Image(systemName: name).font(.footnote.weight(.semibold)).foregroundStyle(style).accessibilityHidden(true)
+    private func symbol(_ name: ImageResource, _ style: some ShapeStyle) -> some View {
+        Image(name).font(.footnote.weight(.semibold)).foregroundStyle(style).accessibilityHidden(true)
     }
 }
 
@@ -152,7 +152,7 @@ extension PortOutcome {
 }
 
 extension NetworkKind {
-    var symbol: String {
-        switch self { case .wifi: "wifi"; case .cellular: "antenna.radiowaves.left.and.right"; case .wired: "cable.connector"; case .other: "network"; case .offline: "wifi.slash" }
+    var symbol: ImageResource {
+        switch self { case .wifi: .inkWifi; case .cellular: .inkCellular; case .wired: .inkWired; case .other: .inkNetwork; case .offline: .inkOffline }
     }
 }

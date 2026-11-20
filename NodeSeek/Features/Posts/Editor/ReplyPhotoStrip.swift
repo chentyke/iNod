@@ -12,7 +12,7 @@ struct ReplyPhotoStrip: View {
                     ReplyPhotoThumbnail(url: images[index])
                         .overlay(alignment: .topTrailing) {
                             Button { remove(index) } label: {
-                                Image(systemName: "xmark.circle.fill")
+                                Image(.inkRemovePhoto)
                                     .font(.body.weight(.medium))
                                     .symbolRenderingMode(.palette)
                                     .foregroundStyle(.white, .black.opacity(0.65))
@@ -40,7 +40,7 @@ private struct ReplyPhotoThumbnail: View {
             if let image {
                 Image(decorative: image, scale: 1).resizable().scaledToFill()
             } else {
-                Image(systemName: "photo").foregroundStyle(.secondary)
+                Image(.inkBrokenPhoto).foregroundStyle(.secondary)
             }
         }
         .frame(width: 60, height: 60)

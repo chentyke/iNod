@@ -37,8 +37,8 @@ struct SeekSegmentedPicker<Value: Hashable>: View {
     VStack(spacing: 24) {
         SeekSectionTitle(title: "社区", detail: "NodeSeek")
         SeekSegmentedPicker(title: "排序", selection: $sort, options: FeedSort.allCases, label: { $0.title })
-        HStack { SeekIconTile(symbol: "bubble.left"); SeekCategoryLabel(title: "技术", category: "tech") }
-        Button("写回复", systemImage: "square.and.pencil") { }.buttonStyle(.seekPill)
+        HStack { SeekIconTile(symbol: .inkReplyCount); SeekCategoryLabel(title: "技术", category: "tech") }
+        Button("写回复", image: .inkReply) { }.buttonStyle(.seekPill)
         Button("查看主题") { }.buttonStyle(.seekPill(primary: false))
     }.padding(24).seekCanvas()
 }

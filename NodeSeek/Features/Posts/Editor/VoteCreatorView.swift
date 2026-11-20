@@ -18,8 +18,8 @@ struct VoteCreatorView: View {
                 Section("投票问题") { TextField("投票标题", text: $title) }
                 Section("选项") {
                     ForEach(options.indices, id: \.self) { index in TextField("选项 \(index + 1)", text: $options[index]) }
-                    Button("增加选项", systemImage: "plus") { options.append("") }
-                    if options.count > 2 { Button("移除最后一项", systemImage: "minus", role: .destructive) { options.removeLast() } }
+                    Button("增加选项", image: .inkAddOption) { options.append("") }
+                    if options.count > 2 { Button("移除最后一项", image: .inkRemoveOption, role: .destructive) { options.removeLast() } }
                 }
                 Section { Toggle("允许多选", isOn: $multiple); Toggle("公开参与者", isOn: $isPublic) }
                 if let error { Section { Text(error).foregroundStyle(.red) } }

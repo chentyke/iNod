@@ -7,7 +7,7 @@ struct ReplyQuoteHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "quote.opening")
+            Image(.inkQuoteReply)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.seekGreen)
                 .accessibilityHidden(true)
@@ -24,7 +24,7 @@ struct ReplyQuoteHeader: View {
             .font(.subheadline)
             .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
+                Image(.inkRemoveQuote)
                     .foregroundStyle(.secondary)
                     .frame(width: 44, height: 44)
                     .contentShape(.rect)

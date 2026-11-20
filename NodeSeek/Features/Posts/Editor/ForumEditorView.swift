@@ -61,7 +61,7 @@ struct ForumEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button { saveForLater(); dismiss() } label: {
-                        if replyTitle != nil { Image(systemName: "arrow.down.right.and.arrow.up.left") }
+                        if replyTitle != nil { Image(.inkCollapseEditor) }
                         else { Text("稍后再写") }
                     }
                     .accessibilityLabel("稍后再写")
@@ -71,7 +71,7 @@ struct ForumEditorView: View {
                     Button(action: submitOrConfirm) {
                         if replyTitle != nil {
                             if sending { ProgressView() }
-                            else { Image(systemName: "arrow.up").fontWeight(.semibold) }
+                            else { Image(.inkSendReply).fontWeight(.semibold) }
                         } else {
                             Text(sending ? "提交中…" : (request.mode.rawValue.hasPrefix("edit") ? "保存" : "发布"))
                         }
@@ -121,7 +121,7 @@ struct ForumEditorView: View {
     private func replyHeading(title: String, showsQuote: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             if let target = replyContext.target, target.quote == nil {
-                Label("回复 \(target.name)  #\(target.floor)", systemImage: "arrowshape.turn.up.left")
+                Label("回复 \(target.name)  #\(target.floor)", image: .inkReply)
                     .font(.subheadline).foregroundStyle(Color.seekGreen)
             }
             Text(verbatim: title)
@@ -237,7 +237,7 @@ struct ForumEditorView: View {
                         HStack(spacing: 2) {
                             formatMenu.frame(width: 44, height: 44)
                             photoButton.frame(width: 44, height: 44)
-                            Button("表情", systemImage: "face.smiling") { isFocused = false; showsStickers = true }
+                            Button("表情", image: .inkSticker) { isFocused = false; showsStickers = true }
                                 .frame(width: 44, height: 44)
                         }
                         .padding(.horizontal, 6)
@@ -248,7 +248,7 @@ struct ForumEditorView: View {
                         preview.toggle()
                         isFocused = wide || !preview
                     } label: {
-                        Label(previewAction, systemImage: preview ? (wide ? "eye.slash" : "pencil") : "eye")
+                        Label(previewAction, image: preview ? (wide ? .inkClosePreview : .inkResumeWriting) : .inkPreviewPost)
                             .frame(width: 44, height: 44)
                     }
                     .accessibilityLabel(previewAction)
@@ -303,7 +303,7 @@ struct ForumEditorView: View {
                     }
                 HStack(spacing: 20) {
                     formatMenu
-                    Button("表情", systemImage: "face.smiling") { isFocused = false; showsStickers = true }
+                    Button("表情", image: .inkSticker) { isFocused = false; showsStickers = true }
                     photoButton
                     Spacer()
                     if insertingPhotos {
@@ -320,7 +320,7 @@ struct ForumEditorView: View {
     }
 
     private var formatMenu: some View {
-        Menu("文字格式", systemImage: "textformat") {
+        Menu("文字格式", image: .inkFormatText) {
             Button("加粗") { insert(prefix: "**", suffix: "**", placeholder: "加粗文字") }
             Button("斜体") { insert(prefix: "*", suffix: "*", placeholder: "斜体文字") }
             Button("标题") { insert(prefix: "\n## ", suffix: "\n", placeholder: "标题") }
@@ -329,8 +329,8 @@ struct ForumEditorView: View {
             Button("链接") { insert(prefix: "[", suffix: "](https://)", placeholder: "链接文字") }
             Button("列表") { insert(prefix: "\n- ", suffix: "\n", placeholder: "列表项") }
             Button("表格") { insert(prefix: "\n| 项目 | 内容 |\n| --- | --- |\n| ", suffix: " |  |\n", placeholder: "项目") }
-            Button("创建投票", systemImage: "chart.bar.xaxis") { isFocused = false; showsVote = true }
-            Button("星尘收款",systemImage:"sparkles") { isFocused = false; showsReceive = true }
+            Button("创建投票", image: .inkCreatePoll) { isFocused = false; showsVote = true }
+            Button("星尘收款",image: .inkRequestDust) { isFocused = false; showsReceive = true }
             if let legacyDraftKey,UserDefaults.standard.string(forKey:legacyDraftKey)?.isEmpty == false {
                 Button("导入旧版草稿") { showsLegacyImport = true }
             }
@@ -343,7 +343,7 @@ struct ForumEditorView: View {
             showsPhotos = true
         } label: {
             if insertingPhotos { ProgressView().accessibilityLabel("正在上传图片") }
-            else { Label("选择图片", systemImage: "photo") }
+            else { Label("选择图片", image: .inkAttachPhoto) }
         }
         .disabled(insertingPhotos || ownerID == nil || ownerID != account.user?.id)
     }

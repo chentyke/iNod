@@ -35,7 +35,7 @@ struct AccountSettingsView: View {
                     SettingsRowContent(
                         title: "个人资料",
                         subtitle: "一句话介绍、签名与主页介绍",
-                        symbol: "person.text.rectangle"
+                        symbol: .inkProfileCard
                     )
                 }
                 .accessibilityIdentifier("settings-row-profile")
@@ -47,7 +47,7 @@ struct AccountSettingsView: View {
                     SettingsRowContent(
                         title: "修改头像",
                         subtitle: "裁切正方形头像并同步到官网",
-                        symbol: "photo.circle"
+                        symbol: .inkEditAvatar
                     )
                 }
                 .accessibilityIdentifier("settings-row-avatar")
@@ -59,7 +59,7 @@ struct AccountSettingsView: View {
                     SettingsRowContent(
                         title: "登录与安全",
                         subtitle: "密码、双因素验证、Telegram 与登录记录",
-                        symbol: "lock.shield"
+                        symbol: .inkAccountSecurity
                     )
                 }
                 .accessibilityIdentifier("settings-row-security")
@@ -75,7 +75,7 @@ struct AccountSettingsView: View {
                     SettingsRowContent(
                         title: "首页版块",
                         subtitle: "选择在社区首页显示的分类",
-                        symbol: "rectangle.grid.1x2"
+                        symbol: .inkHomeBoards
                     )
                 }
                 .accessibilityIdentifier("settings-row-homepage")
@@ -87,7 +87,7 @@ struct AccountSettingsView: View {
                     SettingsRowContent(
                         title: "屏蔽用户",
                         subtitle: "管理已屏蔽的用户名单",
-                        symbol: "person.slash"
+                        symbol: .inkBlockedMembers
                     )
                 }
                 .accessibilityIdentifier("settings-row-blocks")
@@ -97,7 +97,7 @@ struct AccountSettingsView: View {
                     SettingsRowContent(
                         title: "显示被屏蔽的内容",
                         subtitle: "开启后在列表与帖子中保留被屏蔽用户的发言",
-                        symbol: "eye"
+                        symbol: .inkShowBlocked
                     )
                 }
                 .tint(Color.seekGreen)
@@ -110,7 +110,7 @@ struct AccountSettingsView: View {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: AccountSettingsMetrics.rowSpacing) {
-                        SeekIconTile(symbol: "circle.lefthalf.filled")
+                        SeekIconTile(symbol: .inkAppearance)
                         VStack(alignment: .leading, spacing: AccountSettingsMetrics.rowLineSpacing) {
                             Text("显示模式")
                                 .foregroundStyle(Color.seekInk)
@@ -136,7 +136,7 @@ struct AccountSettingsView: View {
                     SettingsRowContent(
                         title: "官网显示设置",
                         subtitle: websitePreferencesSubtitle,
-                        symbol: "globe"
+                        symbol: .inkWebAppearance
                     )
                 }
                 .accessibilityIdentifier("settings-row-website-preferences")
@@ -150,7 +150,7 @@ struct AccountSettingsView: View {
                     confirmsSignOut = true
                 } label: {
                     HStack(spacing: AccountSettingsMetrics.rowSpacing) {
-                        SeekIconTile(symbol: "rectangle.portrait.and.arrow.right", tint: .red)
+                        SeekIconTile(symbol: .inkSignOut, tint: .red)
                         Text(account.isSigningOut ? "正在退出…" : "退出登录")
                             .foregroundStyle(.red)
                         Spacer(minLength: 8)

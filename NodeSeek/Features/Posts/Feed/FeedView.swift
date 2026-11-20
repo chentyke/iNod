@@ -100,14 +100,14 @@ struct FeedView: View {
         .toolbar {
             if isSearch {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu("搜索选项", systemImage: "ellipsis") {
+                    Menu("搜索选项", image: .inkSearchOptions) {
                         searchOptions
                     }
                 }
             } else if recommended {
                 ToolbarItem(placement: .topBarTrailing) {
                     ShareLink(item: NodeSeekRoute.recommended(page: 1).url) {
-                        Label("分享推荐阅读", systemImage: "square.and.arrow.up")
+                        Label("分享推荐阅读", image: .inkShareFeatured)
                     }
                 }
             }
@@ -156,7 +156,7 @@ struct FeedView: View {
     }
 
     @ViewBuilder private var searchOptions: some View {
-        NavigationLink(value: AppDestination.memberSearch) { Label("搜索用户", systemImage: "person.crop.circle.badge.magnifyingglass") }
+        NavigationLink(value: AppDestination.memberSearch) { Label("搜索用户", image: .inkFindMember) }
         if let url = googleURL { Link("在 Google 搜索", destination: url) }
     }
 
@@ -222,7 +222,7 @@ struct FeedView: View {
                         HStack { Spacer(); ProgressView("正在加载"); Spacer() }.listRowSeparator(.hidden)
                     }
                 } else if isSearch && submittedQuery.isEmpty {
-                    ContentUnavailableView("搜索社区帖子", systemImage: "magnifyingglass", description: Text("输入标题或关键词。"))
+                    ContentUnavailableView("搜索社区帖子", image: .inkSearchPosts, description: Text("输入标题或关键词。"))
                         .listRowSeparator(.hidden)
                 } else if hasNextPage && error == nil && loadedKey == firstPageKey && loadedRefreshID == refreshID {
                     LoadMoreRow(error: nextPageError) {
@@ -231,10 +231,10 @@ struct FeedView: View {
                     .id(page)
                 } else if posts.isEmpty && pinnedPosts.isEmpty && error == nil {
                     if recommended {
-                        ContentUnavailableView("暂无推荐阅读", systemImage: "rosette", description: Text("下拉刷新以重新获取社区精选主题。"))
+                        ContentUnavailableView("暂无推荐阅读", image: .inkFeatured, description: Text("下拉刷新以重新获取社区精选主题。"))
                             .listRowSeparator(.hidden)
                     } else {
-                        ContentUnavailableView("没有找到帖子", systemImage: "magnifyingglass", description: Text("换个关键词，或浏览其他版块。"))
+                        ContentUnavailableView("没有找到帖子", image: .inkNoMatchingPosts, description: Text("换个关键词，或浏览其他版块。"))
                             .listRowSeparator(.hidden)
                     }
                 }
@@ -305,14 +305,14 @@ struct FeedView: View {
             .postTransitionSource(post)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .contextMenu {
-                Button("阅读全文", systemImage: "doc.text") { selectPost(post) }
+                Button("阅读全文", image: .inkReadPost) { selectPost(post) }
                 if let id = post.authorID {
                     Button { openMember(.profile(id)) } label: {
-                        Label("查看作者主页", systemImage: "person.crop.circle")
+                        Label("查看作者主页", image: .inkProfile)
                     }
                 }
                 collectionButton(for: post.id)
-                ShareLink(item: post.url)
+                ShareLink(item: post.url) { Label("分享帖子", image: .inkSharePost) }
             } preview: {
                 PostPreview(post: post)
                     .environment(account)
@@ -321,7 +321,7 @@ struct FeedView: View {
 
     private func collectionButton(for postID: Int) -> some View {
         let isCollected = account.collections.status(postID) == true
-        return Button(isCollected ? "取消收藏" : "收藏", systemImage: isCollected ? "bookmark.slash" : "bookmark") {
+        return Button(isCollected ? "取消收藏" : "收藏", image: isCollected ? .inkUnsavePost : .inkSavePost) {
             Task { await setCollection(!isCollected, for: postID) }
         }
         .disabled(account.collections.updating.contains(postID))
@@ -376,14 +376,14 @@ struct FeedView: View {
     }
 
     private var macComposeItem: MacToolbarItem {
-        MacToolbarItem(id: MacToolbarItem.composeID, label: "发布帖子", systemImage: "square.and.pencil",
+        MacToolbarItem(id: MacToolbarItem.composeID, label: "发布帖子", image: .inkComposePost,
                        isEnabled: !openingNewPost) { openingNewPost = true }
     }
 
     private var macSearchItem: MacToolbarItem {
         // Beside the sidebar the field sits alone over the list, so it spans the cards below it.
         let cardWidth = min(listWidth - 2 * SeekLayout.gutter, SeekLayout.readableWidth)
-        return MacToolbarItem(id: "search", label: "搜索帖子", systemImage: "magnifyingglass",
+        return MacToolbarItem(id: "search", label: "搜索帖子", image: .inkSearchPosts,
                               kind: .search(prompt: "搜索帖子", text: query),
                               width: showsMacSidebar && cardWidth > 0 ? cardWidth.rounded() : nil,
                               action: submitSearch, onTextChange: { query = $0 })
@@ -398,10 +398,10 @@ struct FeedView: View {
             })
         }
         sections.append(categories.items.map { item in
-            MacToolbarMenuEntry(id: "category.\(item.id)", title: item.title, systemImage: item.symbol,
+            MacToolbarMenuEntry(id: "category.\(item.id)", title: item.title, image: item.inkIcon,
                                 isOn: category == item.id) { category = item.id }
         })
-        return MacToolbarItem(id: "category", label: "选择版块，当前\(categoryTitle)", systemImage: "line.3.horizontal.decrease",
+        return MacToolbarItem(id: "category", label: "选择版块，当前\(categoryTitle)", image: .inkFilter,
                               kind: .menu(title: categoryTitle, sections: sections))
     }
 
@@ -410,8 +410,8 @@ struct FeedView: View {
         return Button {
             openingNewPost = true
         } label: {
-            FeedSearchSymbol(alternate: .add, progress: 1)
-                .stroke(style: StrokeStyle(lineWidth: size * 0.095, lineCap: .round, lineJoin: .round))
+            Image(.inkComposePost)
+                .resizable().scaledToFit()
                 .frame(width: size, height: size)
                 .foregroundStyle(.white)
                 .frame(width: 48, height: 48)

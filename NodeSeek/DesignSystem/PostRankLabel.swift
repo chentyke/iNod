@@ -9,7 +9,7 @@ struct PostRankLabel: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "lock").imageScale(.small).accessibilityHidden(true)
+            Image(.inkReadPermission).imageScale(.small).accessibilityHidden(true)
             Text(Self.title(for: rank))
         }
         .foregroundStyle(.secondary)

@@ -99,14 +99,14 @@ struct PostMetadata: View {
 
     private func counts(spacing: CGFloat) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: spacing) {
-            stat(post.replies, systemImage: "bubble.left")
-            if post.views > 0 { stat(post.views, systemImage: "eye") }
+            stat(post.replies, image: .inkReplyCount)
+            if post.views > 0 { stat(post.views, image: .inkReadCount) }
         }
     }
 
-    private func stat(_ value: Int, systemImage: String) -> some View {
+    private func stat(_ value: Int, image: ImageResource) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: systemImage).imageScale(.small)
+            Image(image).imageScale(.small)
             Text(value, format: .number.notation(.compactName)).monospacedDigit()
         }
         .lineLimit(1).fixedSize()
