@@ -31,6 +31,20 @@ IPA 安装前需要自行签名。Mac 版只有临时签名（ad-hoc），没有
 
 只想打包时，取消勾选 **Create a GitHub Release draft**，在这次运行的 **Artifacts** 下载文件。即使这个版本已有标签，也可以用这种方式重新打包。
 
+### Mac 自动更新
+
+Mac 版每天检查一次 GitHub 上最新的正式版本，有新版本时会自动下载。也可以从 **iNod → 检查更新…** 手动检查。更新包通过签名检查后，点 **重启并安装** 才会替换旧版。第一次需要从 DMG 手动安装带有更新功能的版本。
+
+首次启用 App 内安装时，生成一份专用的 Ed25519 签名私钥。安全备份后，把它存为仓库的 Actions Secret `MAC_UPDATE_PRIVATE_KEY`。以下命令会直接把生成的私钥写入只有当前用户能读的文件。
+
+```sh
+key_file=$(mktemp "$HOME/iNod-update-key.XXXXXX")
+xcrun swift scripts/sign-mac-update.swift generate-key > "$key_file"
+gh secret set MAC_UPDATE_PRIVATE_KEY < "$key_file"
+```
+
+把生成的文件存到安全的地方，后续发布继续使用同一份密钥。打包流程会把对应的公钥放进 Mac App，并将更新用的 ZIP 和 `.ed25519` 签名一起加进 Release。没有配置这个 Secret 时，Mac 版发现新版本后可前往 GitHub 下载页。
+
 ## 在本机运行
 
 在仓库根目录执行。网页检查需要 Node.js。

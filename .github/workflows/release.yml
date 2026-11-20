@@ -66,6 +66,7 @@ jobs:
         id: mac
         env:
           TAG: ${{ steps.package.outputs.tag }}
+          MAC_UPDATE_PRIVATE_KEY: ${{ secrets.MAC_UPDATE_PRIVATE_KEY }}
         run: |
           app="$RUNNER_TEMP/iNod-mac.xcarchive/Products/Applications/NodeSeek.app"
           version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist")
@@ -83,6 +84,11 @@ jobs:
           package="iNod-$TAG-mac.dmg"
           mkdir -p "$RUNNER_TEMP/dmg"
           ditto --noqtn --norsrc "$app" "$RUNNER_TEMP/dmg/iNod.app"
+          if [[ -n "$MAC_UPDATE_PRIVATE_KEY" ]]; then
+            update="iNod-$TAG-mac-update.zip"
+            bash scripts/package-mac-updater.sh "$RUNNER_TEMP/dmg/iNod.app" "$RUNNER_TEMP/release/$update"
+            printf 'update=%s\n' "$update" >> "$GITHUB_OUTPUT"
+          fi
           ln -s /Applications "$RUNNER_TEMP/dmg/Applications"
           cd "$RUNNER_TEMP/release"
           hdiutil create -volname "iNod ${TAG#v}" -srcfolder "$RUNNER_TEMP/dmg" -fs HFS+ -format UDZO "$package"
@@ -104,6 +110,7 @@ jobs:
           TAG: ${{ steps.package.outputs.tag }}
           PACKAGE: ${{ steps.package.outputs.package }}
           MAC_PACKAGE: ${{ steps.mac.outputs.package }}
+          MAC_UPDATE: ${{ steps.mac.outputs.update }}
         run: |
           tag_ref=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" \
             --jq ".[] | select(.ref == \"refs/tags/$TAG\") | .ref")
@@ -117,7 +124,11 @@ jobs:
             echo "::error::A release or draft already exists for $TAG."
             exit 1
           fi
-          gh release create "$TAG" "$PACKAGE" "$PACKAGE.sha256" "$MAC_PACKAGE" "$MAC_PACKAGE.sha256" \
+          assets=("$PACKAGE" "$PACKAGE.sha256" "$MAC_PACKAGE" "$MAC_PACKAGE.sha256")
+          if [[ -n "$MAC_UPDATE" ]]; then
+            assets+=("$MAC_UPDATE" "$MAC_UPDATE.ed25519")
+          fi
+          gh release create "$TAG" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft \
             --title "iNod $TAG" --generate-notes --notes-file - <<'NOTES'
           ## 安装
