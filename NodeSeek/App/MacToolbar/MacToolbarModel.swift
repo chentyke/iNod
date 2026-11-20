@@ -169,38 +169,7 @@ extension View {
     }
 }
 
-extension View {
-    /// Fades a scroll view's content out beneath the Mac window toolbar. Under the toolbar the system's scroll edge
-    /// is a hard-edged band, which looked like a second bar over each column.
-    func fadesUnderMacToolbar() -> some View {
-        #if targetEnvironment(macCatalyst)
-        modifier(MacToolbarFade())
-        #else
-        self
-        #endif
-    }
-}
-
 #if targetEnvironment(macCatalyst)
-private struct MacToolbarFade: ViewModifier {
-    @State private var toolbarHeight: CGFloat = 0
-
-    func body(content: Content) -> some View {
-        content
-            .scrollEdgeEffectHidden(true, for: .top)
-            .mask {
-                // Clear under the toolbar's buttons, then fade in over the gap above the first card.
-                VStack(spacing: 0) {
-                    Color.clear.frame(height: max(0, toolbarHeight - 16))
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 24)
-                    Color.black
-                }
-                .ignoresSafeArea()
-            }
-            .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { toolbarHeight = $0 }
-    }
-}
-
 private struct MacToolbarRegistrationModifier: ViewModifier {
     let section: MacToolbarSection
     let items: [MacToolbarItem]
