@@ -3,8 +3,7 @@ import NodeSeekCore
 import SwiftUI
 import UIKit
 
-/// Root of the community tab: side-by-side feed and thread panes on wide iPad and Mac windows,
-/// falling back to a single zoom-push stack on iPhone and narrow windows.
+/// The community feed and its reader share the same selection across display sizes.
 struct CommunityRootView: View {
     @Environment(AccountSession.self) private var account
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -14,8 +13,10 @@ struct CommunityRootView: View {
     @State private var selectedPost: PostSummary?
     @State private var detailPath = NavigationPath()
     @State private var compactPath = NavigationPath()
+    @State private var hasHinge = false
+    @State private var compactColumn = NavigationSplitViewColumn.sidebar
 
-    private var supportsSplit: Bool {
+    private var usesTabletLayout: Bool {
         #if targetEnvironment(macCatalyst)
         // Like Mail: list and reader side by side, so opening a post never covers the list.
         true
@@ -25,7 +26,17 @@ struct CommunityRootView: View {
     }
 
     var body: some View {
-        if supportsSplit {
+        community
+            .onChange(of: account.user?.id) { previous, current in
+                if previous != nil, previous != current {
+                    select(nil)
+                    compactPath = NavigationPath()
+                }
+            }
+    }
+
+    @ViewBuilder private var community: some View {
+        if usesTabletLayout {
             GeometryReader { proxy in
                 let usesSplit = SeekLayout.usesFeedSplit(
                     forWidth: proxy.size.width,
@@ -49,44 +60,41 @@ struct CommunityRootView: View {
                 }
             }
             .onChange(of: tabPlacement == .topBar, initial: true) { _, visible in showsTopTabs = visible }
-            .onChange(of: account.user?.id) { previous, current in
-                if previous != nil, previous != current {
-                    selectedPost = nil
-                    detailPath = NavigationPath()
-                    compactPath = NavigationPath()
+        } else if #available(iOS 27.1, *) {
+            Group {
+                if hasHinge {
+                    NavigationSplitView(preferredCompactColumn: $compactColumn) {
+                        splitFeed
+                    } detail: {
+                        splitReader
+                    }
+                    .navigationSplitViewStyle(.balanced)
+                    .onChange(of: detailPath.isEmpty) { _, isEmpty in
+                        if isEmpty, selectedPost == nil { compactColumn = .sidebar }
+                    }
+                    .environment(\.keepsTabBarVisible, horizontalSizeClass == .regular)
+                } else {
+                    compactLayout
                 }
             }
-        } else {
-            ForumNavigationStack(restoresTabBarDuringZoom: true) {
-                FeedView()
+            // Keep the native split view mounted on both displays so its navigation survives folding.
+            .onHingeChange(isEnabled: !hasHinge) { _, context in
+                if context.hinge != nil { hasHinge = true }
             }
+        } else {
+            compactLayout
         }
     }
 
     private func splitLayout(totalWidth: CGFloat) -> some View {
         let feedWidth = SeekLayout.feedPaneWidth(forTotalWidth: totalWidth)
         return HStack(spacing: 0) {
-            FeedView(selectedPostID: selectedPost?.id)
+            splitFeed
                 .safeAreaPadding(.top, sharedTabRow?.topInset ?? 0)
                 .ignoresSafeArea(.container, edges: sharedTabRow == nil ? [] : .top)
                 .frame(width: feedWidth)
-                // The reader background can extend under the list when its edge meets the tab bar inset.
+                // Keep the list above the reader background near the iPad tab bar.
                 .zIndex(sharedTabRow == nil ? 0 : 1)
-                .tint(Color.seekGreen)
-                .environment(\.openPost, PostNavigationAction { post in
-                    selectedPost = post
-                    detailPath = NavigationPath()
-                })
-                .environment(\.openMemberDestination, MemberNavigationAction { destination in
-                    detailPath.append(destination)
-                })
-                .environment(\.openAccountPost, AccountPostNavigationAction { post in
-                    detailPath.append(post)
-                })
-                .environment(\.openAccountDestination, AccountNavigationAction { destination in
-                    detailPath.append(destination)
-                })
-                .environment(\.openURL, detailOpenURLAction)
 
             Rectangle()
                 .fill(Color.seekHairline.opacity(0.65))
@@ -94,28 +102,46 @@ struct CommunityRootView: View {
                 .ignoresSafeArea(edges: .bottom)
                 .accessibilityHidden(true)
 
-            ForumNavigationStack(path: $detailPath) {
-                if let post = selectedPost {
-                    ThreadView(
-                        post: post,
-                        presentation: .splitDetail,
-                        sharedTabRow: sharedTabRow,
-                        onClose: {
-                            selectedPost = nil
-                            detailPath = NavigationPath()
-                        }
-                    )
-                    .id(post.id)
-                } else {
-                    FeedDetailPlaceholder()
-                }
-            }
-            .environment(\.suppressesCanvasGlow, true)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            splitReader
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(SeekCanvas())
         .environment(\.keepsTabBarVisible, true)
         .toolbarVisibility(.visible, for: .tabBar)
+    }
+
+    private var splitFeed: some View {
+        FeedView(selectedPostID: selectedPost?.id)
+            .tint(Color.seekGreen)
+            .environment(\.openPost, PostNavigationAction { select($0) })
+            .environment(\.openMemberDestination, MemberNavigationAction { push($0) })
+            .environment(\.openAccountPost, AccountPostNavigationAction { push($0) })
+            .environment(\.openAccountDestination, AccountNavigationAction { push($0) })
+            .environment(\.openURL, detailOpenURLAction)
+    }
+
+    private var splitReader: some View {
+        ForumNavigationStack(path: $detailPath) {
+            if let post = selectedPost {
+                ThreadView(post: post, presentation: .splitDetail, sharedTabRow: sharedTabRow,
+                           onClose: { select(nil) })
+                    .id(post.id)
+            } else {
+                FeedDetailPlaceholder()
+            }
+        }
+        .environment(\.suppressesCanvasGlow, true)
+    }
+
+    private func select(_ post: PostSummary?) {
+        selectedPost = post
+        detailPath = NavigationPath()
+        compactColumn = post == nil ? .sidebar : .detail
+    }
+
+    private func push(_ destination: some Hashable) {
+        detailPath.append(destination)
+        compactColumn = .detail
     }
 
     private var compactLayout: some View {
@@ -145,11 +171,10 @@ struct CommunityRootView: View {
         OpenURLAction { url in
             switch ForumLink.parse(url.absoluteString) {
             case .native(.post(let address)) where address.page <= 1 && address.floor == nil:
-                selectedPost = address.summary
-                detailPath = NavigationPath()
+                select(address.summary)
                 return .handled
             case .native(let destination):
-                detailPath.append(destination)
+                push(destination)
                 return .handled
             case .website(let url):
                 return .systemAction(url)
@@ -171,12 +196,11 @@ private struct FeedDetailPlaceholder: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .accessibilityIdentifier("feed-detail-placeholder")
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(SeekCanvas())
         .toolbar(.hidden, for: .navigationBar)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("feed-detail-placeholder")
     }
 }

@@ -4,7 +4,7 @@ import XCTest
 final class RapidPostReturnTests: XCTestCase {
     func testCanReturnFromAPostByTappingBackOrSwipingDown() {
         continueAfterFailure = false
-        let opening = "这个周末下午两点读书。"
+        let opening = "周六下午两点开始读书。"
         let app = ForumFixture.launch(openingMarkdown: opening)
 
         let card = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
@@ -12,10 +12,14 @@ final class RapidPostReturnTests: XCTestCase {
         let body = app.staticTexts[opening]
         XCTAssertTrue(card.waitForExistence(timeout: 8))
 
+        let isSplit = ForumFixture.element("feed-detail-placeholder", in: app).exists
+        let community = ForumFixture.tab("社区", in: app)
+        let account = ForumFixture.tab("我的", in: app)
+        let hasSideTabs = UIDevice.current.userInterfaceIdiom == .phone && community.frame.maxY <= account.frame.minY
         card.tap()
-        if UIDevice.current.userInterfaceIdiom == .pad {
+        if isSplit {
             XCTAssertTrue(body.waitForExistence(timeout: 5))
-            XCTAssertTrue(card.isHittable, "The feed card stays reachable beside the open thread on iPad.")
+            XCTAssertTrue(card.isHittable, "The feed card stays reachable beside the open thread.")
             let more = app.buttons["更多"]
             XCTAssertTrue(more.waitForExistence(timeout: 5))
             more.tap()
@@ -28,9 +32,22 @@ final class RapidPostReturnTests: XCTestCase {
             return
         }
         XCTAssertTrue(back.wait(for: \.isHittable, toEqual: true, timeout: 5))
+        if hasSideTabs {
+            XCTAssertGreaterThan(back.frame.minX, app.buttons["更多"].frame.maxX)
+            XCTAssertEqual(back.frame.midX, community.frame.midX, accuracy: 3)
+            let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+            screenshot.name = "Folded thread"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
         back.tap()
         XCTAssertTrue(card.wait(for: \.isHittable, toEqual: true, timeout: 5))
         XCTAssertFalse(back.exists)
+        XCTAssertFalse(body.exists)
+        if hasSideTabs {
+            XCTAssertFalse(card.isSelected)
+            return
+        }
 
         card.tap()
         XCTAssertTrue(body.waitForExistence(timeout: 5))

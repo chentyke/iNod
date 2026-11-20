@@ -17,6 +17,7 @@ struct ThreadView: View {
     private let sharedTabRow: ReaderTabRow?
     private let onClose: (() -> Void)?
     @Environment(AccountSession.self) private var account
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.openMemberDestination) private var openMember
@@ -73,6 +74,7 @@ struct ThreadView: View {
         #endif
     }
     private var usesFloatingTopBar: Bool { !usesMacToolbar && (presentation == .zoom || presentation == .splitDetail) }
+    private var showsCollapsedBackButton: Bool { presentation == .splitDetail && horizontalSizeClass == .compact }
     private var usesNavigationBar: Bool { !usesMacToolbar && !usesFloatingTopBar }
 
     init(
@@ -194,7 +196,8 @@ struct ThreadView: View {
         .id(page)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarVisibility(usesNavigationBar ? .visible : .hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(showsCollapsedBackButton)
+        .toolbarVisibility(usesNavigationBar || showsCollapsedBackButton ? .visible : .hidden, for: .navigationBar)
         .macToolbar(.leading, items: presentation == .splitDetail ? [] : [
             MacToolbarItem(id: "back", label: "返回", image: .inkBack, isNavigational: true) { dismiss() }
         ])
@@ -255,7 +258,12 @@ struct ThreadView: View {
             }
         }
         .toolbar {
-            if usesNavigationBar {
+            if showsCollapsedBackButton, let onClose {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("返回", image: .inkBack, action: onClose)
+                        .tint(.primary)
+                }
+            } else if usesNavigationBar {
                 ToolbarItem(placement: .topBarLeading) {
                     ThreadAuthorBar(post: post, detail: detail)
                 }
