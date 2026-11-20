@@ -26,10 +26,13 @@ extension SiteDataStore {
         try await self.document(document.url, extraction: document.extraction, force: force)
     }
 
-    public func perform<Value: Decodable>(_ action: WebsiteAction, userID: Int) async throws -> Value {
+    public func perform<Value: Decodable>(_ action: WebsiteAction, userID: Int, affectedPostID: Int? = nil) async throws -> Value {
         let request = action.request
-        return try await perform(path: request.path, body: request.body.isEmpty ? nil : request.body,
-                                 userID: userID, headers: request.headers, changesData: request.changesData)
+        return try await write(path: request.path, userID: userID, postID: request.body["postId"] as? Int ?? affectedPostID,
+                               changesData: request.changesData) {
+            try await self.reader.json(path: request.path, method: "POST", body: request.body.isEmpty ? nil : request.body,
+                                       userID: userID, headers: request.headers)
+        }
     }
 
     public func update(_ action: WebsiteAction, userID: Int) async throws -> ReactionResponse {
@@ -89,7 +92,7 @@ extension SiteDataStore {
         guard let signedInUser = authentication.user else { throw SiteError.message("登录已过期，请在官网登录后重试。") }
         if let userID, signedInUser.id != userID { throw CancellationError() }
         let result = try await reader.react(commentID: commentID, reaction: reaction, userID: signedInUser.id)
-        invalidateThread(id: postID)
+        await invalidateThread(id: postID, userID: signedInUser.id)
         return result
     }
 }

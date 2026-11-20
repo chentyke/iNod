@@ -386,7 +386,7 @@ struct ForumEditorView: View {
             if request.mode == .newPost, !categories.items.contains(where: { $0.id == draft.category && !$0.adminOnly }) {
                 throw SiteError.message("这个版块已不能发帖，请重新选择版块。")
             }
-            let result: ReactionResponse = try await account.website.perform(.publish(draft: storedDraft, mode: request.mode), userID: ownerID)
+            let result: ReactionResponse = try await account.website.perform(.publish(draft: storedDraft, mode: request.mode), userID: ownerID, affectedPostID: request.affectedPostID)
             guard result.success else { throw SiteError.message(result.message ?? "提交未成功，请重试。") }
             published = true
             EditorDraftStore.save(nil, ownerID: ownerID, mode: request.mode)

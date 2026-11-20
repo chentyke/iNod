@@ -5,7 +5,7 @@ import SwiftUI
 struct HomepageSettingsView: View {
     let userID: Int
     @Environment(AccountSession.self) private var account
-    @State private var loader = AccountLoader<AccountPage<HomepageCategory>>()
+    @State private var loader = ResourceLoader<AccountPage<HomepageCategory>>()
     @State private var categories: [HomepageCategory] = []
     @State private var baselineCategories: [HomepageCategory] = []
     @State private var saved = false
@@ -65,17 +65,17 @@ struct HomepageSettingsView: View {
             }
             .seekGroupedList()
             .contentMargins(.top, 12, for: .scrollContent)
-            .disabled(loader.isUpdating)
+            .disabled(loader.updating)
         }
         .navigationTitle("首页版块")
-        .interactiveDismissDisabled(loader.isUpdating)
+        .interactiveDismissDisabled(loader.updating)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button(loader.isUpdating ? "保存中…" : "保存") {
+                Button(loader.updating ? "保存中…" : "保存") {
                     Task { await save() }
                 }
                 .fontWeight(.semibold)
-                .disabled(loader.value == nil || loader.isUpdating || !hasChanges)
+                .disabled(loader.value == nil || loader.updating || !hasChanges)
                 .accessibilityIdentifier("homepage-save-button")
             }
         }

@@ -11,6 +11,7 @@ public final class SiteDataStore {
     private var cache = ResponseCache<SiteRequestKey>()
     /// Feed and thread pages from earlier launches, shown while fresh ones load.
     private let disk: PersistentResponseStore?
+    private let defaults: UserDefaults
     private static let persistedKinds: Set<String> = ["feed", "thread"]
     private static let accountDefaultsKey = "SiteDataStore.persistedAccount"
     @MainActor
@@ -32,13 +33,15 @@ public final class SiteDataStore {
     private var identityRevision = 0
 
     init(
-        persistsResponses: Bool = true,
+        disk: PersistentResponseStore? = PersistentResponseStore(),
+        defaults: UserDefaults = .standard,
         loadAuthentication: (@MainActor () async throws -> AuthenticationSnapshot)? = nil
     ) {
-        let reader = SiteReader(filtersBackgroundResources: true)
+        let reader = SiteReader()
         self.reader = reader
         self.loadAuthentication = loadAuthentication ?? { try await reader.account() }
-        disk = persistsResponses ? PersistentResponseStore() : nil
+        self.disk = disk
+        self.defaults = defaults
     }
 
     public var needsWebsite: Bool { reader.needsWebsite }
@@ -85,17 +88,17 @@ public final class SiteDataStore {
 
     /// The account saved pages belong to; 0 is stored for a guest.
     private var persistedAccount: Int? {
-        let id = UserDefaults.standard.integer(forKey: Self.accountDefaultsKey)
+        let id = defaults.integer(forKey: Self.accountDefaultsKey)
         return id == 0 ? nil : id
     }
 
     /// Saved pages belong to one account; a different account starts with none.
     private func persistAccount(_ userID: Int?) {
         guard let disk else { return }
-        let stored = UserDefaults.standard.object(forKey: Self.accountDefaultsKey) as? Int
+        let stored = defaults.object(forKey: Self.accountDefaultsKey) as? Int
         guard stored != (userID ?? 0) else { return }
         disk.removeAll()
-        UserDefaults.standard.set(userID ?? 0, forKey: Self.accountDefaultsKey)
+        defaults.set(userID ?? 0, forKey: Self.accountDefaultsKey)
     }
 
     func requestKey(kind: String, path: String) -> SiteRequestKey {
@@ -132,26 +135,6 @@ public final class SiteDataStore {
         }
     }
 
-    func perform<Value: Decodable>(path: String, body: [String: Any]? = nil, userID: Int, headers: [String: String] = [:], changesData: Bool = true) async throws -> Value {
-        let revision = identityRevision
-        let auth = try await bootstrap()
-        guard revision == identityRevision, auth.user?.id == userID else { throw CancellationError() }
-        #if DEBUG
-        if let responsesForUITests {
-            guard let data = responsesForUITests["POST \(path)"] ?? responsesForUITests[path] else {
-                throw SiteError.message("Missing UI test response for POST \(path)")
-            }
-            let result = try JSONDecoder().decode(Value.self, from: data)
-            if changesData { invalidate(after: path, userID: userID, postID: body?["postId"] as? Int) }
-            return result
-        }
-        #endif
-        let result: Value = try await reader.json(path: path, method: "POST", body: body, userID: userID, headers: headers)
-        guard revision == identityRevision else { throw CancellationError() }
-        if changesData { invalidate(after: path, userID: userID, postID: body?["postId"] as? Int) }
-        return result
-    }
-
     public func publicResource<Value: Decodable>(_ resource: AccountResource, force: Bool = false) async throws -> Value {
         guard resource.isPublic else { throw SiteError.invalidResponse }
         let auth = try await authenticationForRead()
@@ -172,7 +155,7 @@ public final class SiteDataStore {
             }
         } catch let error as PostAccessError {
             try Task.checkCancellation()
-            removeCachedThread(id: id, for: key)
+            await removeCachedThread(id: id, for: key)
             throw error
         } catch SiteError.httpStatus(404) {
             try Task.checkCancellation()
@@ -180,19 +163,13 @@ public final class SiteDataStore {
             guard let summary, summary.id == id, let access = PostAccessError.forMissingPost(summary, authentication: auth) else {
                 throw SiteError.httpStatus(404)
             }
-            removeCachedThread(id: id, for: key)
+            await removeCachedThread(id: id, for: key)
             throw access
         }
     }
 
-    private func removeCachedThread(id: Int, for request: SiteRequestKey) {
-        let matchesThread: (SiteRequestKey) -> Bool = { key in
-            key.userID == request.userID && key.kind.hasPrefix("thread")
-                && URL(string: key.path)?.path.hasPrefix("/post-\(id)-") == true
-        }
-        invalidate { $0 != request && matchesThread($0) }
-        cache.remove(request)
-        disk?.remove { matchesThread(SiteRequestKey(userID: $0.owner, kind: $0.kind, path: $0.path)) }
+    private func removeCachedThread(id: Int, for request: SiteRequestKey) async {
+        await invalidate(keepingRequest: request) { $0.userID == request.userID && $0.isThread(id) }
     }
 
     public func feed(_ route: NodeSeekRoute,includeBlocked: Bool = false, force: Bool = false) async throws -> FeedPage {
@@ -223,43 +200,63 @@ public final class SiteDataStore {
     }
 
     func action(path: String, body: [String: Any], userID: Int, headers: [String: String], messagePeerID: Int? = nil) async throws -> ReactionResponse {
+        try await write(path: path, userID: userID, postID: body["postId"] as? Int, messagePeerID: messagePeerID) {
+            try await self.reader.accountAction(path: path, body: body, userID: userID, headers: headers)
+        }
+    }
+
+    func write<Value: Decodable>(path: String, userID: Int, postID: Int?, messagePeerID: Int? = nil,
+                                 changesData: Bool = true, send: () async throws -> Value) async throws -> Value {
         let revision = identityRevision
         let auth = try await bootstrap()
         guard revision == identityRevision, auth.user?.id == userID else { throw CancellationError() }
+        let result: Value
         #if DEBUG
         if let responsesForUITests {
             guard let data = responsesForUITests["POST \(path)"] ?? responsesForUITests[path] else {
                 throw SiteError.message("Missing UI test response for POST \(path)")
             }
-            let result = try JSONDecoder().decode(ReactionResponse.self, from: data)
-            invalidate(after: path, userID: userID, postID: body["postId"] as? Int, messagePeerID: messagePeerID)
-            return result
+            result = try JSONDecoder().decode(Value.self, from: data)
+        } else {
+            result = try await send()
         }
+        #else
+        result = try await send()
         #endif
-        let result = try await reader.accountAction(path: path, body: body, userID: userID, headers: headers)
         guard revision == identityRevision else { throw CancellationError() }
-        invalidate(after: path, userID: userID, postID: body["postId"] as? Int, messagePeerID: messagePeerID)
+        if changesData {
+            await invalidate(after: path, userID: userID, postID: postID, messagePeerID: messagePeerID)
+            guard revision == identityRevision else { throw CancellationError() }
+        }
         return result
     }
 
-    private func invalidate(after path: String, userID: Int, postID: Int?, messagePeerID: Int? = nil) {
+    private func invalidate(after path: String, userID: Int, postID: Int?, messagePeerID: Int? = nil) async {
         if path.hasPrefix("/api/notification/message/") {
             let conversationPath = messagePeerID.map { AccountResource.conversation($0).path }
-            invalidate { key in
+            await invalidate { key in
                 key.kind == "messages" || key.path == Self.unreadCountPath
                     || (key.kind == "conversation" && (conversationPath == nil || key.path == conversationPath))
             }
         } else if path.hasPrefix("/api/notification/") {
             let prefix = path.split(separator: "/").dropLast().joined(separator: "/")
-            invalidate { $0.path.hasPrefix("/\(prefix)/") || $0.path == Self.unreadCountPath }
+            await invalidate { $0.path.hasPrefix("/\(prefix)/") || $0.path == Self.unreadCountPath }
         } else if path.hasPrefix("/api/fans/") {
-            invalidate { $0.kind == "profile" || $0.path.hasPrefix("/api/fans/") }
+            await invalidate { $0.kind == "profile" || $0.path.hasPrefix("/api/fans/") }
         } else if path == "/api/statistics/collection", let postID {
-            invalidate { Self.collectionChangeAffects($0, userID: userID, postID: postID) }
+            await invalidate { Self.collectionChangeAffects($0, userID: userID, postID: postID) }
         } else if path.hasPrefix("/api/attendance") {
-            invalidate { ["attendance", "credit", "profile"].contains($0.kind) || $0.path.hasPrefix("/api/progress/") }
+            await invalidate { ["attendance", "credit", "profile"].contains($0.kind) || $0.path.hasPrefix("/api/progress/") }
         } else if path.hasPrefix("/api/content/") {
-            invalidate { $0.kind.hasPrefix("feed") || $0.kind.hasPrefix("thread") || ["topics", "replies", "collections", "credit", "profile"].contains($0.kind) || $0.path.hasPrefix("/api/progress/") || $0.path.hasPrefix("/api/content/") }
+            await invalidate { key in
+                guard key.userID == userID else { return false }
+                if key.kind.hasPrefix("thread") {
+                    if let postID { return key.isThread(postID) }
+                    return path != "/api/content/new-discussion"
+                }
+                return key.kind.hasPrefix("feed") || ["topics", "replies", "collections", "credit", "profile"].contains(key.kind)
+                    || key.path.hasPrefix("/api/progress/") || key.path.hasPrefix("/api/content/")
+            }
         } else {
             invalidate()
         }
@@ -268,20 +265,22 @@ public final class SiteDataStore {
     static func collectionChangeAffects(_ key: SiteRequestKey, userID: Int, postID: Int) -> Bool {
         guard key.userID == userID else { return false }
         return key.kind == AccountContentKind.collections.rawValue
-            || (key.kind.hasPrefix("thread") && URL(string: key.path)?.path.hasPrefix("/post-\(postID)-") == true)
+            || key.isThread(postID)
     }
 
-    func invalidateThread(id: Int) {
-        invalidate { key in
-            (key.kind.hasPrefix("thread") && URL(string: key.path)?.path.hasPrefix("/post-\(id)-") == true)
-                || ["credit", "profile"].contains(key.kind) || key.path.hasPrefix("/api/progress/")
+    func invalidateThread(id: Int, userID: Int) async {
+        await invalidate { key in
+            key.userID == userID && (key.isThread(id) || ["credit", "profile"].contains(key.kind) || key.path.hasPrefix("/api/progress/"))
         }
     }
 
-    private func invalidate(matching shouldRemove: (SiteRequestKey) -> Bool) {
+    private func invalidate(keepingRequest: SiteRequestKey? = nil, matching shouldRemove: (SiteRequestKey) -> Bool) async {
         cache.remove(where: shouldRemove)
-        for key in requests.keys.filter(shouldRemove) {
+        for key in requests.keys.filter(shouldRemove) where key != keepingRequest {
             requests.removeValue(forKey: key)?.task.cancel()
+        }
+        if let disk, disk.remove(where: { shouldRemove(SiteRequestKey(userID: $0.owner, kind: $0.kind, path: $0.path)) }) {
+            await disk.finishPendingWrites()
         }
     }
 

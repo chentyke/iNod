@@ -7,25 +7,31 @@ final class ResourceLoader<Value: Decodable> {
     var value: Value?
     var error: LoadFailure?
     private(set) var nextPageError: String?
-    var loading = false
+    private(set) var loading = false
     private(set) var isLoadingFirstPage = false
     var updating = false
     private var key: SiteRequestKey?
     private var operation = UUID()
     @discardableResult
-    func load(key: SiteRequestKey, cached: Value? = nil, appending merge: ((Value, Value) -> Value)? = nil, fetch: () async throws -> Value) async -> Value? {
+    func load(key: SiteRequestKey, cached: @autoclosure () -> Value? = nil,
+              appending merge: ((Value, Value) -> Value)? = nil, fetch: () async throws -> Value) async -> Value? {
         let previous = value
         if merge != nil {
-            guard previous != nil, !loading, !updating else { return nil }
+            guard previous != nil else { return nil }
             guard self.key?.userID == key.userID else {
+                operation = UUID()
+                loading = false
+                isLoadingFirstPage = false
+                nextPageError = nil
                 value = nil
                 error = LoadFailure(message: "登录账号已变化，请刷新页面。")
                 return nil
             }
+            guard !loading, !updating else { return nil }
         } else {
             if self.key != key { value = nil }
             self.key = key
-            if value == nil { value = cached }
+            if value == nil { value = cached() }
         }
         let id = UUID(); operation = id
         loading = true; error = nil; nextPageError = nil
@@ -55,7 +61,7 @@ final class ResourceLoader<Value: Decodable> {
     @discardableResult
     func load(_ website: SiteDataStore, _ resource: WebsiteResource, force: Bool = false, allowingStale: Bool = true, appending merge: ((Value, Value) -> Value)? = nil) async -> Value? {
         let key = website.key(for: resource)
-        return await load(key: key, cached: merge == nil ? website.cached(key: key, allowingStale: allowingStale) : nil, appending: merge) {
+        return await load(key: key, cached: website.cached(key: key, allowingStale: allowingStale), appending: merge) {
             try await website.load(resource, force: force)
         }
     }

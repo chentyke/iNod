@@ -5,4 +5,5 @@ struct EditorRequest: Identifiable {
     let id = UUID()
     let mode: EditorMode
     let seed: EditorDraft
+    var affectedPostID: Int? = nil
 }

@@ -7,7 +7,7 @@ struct BlockedMembersView: View {
     @Environment(\.openMemberDestination) private var openMember
     @Environment(\.dynamicTypeSize) private var typeSize
     let userID: Int
-    @State private var loader = AccountLoader<AccountPage<BlockedMember>>()
+    @State private var loader = ResourceLoader<AccountPage<BlockedMember>>()
     @State private var name = ""
     @State private var pendingUnblock: BlockedMember?
     @State private var isAdding = false
@@ -24,7 +24,7 @@ struct BlockedMembersView: View {
     }
 
     private var canAdd: Bool {
-        normalizedInput != nil && !isDuplicateInput && !loader.isUpdating
+        normalizedInput != nil && !isDuplicateInput && !loader.updating
     }
 
     var body: some View {
@@ -72,7 +72,7 @@ struct BlockedMembersView: View {
                         BlockedMemberRow(
                             member: member,
                             isRemoving: removingID == member.id,
-                            isDisabled: loader.isUpdating
+                            isDisabled: loader.updating
                         ) {
                             pendingUnblock = member
                         }
@@ -88,7 +88,7 @@ struct BlockedMembersView: View {
                             Button("解除") {
                                 pendingUnblock = member
                             }
-                            .disabled(loader.isUpdating)
+                            .disabled(loader.updating)
                         }
                         .settingsRowStyle()
                     }
@@ -138,7 +138,7 @@ struct BlockedMembersView: View {
                     guard canAdd else { return }
                     Task { await add() }
                 }
-                .disabled(loader.isUpdating)
+                .disabled(loader.updating)
                 .accessibilityIdentifier("blocked-members-input")
         }
     }
@@ -162,7 +162,7 @@ struct BlockedMembersView: View {
     }
 
     private func add() async {
-        guard let value = normalizedInput, !isDuplicateInput, !loader.isUpdating else { return }
+        guard let value = normalizedInput, !isDuplicateInput, !loader.updating else { return }
         isAdding = true
         defer { isAdding = false }
         if await loader.action(account.website, .block(name: value), userID: userID) != nil {
@@ -172,7 +172,7 @@ struct BlockedMembersView: View {
     }
 
     private func remove(_ id: Int) async {
-        guard !loader.isUpdating else { return }
+        guard !loader.updating else { return }
         removingID = id
         defer { removingID = nil }
         if await loader.action(account.website, .unblock(memberID: id), userID: userID) != nil {
