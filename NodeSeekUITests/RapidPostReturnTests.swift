@@ -9,7 +9,7 @@ final class RapidPostReturnTests: XCTestCase {
 
         let card = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
         let back = app.buttons["返回"]
-        let body = app.staticTexts[opening]
+        let body = ForumFixture.threadText(opening, in: app)
         XCTAssertTrue(card.waitForExistence(timeout: 8))
 
         card.tap()

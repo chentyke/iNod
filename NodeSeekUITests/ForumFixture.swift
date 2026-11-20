@@ -15,10 +15,12 @@ enum ForumFixture {
     @MainActor static func launch(dark: Bool = false, opensThread: Bool = false, opensSidebar: Bool = false,
                                   opensConversation: Bool = false, signedInAsAuthor: Bool = false,
                                   authorID: Int = 101, openingMarkdown: String = "周六下午两点开始读书。",
-                                  assetResponses: [String: Data] = [:], replyDraft: String? = nil) -> XCUIApplication {
+                                  firstReplyMarkdown: String? = nil, assetResponses: [String: Data] = [:],
+                                  replyDraft: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor, authorID: authorID,
-                                                                    openingMarkdown: openingMarkdown, assetResponses: assetResponses, replyDraft: replyDraft)
+                                                                    openingMarkdown: openingMarkdown, firstReplyMarkdown: firstReplyMarkdown,
+                                                                    assetResponses: assetResponses, replyDraft: replyDraft)
         if opensThread { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "\(threadID)" }
         if opensSidebar { app.launchArguments.append("--ui-test-open-sidebar") }
         if opensConversation { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_CONVERSATION"] = "\(peerID):\(peerName)" }
@@ -94,6 +96,11 @@ enum ForumFixture {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
+    @MainActor static func threadText(_ text: String, in scope: XCUIElement) -> XCUIElement {
+        scope.descendants(matching: .any).matching(identifier: "post-selectable-text").matching(NSPredicate(
+            format: "value == %@ OR value BEGINSWITH %@ OR label == %@", text, text + "\n", text)).firstMatch
+    }
+
     /// A page or sheet's title bar. iOS reports it as a navigation bar; the Mac may report it as a toolbar.
     @MainActor static func title(_ title: String, in app: XCUIApplication) -> XCUIElement {
         let bars = [XCUIElement.ElementType.navigationBar, .toolbar].map(\.rawValue)
@@ -146,7 +153,8 @@ enum ForumFixture {
         return high - low
     }
 
-    private static func json(signedInAsAuthor: Bool, authorID: Int, openingMarkdown: String, assetResponses: [String: Data], replyDraft: String?) throws -> String {
+    private static func json(signedInAsAuthor: Bool, authorID: Int, openingMarkdown: String, firstReplyMarkdown: String?,
+                             assetResponses: [String: Data], replyDraft: String?) throws -> String {
         let author: [String: Any] = ["uid": authorID, "name": "楼主"]
         let reader: [String: Any] = ["uid": 102, "name": "读者"]
         func post(_ id: Int, _ title: String) -> [String: Any] {
@@ -154,8 +162,13 @@ enum ForumFixture {
              "categoryKey": "daily", "views": 100, "replies": 6, "activityDate": timestamp, "pinned": false]
         }
         let replies: [[String: Any]] = (0...6).map { floor in
-            ["commentId": 500 + floor, "floorIndex": floor, "poster": floor == 0 ? author : reader,
-             "time": ["createdDate": timestamp], "markdown": floor == 0 ? openingMarkdown : "第 \(floor) 楼：一起读。",
+            let markdown = switch floor {
+            case 0: openingMarkdown
+            case 1: firstReplyMarkdown ?? "第 1 楼：一起读。"
+            default: "第 \(floor) 楼：一起读。"
+            }
+            return ["commentId": 500 + floor, "floorIndex": floor, "poster": floor == 0 ? author : reader,
+             "time": ["createdDate": timestamp], "markdown": markdown,
              "likeCount": 0, "upvoteCount": 0, "blocked": false]
         }
         let posts = [post(threadID, threadTitle)] + (1...8).map { post(200 + $0, $0 == 1 ? announcementTitle : "读书笔记第 \($0) 篇") }

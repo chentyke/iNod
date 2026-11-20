@@ -103,7 +103,7 @@ final class CommunitySectionViewTests: XCTestCase {
         attachScreenshot(of: app, named: "after-ruling-detail-light")
 
         detailPost.tap()
-        XCTAssertTrue(app.staticTexts["第 3 楼：感谢分享详细配置。"].waitForExistence(timeout: 5))
+        XCTAssertTrue(ForumFixture.threadText("第 3 楼：感谢分享详细配置。", in: app).waitForExistence(timeout: 5))
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(ForumFixture.title("记录详情", in: app).waitForExistence(timeout: 5))
         popBack(to: "管理记录", in: app)

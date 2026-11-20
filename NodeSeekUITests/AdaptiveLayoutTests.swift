@@ -154,7 +154,7 @@ final class AdaptiveLayoutTests: XCTestCase {
         XCTAssertTrue(placeholder.exists)
 
         firstPost.tap()
-        XCTAssertTrue(app.staticTexts["周六下午两点开始读书。"].waitForExistence(timeout: 8))
+        XCTAssertTrue(ForumFixture.threadText("周六下午两点开始读书。", in: app).waitForExistence(timeout: 8))
         XCTAssertTrue(firstPost.isSelected)
         XCTAssertFalse(placeholder.exists)
 

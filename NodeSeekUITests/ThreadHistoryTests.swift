@@ -28,10 +28,11 @@ final class ThreadHistoryTests: XCTestCase {
         XCTAssertTrue(post.waitForExistence(timeout: 10))
         post.tap()
 
-        let threadScroll = app.scrollViews.containing(.staticText, identifier: openingText).firstMatch
+        let threadScroll = app.scrollViews.containing(.any, identifier: "post-selectable-text")
+            .containing(.staticText, identifier: title).firstMatch
         XCTAssertTrue(threadScroll.waitForExistence(timeout: 10), "Tapping the pinned card should open that post.")
         let heading = threadScroll.staticTexts[title].firstMatch
-        let opening = threadScroll.staticTexts[openingText].firstMatch
+        let opening = ForumFixture.threadText(openingText, in: threadScroll)
         let firstImage = threadScroll.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "插图 1")).firstMatch
         XCTAssertTrue(heading.waitForExistence(timeout: 5))
         XCTAssertTrue(firstImage.waitForExistence(timeout: 8), "The first thumbnail should finish loading.")
@@ -86,15 +87,15 @@ final class ThreadHistoryTests: XCTestCase {
         notice.tap()
 
         let scrollView = app.scrollViews.firstMatch
-        let targetReply = app.staticTexts[replyText(22)]
+        let targetReply = ForumFixture.threadText(replyText(22), in: app)
         XCTAssertTrue(targetReply.waitForExistence(timeout: 5))
         XCTAssertTrue(targetReply.isHittable, "The notification should open at the reply on page 3.")
 
         scrollView.swipeDown(velocity: .slow)
-        let earlierReply = app.staticTexts[replyText(20)]
+        let earlierReply = ForumFixture.threadText(replyText(20), in: app)
         XCTAssertTrue(reveal(earlierReply, in: scrollView), "Scrolling back should load a reply from page 2.")
-        XCTAssertTrue(reveal(app.staticTexts[replyText(1)], in: scrollView), "Scrolling further should reach page 1.")
-        XCTAssertTrue(reveal(app.staticTexts[openingText], in: scrollView), "Page 1 should show the post body.")
+        XCTAssertTrue(reveal(ForumFixture.threadText(replyText(1), in: app), in: scrollView), "Scrolling further should reach page 1.")
+        XCTAssertTrue(reveal(ForumFixture.threadText(openingText, in: app), in: scrollView), "Page 1 should show the post body.")
     }
 
     private func reveal(_ element: XCUIElement, in scrollView: XCUIElement) -> Bool {
