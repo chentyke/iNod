@@ -94,7 +94,7 @@ struct AccountSessionTests {
     }
 
     private func session(load: @escaping @MainActor (Bool) async throws -> AuthenticationSnapshot) -> AccountSession {
-        AccountSession(website: SiteDataStore(persistsResponses: false), loadAuthentication: load)
+        AccountSession(website: SiteDataStore(disk: nil), loadAuthentication: load)
     }
 
     private func snapshot(signedIn: Bool) throws -> AuthenticationSnapshot {

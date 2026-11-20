@@ -47,7 +47,7 @@ struct AttendanceView: View {
     let userID: Int
     @Environment(AccountSession.self) private var account
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var loader = AccountLoader<AttendanceBoard>()
+    @State private var loader = ResourceLoader<AttendanceBoard>()
     @State private var page = 1
     @State private var signingMode: AttendanceSignInMode?
 
@@ -86,7 +86,7 @@ struct AttendanceView: View {
                         .listRowBackground(Color.seekCard)
                     }
                     if data.hasNext && loader.error == nil && !loader.isLoadingFirstPage {
-                        LoadMoreRow(error: loader.nextPageError, isEnabled: signingMode == nil && !loader.isUpdating) {
+                        LoadMoreRow(error: loader.nextPageError, isEnabled: signingMode == nil && !loader.updating) {
                             await load(nextPage: true)
                         }
                         .id(page)
@@ -119,7 +119,7 @@ struct AttendanceView: View {
     }
 
     private func signIn(mode: AttendanceSignInMode) async {
-        guard loader.value?.gain == nil, signingMode == nil, !loader.isUpdating else { return }
+        guard loader.value?.gain == nil, signingMode == nil, !loader.updating else { return }
         signingMode = mode
         defer { signingMode = nil }
         if let response = await loader.action(account.website, .attend(random: mode == .random), userID: userID) {

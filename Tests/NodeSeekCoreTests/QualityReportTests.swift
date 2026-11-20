@@ -14,6 +14,16 @@ struct QualityReportTests {
         #expect(cancelled.isFinished)
     }
 
+    @Test func cancellingARetryKeepsEarlierAddressesAndCompletedRoutes() {
+        let previous = NetworkQualityReport.sample(.partialFailure)
+        let retry = previous.resetting([.ipv4, .routes, .reputation, .services])
+        let cancelled = retry.cancellingUnfinished().keepingMeasurements(from: previous)
+        #expect(cancelled.ipv4 == previous.ipv4)
+        #expect(cancelled.routes == previous.routes)
+        #expect(cancelled.reputation == previous.reputation)
+        #expect(cancelled.services == .cancelled)
+    }
+
     @Test func retryResetsOnlyChosenSteps() {
         let report = NetworkQualityReport.sample(.partialFailure).resetting([.services])
         #expect(report.services == .pending)

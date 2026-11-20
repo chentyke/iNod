@@ -18,8 +18,8 @@ final class PersistentResponseStore {
     private let maximumCount: Int
     private let lifetime: TimeInterval
 
-    init(name: String = "SiteResponses", maximumCount: Int = 200, lifetime: TimeInterval = 7 * 24 * 3600) {
-        directory = URL.cachesDirectory.appending(path: name, directoryHint: .isDirectory)
+    init(directory: URL = URL.cachesDirectory.appending(path: "SiteResponses", directoryHint: .isDirectory), maximumCount: Int = 200, lifetime: TimeInterval = 7 * 24 * 3600) {
+        self.directory = directory
         self.maximumCount = maximumCount
         self.lifetime = lifetime
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -53,14 +53,22 @@ final class PersistentResponseStore {
         remove { _ in true }
     }
 
-    func remove(where shouldRemove: (Entry) -> Bool) {
+    @discardableResult
+    func remove(where shouldRemove: (Entry) -> Bool) -> Bool {
         let names = index.compactMap { shouldRemove($0.value) ? $0.key : nil }
-        guard !names.isEmpty else { return }
+        guard !names.isEmpty else { return false }
         for name in names { index[name] = nil }
         let directory = directory, snapshot = index
         queue.async {
             for name in names { try? FileManager.default.removeItem(at: directory.appending(path: name)) }
             Self.save(snapshot, in: directory)
+        }
+        return true
+    }
+
+    func finishPendingWrites() async {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume() }
         }
     }
 

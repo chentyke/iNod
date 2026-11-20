@@ -6,7 +6,7 @@ struct LedgerView: View {
     let kind: LedgerKind
     let userID: Int
     @Environment(AccountSession.self) private var account
-    @State private var loader = AccountLoader<AccountPage<LedgerEntry>>()
+    @State private var loader = ResourceLoader<AccountPage<LedgerEntry>>()
     @State private var page = 1
     @State private var lastCursor: Int?
 

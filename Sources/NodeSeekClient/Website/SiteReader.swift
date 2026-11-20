@@ -6,7 +6,6 @@ import WebKit
 @MainActor
 @Observable
 final class SiteReader {
-    private let filtersBackgroundResources: Bool
     private var storedPage: WebPage?
     var page: WebPage {
         if let storedPage { return storedPage }
@@ -21,10 +20,6 @@ final class SiteReader {
     /// The sign-in check loads the default feed, so the first feed request needn't fetch it again.
     private var loadedDocument: URL?
     private static let firstDocument = NodeSeekRoute.feed(category: "", sort: .replyTime, page: 1).url
-
-    init(filtersBackgroundResources: Bool = false) {
-        self.filtersBackgroundResources = filtersBackgroundResources
-    }
 
     func resetAuthentication() {
         operationID = UUID()
@@ -146,10 +141,10 @@ final class SiteReader {
         } else {
             let operation = UUID()
             operationID = operation
-            let rules = filtersBackgroundResources ? await SitePage.backgroundReaderRules() : nil
+            let rules = await SitePage.backgroundReaderRules()
             try Task.checkCancellation()
             guard operationID == operation else { throw CancellationError() }
-            if filtersBackgroundResources { storedPage = SitePage.make(contentRules: rules) }
+            storedPage = SitePage.make(contentRules: rules)
             do {
                 try await load(Self.firstDocument, operation: operation)
             } catch let error as SiteError {
@@ -176,7 +171,9 @@ final class SiteReader {
         try await prepareAccount(userID: userID)
         try Task.checkCancellation()
         let body = try JSONSerialization.data(withJSONObject: ["commentId": commentID, "action": "add"])
-        let response: ReactionResponse = try await post(path: "/api/statistics/\(reaction.rawValue)", body: body)
+        let response: ReactionResponse = try await accountDecode(SiteScripts.post, arguments: [
+            "path": "/api/statistics/\(reaction.rawValue)", "body": String(decoding: body, as: UTF8.self)
+        ])
         guard response.success else { throw SiteError.message(response.message ?? "操作未成功，请稍后重试。") }
         guard let count = response.current, count >= 0 else {
             throw SiteError.message("官网没有返回最新数量。请刷新帖子后检查结果，避免重复操作。")
@@ -184,16 +181,8 @@ final class SiteReader {
         return response
     }
 
-    func feed(_ route: NodeSeekRoute) async throws -> FeedPage {
-        try JSONDecoder().decode(FeedPage.self, from: await feedData(route))
-    }
-
     func feedData(_ route: NodeSeekRoute,includeBlocked: Bool = false) async throws -> Data {
         try await documentData(route.url, extraction: SiteScripts.feed(includeBlocked: includeBlocked))
-    }
-
-    func thread(id: Int, page: Int) async throws -> PostDetail {
-        try JSONDecoder().decode(PostDetail.self, from: await threadData(id: id, page: page))
     }
 
     func threadData(id: Int, page: Int,includeBlocked: Bool = false) async throws -> Data {
@@ -231,23 +220,11 @@ final class SiteReader {
         return Data(content.utf8)
     }
 
-    func reply(postID: Int, content: String) async throws {
-        try await requireLogin()
-        let body = try JSONSerialization.data(withJSONObject: ["content": content, "mode": "new-comment", "postId": postID])
-        let response: ReactionResponse = try await post(path: "/api/content/new-comment", body: body, token: String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16)))
-        guard response.success else { throw SiteError.message(response.message ?? "回复未成功，请稍后重试。") }
-    }
-
     private func requireLogin() async throws {
         let snapshot: AuthenticationSnapshot
         if let authentication { snapshot = authentication }
         else { snapshot = try await SitePage.authentication(from: page); authentication = snapshot }
         guard snapshot.ready, snapshot.user != nil else { throw SiteError.message("登录已过期，请在官网登录后重试。") }
-    }
-
-    private func post<T: Decodable>(path: String, body: Data, token: String = "") async throws -> T {
-        let data = try await scriptData(SiteScripts.post, arguments: ["path": path, "body": String(decoding: body, as: UTF8.self), "token": token])
-        return try JSONDecoder().decode(T.self, from: data)
     }
 
     private func load(_ url: URL, operation: UUID) async throws {

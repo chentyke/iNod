@@ -30,6 +30,90 @@ struct QualityIntegrationTests {
         #expect(final.routes == previous.routes)
     }
 
+    @Test func completedSpeedReportIncludesAllMeasurementsAndRequiresNoRetry() async throws {
+        let service = tester { request, upload in
+            let url = try #require(request.url)
+            let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+            let bytes = query?.first { $0.name == "bytes" }?.value.flatMap(Int.init) ?? 0
+            return .init(body: Data(count: bytes), node: "HKG", requestToFirstByte: upload == nil ? 0.025 : 1,
+                         requestToEnd: 1, connectionFamily: .ipv4)
+        }
+        var last: NodeSeekCore.NetworkQualityReport?
+        for await update in service.run([.speed], continuing: nil) { last = update }
+        let report = try #require(last)
+        let speed = try #require(report.speed.value)
+        #expect(speed.downloadMbps == 80 && speed.uploadMbps == 80)
+        #expect(speed.latencyMs == 25 && speed.jitterMs == 0 && speed.latencySamples == 5)
+        #expect(speed.issues.isEmpty && report.retryableSteps.isEmpty)
+    }
+
+    @Test func retryPreservesLatencyWhenEverySubtestNeedsAnotherAttempt() async throws {
+        let first = tester { request, _ in
+            if request.url?.query?.split(separator: "&").contains("bytes=0") == true {
+                // Different nodes make a latency median possible without a comparable jitter sample.
+                return .init(node: UUID().uuidString, requestToFirstByte: 0.025)
+            }
+            return .init(statusCode: 429)
+        }
+        var initial: NodeSeekCore.NetworkQualityReport?
+        for await update in first.run([.speed], continuing: nil) { initial = update }
+        let partial = try #require(initial)
+        let before = try #require(partial.speed.value)
+        #expect(before.latencyMs == 25)
+        #expect(before.jitterMs == nil)
+        #expect(partial.retryableSteps == [.speed])
+
+        let failing = tester { _, _ in .init(statusCode: 429) }
+        var retried: NodeSeekCore.NetworkQualityReport?
+        for await update in failing.run(partial.retryableSteps, continuing: partial) { retried = update }
+        let result = try #require(retried?.speed.value)
+        #expect(result.latencyMs == before.latencyMs)
+        #expect(result.latencySamples == before.latencySamples)
+        #expect(result.downloadMbps == nil)
+        #expect(result.uploadMbps == nil)
+    }
+
+    @Test func serviceRetryReplacesOnlyTheFailedWebsiteInTheReport() async throws {
+        let empty = NodeSeekCore.NetworkQualityReport(startedAt: .now, network: .init(kind: .wifi))
+        let first = await LiveNetworkQualityTester.measureAdvanced(.services, in: empty, previous: nil) { request, _ in
+            .init(statusCode: request.url?.host() == "github.com" ? 503 : 200)
+        }
+        let sites = try #require(first.services.value)
+        #expect(sites.count == 5)
+        #expect(sites.filter { $0.issue != nil }.map(\.name) == ["GitHub"])
+        let retried = await LiveNetworkQualityTester.measureAdvanced(.services, in: first.resetting([.services]), previous: first) { request, _ in
+            #expect(request.url?.host() == "github.com")
+            return .init(statusCode: 200)
+        }
+        let updated = try #require(retried.services.value)
+        #expect(updated.map(\.name) == sites.map(\.name))
+        #expect(updated.filter { $0.name != "GitHub" } == sites.filter { $0.name != "GitHub" })
+        #expect(updated.allSatisfy { $0.issue == nil && $0.outcome == .reachable })
+    }
+
+    @Test func reputationRetryLooksUpEverySourceWhenTheAddressChanges() async throws {
+        var previous = NodeSeekCore.NetworkQualityReport.sample(.partialFailure)
+        let oldIP = try #require(previous.ipv4.value)
+        previous.reputation = .measured([
+            .init(source: "Spamhaus DROP", family: .v4, verdict: .listed, queriedAt: oldIP.queriedAt),
+            .init(source: "Blocklist.de", family: .v4, verdict: .unknown, queriedAt: oldIP.queriedAt, issue: .init(.timedOut))
+        ])
+        var retry = previous.resetting([.reputation])
+        var newIP = oldIP
+        newIP.address = "192.0.2.80"
+        retry.ipv4 = .measured(newIP)
+        let result = await LiveNetworkQualityTester.measureAdvanced(.reputation, in: retry, previous: previous) { request, _ in
+            if request.url?.host() == "www.spamhaus.org" {
+                return .init(body: Data("{\"cidr\":\"203.0.113.0/24\"}\n{\"timestamp\":1,\"records\":1}".utf8))
+            }
+            #expect(request.url?.host() == "lists.blocklist.de")
+            return .init(body: Data("203.0.113.1".utf8))
+        }
+        let records = try #require(result.reputation.value)
+        #expect(records.count == 2)
+        #expect(records.allSatisfy { $0.verdict == .notListed && $0.issue == nil })
+    }
+
     @Test func retryFromAnotherNetworkKeepsEarlierMeasurements() async throws {
         let previous = NodeSeekCore.NetworkQualityReport.sample(.partialFailure)
         let tester = tester { _, _ in
@@ -37,10 +121,14 @@ struct QualityIntegrationTests {
             throw URLError(.cannotConnectToHost)
         }
         var report: NodeSeekCore.NetworkQualityReport?
-        for await update in tester.run([.speed, .ipv6], continuing: previous) { report = update }
+        for await update in tester.run([.speed, .ipv4, .ipv6, .routes, .reputation], continuing: previous) { report = update }
         let final = try #require(report)
         #expect(final.network == previous.network)
-        #expect(final.ipv4 == previous.ipv4)
+        #expect(final.ipv4.value?.address == previous.ipv4.value?.address)
+        #expect(final.ipv4.value?.ownerIssue?.kind == .networkChanged)
+        #expect(final.routes.value?.filter { $0.issue == nil } == previous.routes.value?.filter { $0.issue == nil })
+        #expect(final.routes.value?.last?.issue?.kind == .networkChanged)
+        #expect(final.reputation.value?.filter { $0.issue == nil } == previous.reputation.value?.filter { $0.issue == nil })
         #expect(final.speed.value?.downloadMbps == previous.speed.value?.downloadMbps)
         #expect(final.ipv6 == .failed(.init(.networkChanged)))
     }

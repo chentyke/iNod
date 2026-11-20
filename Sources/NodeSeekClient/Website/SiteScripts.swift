@@ -171,7 +171,7 @@ enum SiteScripts {
     static let post = #"""
     const response = await fetch(path, {
         method: 'POST', credentials: 'same-origin',
-        headers: {'Content-Type': 'application/json', ...(token ? {'csrf-token': token} : {})},
+        headers: {'Content-Type': 'application/json'},
         body: body
     });
     let result;try {result=await response.json();} catch {return JSON.stringify({__error:'官网未返回可读取的数据 ('+response.status+')',__needsWebsite:response.status===403});}

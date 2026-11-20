@@ -8,6 +8,7 @@ final class NetworkQualityRun {
     private(set) var report: NetworkQualityReport?
     private(set) var isRunning = false
     @ObservationIgnored private nonisolated(unsafe) var task: Task<Void, Never>?
+    @ObservationIgnored private var previousReport: NetworkQualityReport?
     @ObservationIgnored let tester: any NetworkQualityTesting
 
     init(tester: any NetworkQualityTesting = QualityServices.network, report: NetworkQualityReport? = nil) {
@@ -25,13 +26,17 @@ final class NetworkQualityRun {
 
     func cancel() {
         task?.cancel(); task = nil
-        if let report, !report.isFinished || report.finishedAt == nil { self.report = report.cancellingUnfinished() }
+        if let report, !report.isFinished || report.finishedAt == nil {
+            self.report = report.cancellingUnfinished().keepingMeasurements(from: previousReport)
+        }
+        previousReport = nil
         isRunning = false
     }
 
     private func run(_ steps: [NetworkQualityStep], continuing previous: NetworkQualityReport?) {
         task?.cancel()
         isRunning = true
+        previousReport = previous
         let stream = tester.run(steps, continuing: previous)
         task = Task { [weak self] in
             for await snapshot in stream {
@@ -40,7 +45,10 @@ final class NetworkQualityRun {
             }
             guard let self, !Task.isCancelled else { return }
             // A stream that ends early leaves steps unfinished; treat them like a cancel so nothing spins forever.
-            if let report = self.report, !report.isFinished { self.report = report.cancellingUnfinished() }
+            if let report = self.report, !report.isFinished {
+                self.report = report.cancellingUnfinished().keepingMeasurements(from: previous)
+            }
+            self.previousReport = nil
             self.isRunning = false
         }
     }
