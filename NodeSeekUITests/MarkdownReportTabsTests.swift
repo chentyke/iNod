@@ -19,8 +19,8 @@ final class MarkdownReportTabsTests: XCTestCase {
         """)
         let picker = app.segmentedControls.firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 8))
-        let first = app.staticTexts["IP 质量报告"]
-        let second = app.staticTexts["网络质量报告"]
+        let first = ForumFixture.threadText("IP 质量报告", in: app)
+        let second = ForumFixture.threadText("网络质量报告", in: app)
         XCTAssertTrue(first.isHittable)
         XCTAssertFalse(second.exists)
         picker.buttons["🌐网络质量"].tap()

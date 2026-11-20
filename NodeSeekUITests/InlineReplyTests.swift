@@ -188,7 +188,7 @@ final class InlineReplyTests: XCTestCase {
         origin.withOffset(CGVector(dx: app.frame.maxX - 5, dy: expand.frame.midY)).tap()
         openReply()
         XCTAssertEqual(body.value as? String, "Keep this draft")
-        app.staticTexts["周六下午两点开始读书。"].firstMatch.tap()
+        ForumFixture.threadText("周六下午两点开始读书。", in: app).tap()
         openReply()
         let discussion = app.staticTexts["讨论"].firstMatch
         origin.withOffset(CGVector(dx: discussion.frame.midX, dy: discussion.frame.minY - 5)).tap()

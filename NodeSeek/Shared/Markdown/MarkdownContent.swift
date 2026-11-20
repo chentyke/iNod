@@ -9,6 +9,7 @@ struct MarkdownContent<Embedded: View>: View {
     var loadsBlocksOnScroll = false
     var onOpenImages: ((ImageGallery) -> Void)?
     @ViewBuilder var embedded: (MarkdownBlock) -> Embedded
+    @Environment(\.selectsMarkdownText) private var selectsText
     @State private var gallery: ImageGallery?
 
     var body: some View {
@@ -30,15 +31,44 @@ struct MarkdownContent<Embedded: View>: View {
     }
 
     private func blockViews(_ blocks: [MarkdownBlock]) -> some View {
-        ForEach(blocks.indices, id: \.self) { index in
-            let label = index == blocks.count - 1 ? trailingLabel : nil
-            blockView(blocks[index], label: label) { opened in
-                let images = opened.adding(before: ImageGallery.images(in: blocks[..<index]),
-                                           after: ImageGallery.images(in: blocks[(index + 1)...]))
-                if let onOpenImages { onOpenImages(images) }
-                else { gallery = images }
+        ForEach(sections(in: blocks), id: \.start) { section in
+            if section.paragraphs.isEmpty {
+                let index = section.start
+                let label = index == blocks.count - 1 ? trailingLabel : nil
+                blockView(blocks[index], label: label) { opened in
+                    let images = opened.adding(before: ImageGallery.images(in: blocks[..<index]),
+                                               after: ImageGallery.images(in: blocks[(index + 1)...]))
+                    if let onOpenImages { onOpenImages(images) }
+                    else { gallery = images }
+                }
+            } else {
+                SelectableMarkdownText(paragraphs: section.paragraphs, spacing: spacing)
             }
         }
+    }
+
+    private struct Section {
+        let start: Int
+        var paragraphs: [SelectableMarkdownText.Paragraph] = []
+    }
+
+    private func sections(in blocks: [MarkdownBlock]) -> [Section] {
+        guard selectsText, expandsText, trailingLabel == nil else {
+            return blocks.indices.map { Section(start: $0) }
+        }
+        var sections: [Section] = []
+        for (index, block) in blocks.enumerated() {
+            if let paragraph = SelectableMarkdownText.Paragraph(block) {
+                if let last = sections.indices.last, !sections[last].paragraphs.isEmpty {
+                    sections[last].paragraphs.append(paragraph)
+                } else {
+                    sections.append(Section(start: index, paragraphs: [paragraph]))
+                }
+            } else {
+                sections.append(Section(start: index))
+            }
+        }
+        return sections
     }
 
     @ViewBuilder private func blockView(_ block: MarkdownBlock, label: Text?,
@@ -76,6 +106,10 @@ struct MarkdownContent<Embedded: View>: View {
             MarkdownCalloutView(callout: callout, loadsBlocksOnScroll: loadsBlocksOnScroll, onOpenImages: openImages, embedded: embedded)
         }
     }
+}
+
+extension EnvironmentValues {
+    @Entry var selectsMarkdownText = false
 }
 
 private struct MarkdownTable: View {
