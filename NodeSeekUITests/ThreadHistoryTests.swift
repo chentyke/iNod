@@ -92,29 +92,33 @@ final class ThreadHistoryTests: XCTestCase {
         XCTAssertTrue(targetReply.isHittable, "The notification should open at the reply on page 3.")
 
         scrollView.swipeDown(velocity: .slow)
-        let earlierReply = ForumFixture.threadText(replyText(20), in: app)
+        let earlierReply = ForumFixture.element("comment-20", in: app)
         XCTAssertTrue(reveal(earlierReply, in: scrollView), "Scrolling back should load a reply from page 2.")
-        XCTAssertTrue(reveal(ForumFixture.threadText(replyText(1), in: app), in: scrollView), "Scrolling further should reach page 1.")
-        XCTAssertTrue(reveal(ForumFixture.threadText(openingText, in: app), in: scrollView), "Page 1 should show the post body.")
+        XCTAssertTrue(ForumFixture.threadText(replyText(20), in: earlierReply).exists)
+
+        let firstReply = ForumFixture.element("comment-1", in: app)
+        XCTAssertTrue(reveal(firstReply, in: scrollView), "Scrolling further should reach page 1.")
+        XCTAssertTrue(ForumFixture.threadText(replyText(1), in: firstReply).exists)
+
+        let opening = ForumFixture.element("comment-0", in: app)
+        XCTAssertTrue(reveal(opening, in: scrollView), "Page 1 should show the post body.")
+        XCTAssertTrue(ForumFixture.threadText(openingText, in: opening).exists)
     }
 
-    private func reveal(_ element: XCUIElement, in scrollView: XCUIElement) -> Bool {
-        let center = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        for _ in 0..<8 {
-            guard element.exists else {
-                scrollView.swipeDown(velocity: .slow)
-                continue
-            }
-            if element.isHittable { return true }
-            // Rows reported just off screen can be skipped by another full swipe.
-            let frame = scrollView.frame
-            let distance = element.frame.midY - frame.midY
-            let limit = frame.height / 3
+    private func reveal(_ card: XCUIElement, in scrollView: XCUIElement) -> Bool {
+        let start = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.06, dy: 0.5))
+        let frame = scrollView.frame
+        let limit = frame.height / 3
+        for _ in 0..<14 {
+            let exists = card.exists
+            if exists, card.isHittable { return true }
+            // Use the card's frame and avoid overshooting it when the previous page appears.
+            let distance = exists ? card.frame.midY - frame.midY : -limit
             let step = min(max(distance, -limit), limit)
-            let destination = center.withOffset(CGVector(dx: 0, dy: -step))
-            center.press(forDuration: 0, thenDragTo: destination, withVelocity: .slow, thenHoldForDuration: 0.15)
+            let destination = start.withOffset(CGVector(dx: 0, dy: -step))
+            start.press(forDuration: 0, thenDragTo: destination, withVelocity: .slow, thenHoldForDuration: 0.15)
         }
-        return element.exists && element.isHittable
+        return card.exists && card.isHittable
     }
 
     private func replyText(_ floor: Int) -> String { "第 \(floor) 楼的回复" }

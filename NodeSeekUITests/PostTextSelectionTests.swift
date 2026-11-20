@@ -88,12 +88,20 @@ final class PostTextSelectionTests: XCTestCase {
     }
 
     private func assertCopyMenu(on text: XCUIElement, in app: XCUIApplication, line: UInt = #line) {
-        text.coordinate(withNormalizedOffset: .zero)
-            .withOffset(CGVector(dx: 26, dy: 9)).press(forDuration: 0.7)
+        XCTAssertTrue(text.wait(for: \.isHittable, toEqual: true, timeout: 10), line: line)
+        let lineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
+        let word = text.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: 26, dy: lineHeight / 2))
         let copy = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label IN %@", ["Copy", "拷贝", "复制"])).firstMatch
-        XCTAssertTrue(copy.waitForExistence(timeout: 5), line: line)
-        XCTAssertFalse(app.keyboards.firstMatch.exists, line: line)
+        for _ in 0..<2 {
+            word.press(forDuration: 1)
+            if copy.waitForExistence(timeout: 5) {
+                XCTAssertFalse(app.keyboards.firstMatch.exists, line: line)
+                return
+            }
+        }
+        XCTFail("Long-pressing the post text should show the system Copy menu.", line: line)
     }
 }
 #endif
