@@ -57,7 +57,8 @@ struct ThreadView: View {
     @State private var actionError: String?
     @State private var showsActionError = false
     @State private var gallery: ImageGallery?
-    @State private var replyImagePages: [Task<ImageGallery.ReplyImages, Never>] = []
+    @State private var galleryDestinationFloor: Int?
+    @State private var commentImagePages: [Task<ImageGallery.CommentImages, Never>] = []
     @State private var openingGallery: Task<Void, Never>?
 
     private var accessError: PostAccessError? { error as? PostAccessError }
@@ -290,7 +291,17 @@ struct ThreadView: View {
         .sheet(item: $editorRequest) { request in
             ForumEditorView(request: request) { _ in refreshID = UUID() }
         }
-        .fullScreenCover(item: $gallery) { ImageViewer(gallery: $0) }
+        .fullScreenCover(item: $gallery, onDismiss: {
+            if let floor = galleryDestinationFloor {
+                galleryDestinationFloor = nil
+                jumpToFloor(floor)
+            }
+        }) { images in
+            ImageViewer(gallery: images, postTitle: detail?.title ?? post.title) { floor in
+                galleryDestinationFloor = floor
+                gallery = nil
+            }
+        }
         .alert("操作未完成", isPresented: $showsActionError) {
             Button("知道了", role: .cancel) { actionError = nil }
         } message: { Text(actionError ?? "") }
@@ -412,17 +423,20 @@ struct ThreadView: View {
         detail.replies.filter { showsBlocked || !$0.blocked }
     }
 
-    private func openImages(_ images: ImageGallery, from comment: ForumComment) {
+    private func openImages(_ opened: ImageGallery, from comment: ForumComment) {
         openingGallery?.cancel()
-        guard comment.floorIndex > 0, let detail else { gallery = images; return }
-        let replyIDs = visibleReplies(in: detail).map(\.id)
-        guard let index = replyIDs.firstIndex(of: comment.id) else { return }
-        let pages = replyImagePages
+        guard let detail else { return }
+        var commentIDs = visibleReplies(in: detail).map(\.id)
+        if let original = detail.comments.first(where: { $0.floorIndex == 0 && (showsBlocked || !$0.blocked) }) {
+            commentIDs.insert(original.id, at: 0)
+        }
+        guard let index = commentIDs.firstIndex(of: comment.id) else { return }
+        let pages = commentImagePages
         let key = loadedKey
         let revision = account.revision
         let kind = threadKind
         openingGallery = Task {
-            let result = await images.includingReplies(replyIDs, at: index, from: pages)
+            let result = await opened.includingComments(commentIDs, at: index, openedFrom: comment, from: pages)
             guard !Task.isCancelled, loadedKey == key, account.revision == revision, threadKind == kind else { return }
             gallery = result
         }
@@ -431,9 +445,9 @@ struct ThreadView: View {
     private func setDetail(_ value: PostDetail?) {
         if value == nil {
             openingGallery?.cancel()
-            for page in replyImagePages { page.cancel() }
+            for page in commentImagePages { page.cancel() }
         }
-        replyImagePages = value.map { [ImageGallery.prepareReplyImages(visibleReplies(in: $0))] } ?? []
+        commentImagePages = value.map { [ImageGallery.prepareCommentImages($0.comments.filter { showsBlocked || !$0.blocked })] } ?? []
         detail = value
     }
 
@@ -563,8 +577,7 @@ struct ThreadView: View {
             guard result.postId == post.id, result.postPage == requestedPage else { throw SiteError.invalidResponse }
             var existingIDs = Set(detail?.comments.map(\.id) ?? [])
             let comments = result.comments.filter { existingIDs.insert($0.id).inserted }
-            let replies = comments.filter { $0.floorIndex > 0 && (showsBlocked || !$0.blocked) }
-            replyImagePages.append(ImageGallery.prepareReplyImages(replies))
+            commentImagePages.append(ImageGallery.prepareCommentImages(comments.filter { showsBlocked || !$0.blocked }))
             if loadingEarlier {
                 detail?.comments.insert(contentsOf: comments, at: 0)
                 firstLoadedPage = requestedPage

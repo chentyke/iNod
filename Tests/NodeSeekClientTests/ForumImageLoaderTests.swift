@@ -20,6 +20,12 @@ import UniformTypeIdentifiers
     #expect(thumbnail.width == 240 && thumbnail.height == 180)
     #expect(full.width == 1600 && full.height == 1200)
     #expect(cachedThumbnail === thumbnail)
+
+    let original = try await loader.originalImage(for: url)
+    #expect(original.type == .png)
+    let source = try #require(CGImageSourceCreateWithData(original.data as CFData, nil))
+    let exported = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+    #expect(exported.width == 2000 && exported.height == 1500)
 }
 
 private final class ForumImageTestProtocol: URLProtocol, @unchecked Sendable {
