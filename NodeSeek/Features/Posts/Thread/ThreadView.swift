@@ -156,7 +156,6 @@ struct ThreadView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .scrollPosition($scrollPosition)
-        .fadesUnderMacToolbar()
         // An open reaction dock folds away once the reader scrolls or taps anywhere outside it.
         // Touch tracking is left out so a tap on the dock's own buttons isn't cancelled.
         .onScrollPhaseChange { _, phase in

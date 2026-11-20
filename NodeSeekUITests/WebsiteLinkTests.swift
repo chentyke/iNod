@@ -11,9 +11,10 @@ final class WebsiteLinkTests: XCTestCase {
         #endif
     }()
 
-    override func setUp() {
+    override func setUp() async throws {
         continueAfterFailure = false
-        browser.terminate()
+        // Start Safari before iNod so the test measures the handoff without a cold launch.
+        await MainActor.run { browser.launch() }
     }
 
     override func tearDown() { browser.terminate() }

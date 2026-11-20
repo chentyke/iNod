@@ -255,7 +255,6 @@ struct FeedView: View {
         .contentMargins(.vertical, recommended ? 8 : 6, for: .scrollContent)
         // On a Mac the filter row's controls live in the window toolbar and sidebar, so the list starts right under the toolbar.
         .modifier(OptionalFeedFilterBar(isEnabled: !recommended && !usesMacToolbar) { filterBar })
-        .modifier(MacToolbarFadeIf(isEnabled: usesMacToolbar))
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { listWidth = $0 }
         // An open search folds away once the reader scrolls, taps outside it or leaves the page;
         // a search with results only drops the keyboard.
@@ -498,14 +497,6 @@ struct FeedView: View {
             if reset { self.error = LoadFailure(error) }
             else { nextPageError = SiteError.displayMessage(for: error) }
         }
-    }
-}
-
-private struct MacToolbarFadeIf: ViewModifier {
-    let isEnabled: Bool
-
-    func body(content: Content) -> some View {
-        if isEnabled { content.fadesUnderMacToolbar() } else { content }
     }
 }
 
