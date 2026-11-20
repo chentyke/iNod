@@ -101,11 +101,13 @@ private struct MarkdownTable: View {
                         }
                         ForEach(cells.indices, id: \.self) { column in
                             let text = ForumText.attributed(cells[column], baseURL: documentURL)
-                            TextWithTrailingLabel(text: Text(text).font(.subheadline.weight(row == 0 ? .semibold : .regular)),
-                                                  label: nil, hasLinks: text.runs.contains { $0.link != nil })
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .frame(minWidth: 76, maxWidth: 260, alignment: .leading)
+                            MarkdownTableCellLayout {
+                                TextWithTrailingLabel(text: Text(text).font(.subheadline.weight(row == 0 ? .semibold : .regular)),
+                                                      label: nil, hasLinks: text.runs.contains { $0.link != nil })
+                                    .lineLimit(nil)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                            }
                         }
                     }
                 }

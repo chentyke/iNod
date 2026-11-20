@@ -63,4 +63,36 @@ final class MarkdownTableTests: XCTestCase {
         }
         XCTAssertTrue(lastCell.isHittable)
     }
+
+    func testLongTableCellWrapsAndMakesRoomInItsRow() {
+        continueAfterFailure = false
+        let description = "这段说明包含使用条件、适用范围和收费规则。办理之前还要查看各地的开放时间、需要携带的材料和申请方式。"
+        let app = ForumFixture.launch(opensThread: true, openingMarkdown: """
+        | 项目 | 方案一 | 方案二 |
+        | --- | --- | --- |
+        | 用法 | 这个方案可以在线办理，也可以到现场申请 | \(description) |
+        | 价格 | 免费 | 按年收费 |
+        """)
+
+        let shortCell = app.staticTexts["用法"]
+        let longCell = app.staticTexts[description]
+        let nextRow = app.staticTexts["按年收费"]
+        let table = app.scrollViews["markdown-table"]
+        XCTAssertTrue(table.waitForExistence(timeout: 8))
+        XCTAssertTrue(shortCell.isHittable)
+        let singleLineHeight = shortCell.frame.height
+
+        table.swipeLeft()
+        table.swipeLeft()
+        XCTAssertTrue(longCell.isHittable)
+        XCTAssertTrue(nextRow.isHittable)
+
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "Markdown table with long cells"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        XCTAssertGreaterThan(longCell.frame.height, singleLineHeight * 2)
+        XCTAssertLessThan(longCell.frame.maxY, nextRow.frame.minY)
+    }
 }
