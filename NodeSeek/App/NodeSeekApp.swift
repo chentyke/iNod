@@ -8,6 +8,9 @@ struct NodeSeekApp: App {
     @State private var macToolbar = MacToolbarModel()
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("appearance") private var appearance = AppAppearance.system
+    #if targetEnvironment(macCatalyst)
+    @State private var updater = MacUpdater()
+    #endif
 
     private static func makeAccount() -> AccountSession {
         #if DEBUG
@@ -59,6 +62,10 @@ struct NodeSeekApp: App {
                 .macWindowToolbar(macToolbar)
                 // Narrower than this, the feed's search bar and the thread's cards start to crowd.
                 .frame(minWidth: 400, minHeight: 560)
+                .modifier(MacUpdatePrompts(updater: updater))
+                .task(id: scenePhase.isPollingActive) {
+                    if scenePhase.isPollingActive { await updater.checkWhileActive() }
+                }
                 #endif
         }
         #if targetEnvironment(macCatalyst)
@@ -67,6 +74,10 @@ struct NodeSeekApp: App {
         // One window is enough, and ⌘N starts a new post instead of opening another window.
         .commands {
             #if targetEnvironment(macCatalyst)
+            CommandGroup(after: .appInfo) {
+                Button("检查更新…") { Task { await updater.check(manual: true) } }
+                    .disabled(updater.busy || updater.prompt != nil)
+            }
             // The Mac has no in-page new post or reply buttons; their shortcuts follow the sidebar and toolbar.
             CommandGroup(replacing: .newItem) {
                 Button("发布帖子") { macToolbar.requestCompose() }
