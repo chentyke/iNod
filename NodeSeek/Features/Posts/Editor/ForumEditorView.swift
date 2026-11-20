@@ -47,12 +47,8 @@ struct ForumEditorView: View {
         ForumNavigationStack {
             Group {
                 if let replyTitle {
-                    if UIDevice.current.userInterfaceIdiom == .pad {
-                        GeometryReader { proxy in
-                            replyWorkspace(title: replyTitle, availableSize: proxy.size)
-                        }
-                    } else {
-                        replyWorkspace(title: replyTitle)
+                    GeometryReader { proxy in
+                        replyWorkspace(title: replyTitle, availableSize: proxy.size)
                     }
                 } else { standardWorkspace }
             }
@@ -179,9 +175,9 @@ struct ForumEditorView: View {
             .padding(.horizontal, -5).padding(.top, 8)
     }
 
-    private func replyWorkspace(title: String, availableSize: CGSize = .zero) -> some View {
+    private func replyWorkspace(title: String, availableSize: CGSize) -> some View {
         let wide = availableSize.width >= 720 && !typeSize.isAccessibilitySize
-        let compactHeight = availableSize != .zero && availableSize.height < 500
+        let compactHeight = availableSize.height < 500
         let hasPhotos = !replyContext.images.isEmpty
         let hasSideColumn = wide && (preview || hasPhotos || replyContext.target?.quote != nil)
         let headerPhotos = !wide && compactHeight && !preview && hasPhotos

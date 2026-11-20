@@ -17,6 +17,7 @@ struct ThreadView: View {
     private let sharedTabRow: ReaderTabRow?
     private let onClose: (() -> Void)?
     @Environment(AccountSession.self) private var account
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.openMemberDestination) private var openMember
@@ -204,8 +205,11 @@ struct ThreadView: View {
             if usesFloatingTopBar {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
-                        if presentation == .zoom {
-                            ThreadBackButton { dismiss() }
+                        if presentation == .zoom || (presentation == .splitDetail && horizontalSizeClass == .compact) {
+                            ThreadBackButton {
+                                if presentation == .splitDetail { onClose?() }
+                                else { dismiss() }
+                            }
                             .frame(width: 44, height: 44)
                             .glassEffect(.regular.interactive(), in: .circle)
                         }

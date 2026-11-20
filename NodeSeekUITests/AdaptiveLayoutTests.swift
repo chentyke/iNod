@@ -40,7 +40,6 @@ final class AdaptiveLayoutTests: XCTestCase {
     /// Whether the community home shows the feed and reader side by side. A Mac window splits once it is wide enough.
     private func isSplit(_ app: XCUIApplication) -> Bool {
         if isPadSplit { return true }
-        guard usesMacToolbar else { return false }
         return ForumFixture.element("feed-detail-placeholder", in: app).exists
             || ForumFixture.postCard(ForumFixture.threadTitle, in: app).exists && ForumFixture.element("comment-2", in: app).exists
     }
@@ -144,9 +143,12 @@ final class AdaptiveLayoutTests: XCTestCase {
         XCTAssertTrue(ForumFixture.element("feed-detail-placeholder", in: app).waitForExistence(timeout: 5))
     }
 
-    func testPadSplitSwitchesAndClosesPosts() throws {
-        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Only iPad splits the feed and thread panes.")
+    func testWideScreenSwitchesAndClosesPosts() throws {
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCUIDevice.shared.orientation = .landscapeLeft
+        }
         let app = ForumFixture.launch()
+        try XCTSkipUnless(app.windows.firstMatch.frame.width >= 720, "Requires a wide reading window.")
         let firstPost = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
         let secondPost = ForumFixture.postCard(ForumFixture.announcementTitle, in: app)
         let placeholder = ForumFixture.element("feed-detail-placeholder", in: app)
@@ -157,6 +159,10 @@ final class AdaptiveLayoutTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["周六下午两点开始读书。"].waitForExistence(timeout: 8))
         XCTAssertTrue(firstPost.isSelected)
         XCTAssertFalse(placeholder.exists)
+        let reader = ForumFixture.element("comment-2", in: app)
+        XCTAssertTrue(reader.waitForExistence(timeout: 5))
+        XCTAssertLessThanOrEqual(firstPost.frame.maxX, reader.frame.minX)
+        attachScreenshot(of: app, named: "Expanded thread")
 
         secondPost.tap()
         XCTAssertTrue(app.staticTexts[ForumFixture.announcementTitle].waitForExistence(timeout: 8))
@@ -197,12 +203,17 @@ final class AdaptiveLayoutTests: XCTestCase {
         let split = isSplit(app)
         let page = split ? scroll : besideSidebar(scroll, in: app)
         let card = comment.frame
-        assertColumn(card, in: page, "Reply card")
+        if split && !usesMacToolbar && !isPadSplit {
+            // The native split view extends the scroller under the list and the vertical system bar.
+            XCTAssertLessThanOrEqual(card.width, readableWidth + tolerance)
+        } else {
+            assertColumn(card, in: page, "Reply card")
+        }
 
         if split {
             let feedCard = ForumFixture.postCard(ForumFixture.threadTitle, in: app)
             XCTAssertTrue(feedCard.exists, "The feed column remains visible beside an open thread.")
-            XCTAssertLessThanOrEqual(feedCard.frame.maxX, scroll.minX + tolerance)
+            XCTAssertLessThanOrEqual(feedCard.frame.maxX, card.minX + tolerance)
         }
 
         if usesMacToolbar {
@@ -376,7 +387,9 @@ final class AdaptiveLayoutTests: XCTestCase {
         let list = besideSidebar(feedListFrame(in: app), in: app)
         let available = besideSidebar(app.windows.firstMatch.frame, in: app)
         let expectedFeedWidth = min(maximumFeedPaneWidth, max(minimumFeedPaneWidth, (available.width * 0.38).rounded(.down)))
-        assertClose(list.width, expectedFeedWidth, "iPad feed pane width in a \(available.width)-point area", line: line)
+        if usesMacToolbar || isPadSplit {
+            assertClose(list.width, expectedFeedWidth, "Feed pane width in a \(available.width)-point area", line: line)
+        }
 
         let card = post.frame.insetBy(dx: gutter, dy: 0)
         assertClose(card.width, list.width - 2 * gutter, "iPad feed card width", line: line)

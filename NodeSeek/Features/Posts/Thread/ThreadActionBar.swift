@@ -124,15 +124,11 @@ struct ThreadActionBar: View {
                 justSent = true
                 onPublished()
             }
-            let editorPage = Group {
+            Group {
                 if reduceMotion { page }
                 else { page.navigationTransition(.zoom(sourceID: "reply", in: editorTransition)) }
             }
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                editorPage.presentationSizing(.page)
-            } else {
-                editorPage
-            }
+            .presentationSizing(.page)
         }
         .alert("回复未完成", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("好", role: .cancel) {}
