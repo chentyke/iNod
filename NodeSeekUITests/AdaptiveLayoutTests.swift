@@ -424,7 +424,11 @@ final class AdaptiveLayoutTests: XCTestCase {
 
     /// Whether the tabs are currently shown in a sidebar beside the page.
     private func hasSidebar(_ app: XCUIApplication) -> Bool {
-        app.cells.matching(communityTab).firstMatch.exists
+        sidebarTab(in: app).exists
+    }
+
+    private func sidebarTab(in app: XCUIApplication) -> XCUIElement {
+        app.cells.matching(communityTab).firstMatch
     }
 
     private var communityTab: NSPredicate {
