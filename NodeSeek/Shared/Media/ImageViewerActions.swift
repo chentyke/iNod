@@ -14,10 +14,10 @@ struct ImageViewerActions: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            actionButton(.save, symbol: saved ? "checkmark" : "square.and.arrow.down",
+            actionButton(.save, icon: saved ? .inkCheck : .inkSavePhoto,
                          label: saved ? "已保存到相册" : "保存图片")
                 .disabled(saved)
-            actionButton(.share, symbol: "square.and.arrow.up", label: "分享图片")
+            actionButton(.share, icon: .inkSharePhoto, label: "分享图片")
         }
         .buttonStyle(.plain)
         .disabled(action != nil)
@@ -32,14 +32,12 @@ struct ImageViewerActions: View {
         } message: { Text(errorMessage ?? "") }
     }
 
-    private func actionButton(_ selection: Action, symbol: String, label: String) -> some View {
+    private func actionButton(_ selection: Action, icon: ImageResource, label: String) -> some View {
         Button { action = selection } label: {
             Group {
                 if action == selection { ProgressView().controlSize(.small) }
                 else {
-                    Image(systemName: symbol)
-                        .resizable().scaledToFit()
-                        .frame(width: 18, height: 19)
+                    Image(icon)
                 }
             }
             .frame(width: 44, height: 44).contentShape(.rect)
