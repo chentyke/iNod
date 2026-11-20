@@ -22,8 +22,9 @@ struct ImageViewer: View {
     }
 
     var body: some View {
-        if reduceMotion { viewer }
-        else { viewer.navigationTransition(.zoom(sourceID: gallery.source, in: gallery.source)) }
+        if let source = gallery.source, !reduceMotion {
+            viewer.navigationTransition(.zoom(sourceID: source, in: source))
+        } else { viewer }
     }
 
     private var viewer: some View {
@@ -119,7 +120,7 @@ struct ImageViewer: View {
                                  previewImage: initialImageIsThumbnail ? initialImage : nil,
                                  prioritized: index == currentIndex) { image in
             ZoomableForumImage(image: image, label: item.label,
-                               isCurrent: index == currentIndex) { isZoomed in
+                               isCurrent: index == currentIndex, hasTransitionSource: gallery.source != nil) { isZoomed in
                 if isZoomed { zoomedPage = index }
                 else if zoomedPage == index { zoomedPage = nil }
             } onDismiss: {

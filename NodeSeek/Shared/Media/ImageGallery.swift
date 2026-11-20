@@ -46,7 +46,7 @@ struct ImageGallery: Identifiable, Sendable {
     var items: [Item]
     let startIndex: Int
     let initialImage: CGImage
-    let source: Namespace.ID
+    var source: Namespace.ID? = nil
 
     func adding(before: [Item], after: [Item]) -> Self {
         Self(items: before + items + after, startIndex: before.count + startIndex, initialImage: initialImage, source: source)

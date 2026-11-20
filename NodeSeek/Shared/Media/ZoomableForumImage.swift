@@ -5,6 +5,7 @@ struct ZoomableForumImage: UIViewRepresentable {
     let image: CGImage
     let label: String
     let isCurrent: Bool
+    let hasTransitionSource: Bool
     let onZoomChanged: (Bool) -> Void
     let onDismiss: () -> Void
     let onTap: () -> Void
@@ -14,7 +15,7 @@ struct ZoomableForumImage: UIViewRepresentable {
 
     func updateUIView(_ view: PhotoScrollView, context: Context) {
         view.onZoomChanged = onZoomChanged
-        view.dismissSwipe.isEnabled = reduceMotion
+        view.dismissSwipe.isEnabled = reduceMotion || !hasTransitionSource
         view.onDismiss = onDismiss
         view.onTap = onTap
         view.animatesZoom = !reduceMotion
