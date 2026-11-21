@@ -8,12 +8,6 @@ public final class AvatarImageLoader {
     public static let shared = AvatarImageLoader()
     private nonisolated static let maxPixelSize = 384
 
-    #if DEBUG
-    private nonisolated static let fixtureResponses = ProcessInfo.processInfo.environment["NODESEEK_UI_TEST_WEBSITE"].flatMap {
-        try? JSONDecoder().decode(AccountSession.UITestWebsite.self, from: Data($0.utf8)).responses
-    }
-    #endif
-
     private final class Entry {
         let image: CGImage?
         let expiresAt: Date
@@ -85,10 +79,7 @@ public final class AvatarImageLoader {
 
     private nonisolated static func download(_ url: URL, using session: URLSession) async throws -> (Data, String?) {
         #if DEBUG
-        if let fixtureResponses {
-            guard let data = fixtureResponses[url.absoluteString] else { throw URLError(.resourceUnavailable) }
-            return (data, nil)
-        }
+        if let data = try UITestNetwork.media(for: url) { return (data, nil) }
         #endif
         var request = ForumImageRequest.make(url: url)
         request.cachePolicy = .useProtocolCachePolicy

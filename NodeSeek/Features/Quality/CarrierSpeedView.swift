@@ -228,7 +228,7 @@ final class CarrierSpeedRun {
 
 extension QualityServices {
     static var carrierSpeed: any CarrierSpeedTesting {
-        guard ProcessInfo.processInfo.arguments.contains("--ui-test-offline") else { return LiveCarrierSpeedTester() }
+        guard QualityServices.usesSamples else { return LiveCarrierSpeedTester() }
         let scenario = UserDefaults.standard.string(forKey: "qualitySample").flatMap(QualitySampleScenario.init) ?? .complete
         return SampleCarrierSpeedTester(scenario: scenario, pace: pace)
     }

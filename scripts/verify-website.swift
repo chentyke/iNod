@@ -6,6 +6,7 @@ import WebKit
         _ = NSApplication.shared
         var configuration = WebPage.Configuration()
         configuration.websiteDataStore = .nonPersistent()
+        configuration.loadsSubresources = false
         let page = WebPage(configuration: configuration)
         try await checkAccountHTML(in: page)
         try await checkPostAccess(in: page)

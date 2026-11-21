@@ -36,11 +36,11 @@ enum ForumFixture {
     /// Launches the app and opens the fixture's thread from the feed.
     ///
     /// UI tests can't click into the Mac app, so there the app opens the thread itself once the feed loads.
-    @MainActor static func launchThread(dark: Bool = false, signedInAsAuthor: Bool = false) -> XCUIApplication {
+    @MainActor static func launchThread(dark: Bool = false, signedInAsAuthor: Bool = false, extraArguments: [String] = []) -> XCUIApplication {
         #if targetEnvironment(macCatalyst)
-        let app = launch(dark: dark, opensThread: true, signedInAsAuthor: signedInAsAuthor)
+        let app = launch(dark: dark, opensThread: true, signedInAsAuthor: signedInAsAuthor, extraArguments: extraArguments)
         #else
-        let app = launch(dark: dark, signedInAsAuthor: signedInAsAuthor)
+        let app = launch(dark: dark, signedInAsAuthor: signedInAsAuthor, extraArguments: extraArguments)
         let post = postCard(threadTitle, in: app)
         XCTAssertTrue(post.waitForExistence(timeout: 10))
         post.tap()

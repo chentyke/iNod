@@ -133,7 +133,7 @@ struct YouTubeRegionView: View {
 enum YouTubeAPIKeyStore {
     private static let service = "NodeSeek.Quality.YouTubeAPIKey"
     @MainActor private static var memory: String?
-    private static var inMemory: Bool { ProcessInfo.processInfo.arguments.contains("--ui-test-offline") }
+    private static var inMemory: Bool { QualityServices.usesSamples }
 
     private static var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: "default"]

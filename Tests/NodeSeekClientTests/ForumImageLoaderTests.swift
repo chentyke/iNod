@@ -60,3 +60,14 @@ private final class ForumImageTestProtocol: URLProtocol, @unchecked Sendable {
 
     override func stopLoading() {}
 }
+
+#if DEBUG
+@Test func uiTestMediaUsesRecordedDataAndOnlyAllowsLoopbackForMissingImages() throws {
+    let remote = try #require(URL(string: "https://cdn.example.org/image.png"))
+    let local = try #require(URL(string: "http://127.0.0.1:8080/image.png"))
+    let sample = Data([1, 2, 3])
+    #expect(try UITestNetwork.media(for: remote, responses: [remote.absoluteString: sample]) == sample)
+    #expect(throws: URLError(.resourceUnavailable)) { try UITestNetwork.media(for: remote, responses: [:]) }
+    #expect(try UITestNetwork.media(for: local, responses: [:]) == nil)
+}
+#endif

@@ -8,12 +8,6 @@ public actor StickerLoader {
     private var cache: [String: StickerAnimation] = [:]
     private var pending: [String: Task<StickerAnimation?, Never>] = [:]
 
-    #if DEBUG
-    private static let fixtureResponses = ProcessInfo.processInfo.environment["NODESEEK_UI_TEST_WEBSITE"].flatMap {
-        try? JSONDecoder().decode(AccountSession.UITestWebsite.self, from: Data($0.utf8)).responses
-    }
-    #endif
-
     public func load(_ sticker: ForumSticker) async -> StickerAnimation? {
         if let animation = cache[sticker.code] { return animation }
         if let task = pending[sticker.code] { return await task.value }
@@ -43,10 +37,7 @@ public actor StickerLoader {
 
     private static func data(for sticker: ForumSticker) async throws -> Data {
         #if DEBUG
-        if let fixtureResponses {
-            guard let data = fixtureResponses[sticker.url.absoluteString] else { throw URLError(.resourceUnavailable) }
-            return data
-        }
+        if let data = try UITestNetwork.media(for: sticker.url) { return data }
         #endif
         var request = URLRequest(url: sticker.url)
         request.timeoutInterval = 15

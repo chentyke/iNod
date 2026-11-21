@@ -5,7 +5,7 @@ import SwiftUI
 
 extension QualityServices {
     static var streaming: any StreamingChecking {
-        guard ProcessInfo.processInfo.arguments.contains("--ui-test-offline") else { return LiveStreamingChecker() }
+        guard QualityServices.usesSamples else { return LiveStreamingChecker() }
         let pace = UserDefaults.standard.double(forKey: "qualityPace")
         return SampleStreamingChecker(pace: pace > 0 ? pace : 1)
     }
