@@ -112,7 +112,17 @@ struct NotificationsView: View {
             Text(tab.rawValue)
                 .font(.headline.weight(isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? Color.seekInk : .secondary)
-                .frame(minWidth: 44, minHeight: 44, alignment: .leading)
+                .frame(minHeight: 44)
+                .overlay(alignment: .bottom) {
+                    if isSelected {
+                        Capsule()
+                            .fill(Color.seekInk)
+                            .frame(height: 2)
+                            .matchedGeometryEffect(id: "inbox-tab", in: indicator)
+                            .padding(.bottom, 0.5)
+                    }
+                }
+                .frame(minWidth: 44, alignment: .leading)
                 .contentShape(.rect)
                 .overlay(alignment: .topTrailing) {
                     if isUnread {
@@ -121,14 +131,6 @@ struct NotificationsView: View {
                             .frame(width: 5, height: 5)
                             .offset(x: 3, y: 8)
                             .accessibilityHidden(true)
-                    }
-                }
-                .overlay(alignment: .bottom) {
-                    if isSelected {
-                        Capsule()
-                            .fill(Color.seekInk)
-                            .frame(height: 2)
-                            .matchedGeometryEffect(id: "inbox-tab", in: indicator)
                     }
                 }
         }
