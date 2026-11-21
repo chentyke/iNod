@@ -21,24 +21,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      docs-only: ${{ steps.scope.outputs.docs-only }}
+      skip-swift: ${{ steps.scope.outputs.skip-swift }}
+      skip-ui: ${{ steps.scope.outputs.skip-ui }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 2
-      - name: Check if the PR only changes documentation
+      - name: Choose checks for the changed files
         id: scope
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
-          git diff --no-renames --name-only -z HEAD^1 HEAD | node -e '
-            const files = require("node:fs").readFileSync(0, "utf8").split("\0").filter(Boolean);
-            const docsOnly = files.length > 0 && files.every(path =>
-              path === "README.md" || path === "CONTRIBUTING.md" || /^docs\/[\s\S]+\.md$/.test(path)
-            );
-            console.log(`docs-only=${docsOnly}`);
-          ' >> "$GITHUB_OUTPUT"
+          git diff --no-renames --name-only -z HEAD^1 HEAD | node scripts/ci-scope.mjs >> "$GITHUB_OUTPUT"
       - name: Check SwiftUI code against docs/DESIGN.md
         run: node scripts/check-design.mjs
       - name: Check hand-drawn symbol assets against their artwork
@@ -46,7 +41,7 @@ jobs:
 
   swift-and-website:
     needs: design-checks
-    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true') }}
+    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.skip-swift != 'true') }}
     name: Swift and website checks
     runs-on: xcode-27
     timeout-minutes: 20
@@ -61,7 +56,7 @@ jobs:
 
   iphone-ui-test-groups:
     needs: design-checks
-    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true') }}
+    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.skip-ui != 'true') }}
     name: iPhone UI tests (${{ matrix.group }}/2)
     runs-on: xcode-27
     timeout-minutes: 60
@@ -81,19 +76,13 @@ jobs:
       TEST_CLASSES: >-
         CommunitySectionViewTests DesignChecklistTests AccountBalancesViewTests
         NodeImageLibraryViewTests ThreadImageGalleryTests StardustHistoryViewTests
-        ThreadHistoryTests EditorImageNavigationTests RapidPostReturnTests
+        ThreadHistoryTests EditorImageNavigationTests RapidPostReturnTests InlineReplyTests
     steps: &simulator-test-steps
-      - name: Report documentation-only check
-        if: needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true'
-        run: echo "Documentation only. No simulator needed."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        id: checkout
-        if: needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true'
         with:
           persist-credentials: false
       - name: Start the ${{ env.DEVICE }} simulator
         id: simulator
-        if: steps.checkout.outcome == 'success'
         run: |
           simulator_id="$(xcrun simctl list devices available --json | node -e '
             const { devices } = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
@@ -105,27 +94,26 @@ jobs:
           xcrun simctl bootstatus "$simulator_id" -b
           echo "id=$simulator_id" >> "$GITHUB_OUTPUT"
       - name: Build and test on ${{ env.DEVICE }}
-        if: steps.simulator.outcome == 'success'
         shell: bash
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
         run: |
-          read -ra args <<< "$TESTS $RETRIES"
+          read -ra args <<< "$TESTS"
           read -ra test_classes <<< "$TEST_CLASSES"
           for test_class in "${test_classes[@]}"; do
             args+=("-$TEST_FILTER:NodeSeekUITests/$test_class")
           done
-          xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
+          bash scripts/test-simulator.sh -project NodeSeek.xcodeproj -scheme NodeSeek \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -retry-tests-on-failure -test-iterations 2 \
             -parallel-testing-enabled NO "${args[@]}" \
-            -resultBundlePath "$RUNNER_TEMP/$RESULTS.xcresult" \
-            CODE_SIGN_IDENTITY=- test
+            CODE_SIGN_IDENTITY=-
       - name: Upload failed test results
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.RESULTS }}
-          path: ${{ runner.temp }}/${{ env.RESULTS }}.xcresult
+          path: ${{ runner.temp }}/${{ env.RESULTS }}*.xcresult
           retention-days: 7
 
   ios-ui-tests:
@@ -139,10 +127,10 @@ jobs:
       - name: Check both iPhone test groups
         env:
           IPHONE_RESULT: ${{ needs.iphone-ui-test-groups.result }}
-          DOCS_ONLY: ${{ needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true' }}
+          SKIP_UI: ${{ needs.design-checks.result == 'success' && needs.design-checks.outputs.skip-ui == 'true' }}
         run: |
-          if [[ "$IPHONE_RESULT" == skipped && "$DOCS_ONLY" == true ]]; then
-            echo "Documentation only. No simulator needed."
+          if [[ "$IPHONE_RESULT" == skipped && "$SKIP_UI" == true ]]; then
+            echo "Only documentation or Swift package tests changed."
           else
             echo "iPhone test groups: $IPHONE_RESULT"
             test "$IPHONE_RESULT" = success
@@ -150,9 +138,9 @@ jobs:
 
   ipad-ui-tests:
     needs: design-checks
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.skip-ui != 'true') }}
     name: iPad UI tests
-    runs-on: ${{ needs.design-checks.result == 'success' && needs.design-checks.outputs.docs-only == 'true' && 'ubuntu-latest' || 'xcode-27' }}
+    runs-on: xcode-27
     timeout-minutes: 40
     env:
       DEVICE: iPad Pro 13-inch (M5)
@@ -163,14 +151,11 @@ jobs:
         -only-testing:NodeSeekUITests/AttendanceViewTests/testUncheckedAttendanceShowsActionsAndKeepsReadableColumn
         -only-testing:NodeSeekUITests/ProgressViewTests/testUpgradingProgressShowsLevelQuotasAndKeepsReadableColumn
         -only-testing:NodeSeekUITests/StardustHistoryViewTests/testStardustHistoryDisplaysBalanceRecordsAndNavigates
-      # The hosted iPad simulator is slow and now and then fails to stop the app between tests.
-      # A test that fails both times still fails the check.
-      RETRIES: -retry-tests-on-failure -test-iterations 2
     steps: *simulator-test-steps
 
   mac-ui-tests:
     needs: design-checks
-    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.docs-only != 'true') }}
+    if: ${{ !cancelled() && (needs.design-checks.result != 'success' || needs.design-checks.outputs.skip-ui != 'true') }}
     name: Mac UI tests
     runs-on: xcode-27
     timeout-minutes: 25
