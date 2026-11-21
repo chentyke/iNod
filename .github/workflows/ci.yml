@@ -98,13 +98,14 @@ jobs:
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
         run: |
-          read -ra args <<< "$TESTS $RETRIES"
+          read -ra args <<< "$TESTS"
           read -ra test_classes <<< "$TEST_CLASSES"
           for test_class in "${test_classes[@]}"; do
             args+=("-$TEST_FILTER:NodeSeekUITests/$test_class")
           done
           bash scripts/test-simulator.sh -project NodeSeek.xcodeproj -scheme NodeSeek \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -retry-tests-on-failure -test-iterations 2 \
             -parallel-testing-enabled NO "${args[@]}" \
             CODE_SIGN_IDENTITY=-
       - name: Upload failed test results
@@ -150,9 +151,6 @@ jobs:
         -only-testing:NodeSeekUITests/AttendanceViewTests/testUncheckedAttendanceShowsActionsAndKeepsReadableColumn
         -only-testing:NodeSeekUITests/ProgressViewTests/testUpgradingProgressShowsLevelQuotasAndKeepsReadableColumn
         -only-testing:NodeSeekUITests/StardustHistoryViewTests/testStardustHistoryDisplaysBalanceRecordsAndNavigates
-      # The hosted iPad simulator is slow and now and then fails to stop the app between tests.
-      # A test that fails both times still fails the check.
-      RETRIES: -retry-tests-on-failure -test-iterations 2
     steps: *simulator-test-steps
 
   mac-ui-tests:

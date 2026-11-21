@@ -5,6 +5,9 @@ set -eu -o pipefail
 bundle="$RUNNER_TEMP/$RESULTS"
 log="$bundle.log"
 if xcodebuild "$@" -resultBundlePath "$bundle.xcresult" test 2>&1 | tee "$log"; then
+    if grep -Eq "^Test Case .* failed \(" "$log"; then
+        echo "::warning::A simulator test passed on retry. The first failure is in this step’s log."
+    fi
     exit 0
 else
     status=("${PIPESTATUS[@]}")
