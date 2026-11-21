@@ -9,6 +9,7 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
     let error: LoadFailure?
     let isBusy: Bool
     let reload: () async -> Void
+    let isSelected: Bool
     let leadingContent: LeadingContent
     @ViewBuilder let row: (Item) -> Row
     @Environment(AccountSession.self) private var account
@@ -28,7 +29,9 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
                     }
                 }
                 ForEach(items, content: row)
-                    .listRowInsets(EdgeInsets(top: 11, leading: 14, bottom: 11, trailing: 14))
+                    .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparatorTint(.seekHairline)
             } else {
                 // Keep the list scrollable when neither a search field nor inbox rows are visible.
                 Color.clear
@@ -38,16 +41,21 @@ struct InboxList<Item: Identifiable, LeadingContent: View, Row: View>: View {
                     .accessibilityHidden(true)
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .accessibilityHidden(!isSelected)
+        .scrollContentBackground(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .contentMargins(.top, 4, for: .scrollContent)
         .readableContentMargins()
         .refreshable {
             isRefreshing = true
             defer { isRefreshing = false }
             await reload()
         }
-        .menuRefreshable(reload)
+        .background {
+            if isSelected {
+                Color.clear.menuRefreshable { await reload() }
+            }
+        }
         .overlay {
             if items?.isEmpty != false, !isRefreshing {
                 if let error {

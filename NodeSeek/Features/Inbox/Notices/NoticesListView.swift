@@ -4,6 +4,7 @@ import SwiftUI
 
 struct NoticesListView: View {
     let userID: Int
+    let isSelected: Bool
     @Environment(AccountSession.self) private var account
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openAccountPost) private var openPost
@@ -20,7 +21,7 @@ struct NoticesListView: View {
         InboxList(items: items, emptyTitle: "暂无互动通知", emptySymbol: .inkNoActivity,
                   error: updateError ?? loadErrors[.replies] ?? loadErrors[.mentions],
                   isBusy: isLoading || isUpdating, reload: { await load(force: true) },
-                  leadingContent: EmptyView()) { item in
+                  isSelected: isSelected, leadingContent: EmptyView()) { item in
             let notice = item.notice
             let action = item.kind == .replies ? "回复了你" : "提到了你"
 
@@ -51,7 +52,10 @@ struct NoticesListView: View {
         .onDisappear { isVisible = false }
         .task {
             await load()
-            hasLoadedOnce = true
+            hasLoadedOnce = !Task.isCancelled
+        }
+        .task(id: isSelected) {
+            guard isSelected else { return }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
                 guard !Task.isCancelled, scenePhase.isPollingActive else { continue }
@@ -59,7 +63,7 @@ struct NoticesListView: View {
             }
         }
         .onChange(of: scenePhase) { previous, phase in
-            if previous != .active, phase == .active, isVisible, hasLoadedOnce {
+            if previous != .active, phase == .active, isSelected, isVisible, hasLoadedOnce {
                 Task { await load(force: true) }
             }
         }

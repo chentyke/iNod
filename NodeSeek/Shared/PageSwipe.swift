@@ -11,9 +11,12 @@ struct PageSwipe: UIGestureRecognizerRepresentable {
         }
     }
 
+    static let minimumDistance: CGFloat = 100
+
     let direction: Direction
     var isEnabled = true
-    let action: () -> Void
+    var onMove: ((CGFloat) -> Void)? = nil
+    let onEnd: (Bool) -> Void
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
         Coordinator(direction: direction)
@@ -34,12 +37,18 @@ struct PageSwipe: UIGestureRecognizerRepresentable {
     }
 
     func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
-        guard recognizer.state == .ended else { return }
         let translation = recognizer.translation(in: recognizer.view)
         let distance = direction.distance(translation)
-        // Short swipes on a notification row can still reveal its Mark as Read action.
-        guard distance >= 100, distance > abs(translation.y) * 1.5 else { return }
-        action()
+        switch recognizer.state {
+        case .changed:
+            onMove?(distance)
+        case .ended:
+            onEnd(distance >= Self.minimumDistance && distance > abs(translation.y) * 1.5)
+        case .cancelled:
+            onEnd(false)
+        default:
+            break
+        }
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {

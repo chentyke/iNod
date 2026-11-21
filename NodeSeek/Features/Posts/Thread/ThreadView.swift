@@ -165,8 +165,8 @@ struct ThreadView: View {
             .padding(.horizontal, SeekLayout.gutter).padding(.vertical, 12)
             .background(TopOverscrollLock())
         }
-        .gesture(PageSwipe(direction: .left, isEnabled: authorID != nil && !isWritingReply) {
-            if let authorID { openMember(.profile(authorID)) }
+        .gesture(PageSwipe(direction: .left, isEnabled: authorID != nil && !isWritingReply) { completed in
+            if completed, let authorID { openMember(.profile(authorID)) }
         })
         .scrollDismissesKeyboard(.interactively)
         .scrollPosition($scrollPosition)

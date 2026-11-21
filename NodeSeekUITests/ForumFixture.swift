@@ -16,7 +16,8 @@ enum ForumFixture {
                                   opensConversation: Bool = false, signedInAsAuthor: Bool = false,
                                   authorID: Int = 101, openingMarkdown: String = "周六下午两点开始读书。",
                                   firstReplyMarkdown: String? = nil, assetResponses: [String: Data] = [:],
-                                  replyDraft: String? = nil, showsUnreadNotice: Bool = false) -> XCUIApplication {
+                                  replyDraft: String? = nil, showsUnreadNotice: Bool = false,
+                                  extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor, authorID: authorID,
                                                                     openingMarkdown: openingMarkdown, firstReplyMarkdown: firstReplyMarkdown,
@@ -26,7 +27,7 @@ enum ForumFixture {
         if opensSidebar { app.launchArguments.append("--ui-test-open-sidebar") }
         if opensConversation { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_CONVERSATION"] = "\(peerID):\(peerName)" }
         // `appearance` is the in-app appearance setting; an argument sets it for this launch only.
-        app.launchArguments += ["-appearance", dark ? "dark" : "light"]
+        app.launchArguments += ["-appearance", dark ? "dark" : "light"] + extraArguments
         app.launch()
         return app
     }
@@ -190,7 +191,7 @@ enum ForumFixture {
         let responses: [String: [String: Any]] = [
             "https://www.nodeseek.com/?sortBy=replyTime": ["posts": posts, "hasNextPage": false],
             "/api/content/list-categories": ["success": true, "data": []],
-            "/api/notification/unread-count": ["unreadCount": ["all": 0]],
+            "/api/notification/unread-count": ["unreadCount": ["all": notices.count]],
             "/api/notification/reply-to-me/list": ["items": notices, "hasNext": false],
             "/api/account/getInfo/\(authorID)?readme=1": ["id": authorID, "name": "楼主",
                                                        "bio": "周末读书会发起人"],
