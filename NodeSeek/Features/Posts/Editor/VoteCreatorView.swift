@@ -21,7 +21,10 @@ struct VoteCreatorView: View {
                     Button("增加选项", image: .inkAddOption) { options.append("") }
                     if options.count > 2 { Button("移除最后一项", image: .inkRemoveOption, role: .destructive) { options.removeLast() } }
                 }
-                Section { Toggle("允许多选", isOn: $multiple); Toggle("公开参与者", isOn: $isPublic) }
+                Section {
+                    Toggle("允许多选", isOn: $multiple).tint(Color.seekGreen)
+                    Toggle("公开参与者", isOn: $isPublic).tint(Color.seekGreen)
+                }
                 if let error { Section { Text(error).foregroundStyle(.red) } }
             }.disabled(busy).seekCanvas().listSectionSpacing(20).navigationTitle("创建投票").navigationBarTitleDisplayMode(.inline)
             .toolbar {

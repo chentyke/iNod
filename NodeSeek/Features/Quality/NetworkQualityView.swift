@@ -61,7 +61,9 @@ private struct NetworkQualityHeader: View {
                 }
             }
             .accessibilityElement(children: .combine)
-            Button("开始检测", image: .inkStartTest) { run.start() }
+            Button { run.start() } label: {
+                SeekPillLabel(title: "开始检测", symbol: .inkStartTest)
+            }
                 .buttonStyle(.seekPill).disabled(network.kind == .offline)
                 .accessibilityIdentifier("quality.start")
         }
@@ -98,7 +100,9 @@ private struct NetworkQualityHeader: View {
             .accessibilityElement(children: .combine)
             .accessibilityValue("已完成 \(Int(overall(report) * 100))%")
             QualityProgressLine(fraction: overall(report))
-            Button("取消", image: .inkStopTest) { run.cancel() }
+            Button { run.cancel() } label: {
+                SeekPillLabel(title: "取消", symbol: .inkStopTest, primary: false)
+            }
                 .buttonStyle(.seekPill(primary: false))
                 .accessibilityIdentifier("quality.cancel")
         }
@@ -160,11 +164,18 @@ private struct NetworkQualityHeader: View {
             if !retryable.isEmpty {
                 // After a cancel nothing failed; the rest simply never ran.
                 let resumes = run.report.map { report in retryable.allSatisfy { report.status(of: $0) == .cancelled } } ?? false
-                Button(resumes ? "继续剩余 \(retryable.count) 项" : "重试 \(retryable.count) 项", image: resumes ? .inkResumeTest : .inkRetryStep) { run.retry(retryable) }
+                Button { run.retry(retryable) } label: {
+                    SeekPillLabel(
+                        title: resumes ? "继续剩余 \(retryable.count) 项" : "重试 \(retryable.count) 项",
+                        symbol: resumes ? .inkResumeTest : .inkRetryStep
+                    )
+                }
                     .buttonStyle(.seekPill)
                     .accessibilityIdentifier("quality.retry")
             }
-            Button("重新检测", image: .inkRepeatTest) { run.start() }
+            Button { run.start() } label: {
+                SeekPillLabel(title: "重新检测", symbol: .inkRepeatTest, primary: false)
+            }
                 // The results are the point of the page now; running again is the quieter choice.
                 .buttonStyle(.seekPill(primary: false))
                 .accessibilityIdentifier("quality.restart")

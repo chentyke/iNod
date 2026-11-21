@@ -154,7 +154,7 @@ sh scripts/verify-website.sh    # 检查网页请求脚本和 HTML 解析，需�
 
 <br>
 
-App 通过本地 Swift Package 链接 `NodeSeekClient` 和 `NodeSeekCore`。依赖方向为 `App → NodeSeekClient → NodeSeekCore`，App 也可以直接使用 Core 的类型。
+App 通过本地 Swift Package 链接 `NodeSeekClient` 和 `NodeSeekCore`。依赖方向为 `App → NodeSeekClient → NodeSeekCore`，App 也可以直接使用 Core 的类型。各层的分工、帖子读写流程和相关测试见[架构说明](docs/ARCHITECTURE.md)。
 
 | 目录 | 内容 |
 | --- | --- |

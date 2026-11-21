@@ -21,10 +21,10 @@ struct CategoryPicker: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack {
-                                    SeekIconTile(symbol: category.inkIcon, tint: .categoryTint(category.id))
+                                    SeekIconTile(symbol: category.inkIcon)
                                     Spacer()
                                     if category.id == selection {
-                                        Image(.inkSelectedBoard).foregroundStyle(Color.seekGreen)
+                                        Image(.inkSelectedBoard).foregroundStyle(Color.seekButtonIcon)
                                     }
                                 }
                                 Text(category.title).font(.headline).foregroundStyle(Color.seekInk)

@@ -3,7 +3,9 @@ import SwiftUI
 extension Color {
     static let seekGreen = Color("AccentColor")
     static let seekSurface = Color("ReadingSurface")
-    static let seekButtonText = Color("ButtonText")
+    static let seekButtonIcon = Color("ButtonIcon")
+    static let seekButtonIconOnFill = Color("ButtonIconOnFill")
+    static let seekButtonIconOnDark = Color(white: 0.82)
     static let seekCanvas = Color("Canvas")
     static let seekCard = Color("Card")
     static let seekTray = Color("Tray")

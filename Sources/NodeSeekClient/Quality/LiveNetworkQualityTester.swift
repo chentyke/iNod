@@ -27,8 +27,8 @@ public struct LiveNetworkQualityTester: NetworkQualityTesting {
         let requested = Set(steps)
         let empty = Report(startedAt: .now, network: .init(kind: .other), speed: .notIncluded, ipv4: .notIncluded, ipv6: .notIncluded)
         var report = (previous ?? empty).resetting(requested)
-        if requested.contains(.speed), Self.basicSteps([.speed], previous: previous) != Self.speedSteps {
-            report.partialSpeed = previous?.speed.value
+        if requested.contains(.speed), let speed = previous?.speed.value, speed.needsRetry {
+            report.partialSpeed = speed
         }
         let initial = report
         let (stream, continuation) = AsyncStream.makeStream(of: Report.self)
@@ -55,13 +55,13 @@ public struct LiveNetworkQualityTester: NetworkQualityTesting {
         var iterator = updates.makeAsyncIterator()
         var start = initial
         guard let path = await iterator.next(), !Task.isCancelled else {
-            return Task.isCancelled ? initial.cancellingUnfinished() : Self.finish(start, interruption: .offline)
+            return Task.isCancelled ? initial.cancellingUnfinished().keepingMeasurements(from: previous) : Self.finish(start, interruption: .offline, previous: previous)
         }
         if previous == nil { start.network = path.context }
-        guard path.network != .offline else { return Self.finish(start, interruption: .offline) }
+        guard path.network != .offline else { return Self.finish(start, interruption: .offline, previous: previous) }
         if let previous, previous.includedSteps.contains(where: { previous.status(of: $0) == .measured }),
            previous.network.kind != path.context.kind {
-            return Self.finish(start, interruption: .networkChanged)
+            return Self.finish(start, interruption: .networkChanged, previous: previous)
         }
         start.network = path.context
         let activeReport = start
@@ -83,8 +83,8 @@ public struct LiveNetworkQualityTester: NetworkQualityTesting {
                 case .monitorEnded: break
                 }
             }
-            if Task.isCancelled { return latest.cancellingUnfinished() }
-            return Self.finish(latest, interruption: interruption)
+            if Task.isCancelled { return latest.cancellingUnfinished().keepingMeasurements(from: previous) }
+            return Self.finish(latest, interruption: interruption, previous: previous)
         }
     }
 
@@ -96,10 +96,10 @@ public struct LiveNetworkQualityTester: NetworkQualityTesting {
         if !steps.isEmpty {
             let before = report
             let raw = await basics.run(steps: steps) {
-                publish(Self.apply($0, to: before, selected: steps, previousSpeed: previous?.speed.value))
+                publish(Self.apply($0, to: before, selected: steps))
             }
-            report = Self.apply(raw, to: before, selected: steps, previousSpeed: previous?.speed.value)
-            if case .interrupted(let issue) = raw.state { return Self.finish(report, interruption: issue) }
+            report = Self.apply(raw, to: before, selected: steps)
+            if case .interrupted(let issue) = raw.state { return Self.finish(report, interruption: issue, previous: previous) }
         }
         let session = QualityHTTP.makeSession()
         defer { session.invalidateAndCancel() }
@@ -116,12 +116,13 @@ public struct LiveNetworkQualityTester: NetworkQualityTesting {
         return report
     }
 
-    private static func finish(_ report: Report, interruption: QualityIssue?) -> Report {
+    private static func finish(_ report: Report, interruption: QualityIssue?, previous: Report?) -> Report {
         var report = report
         if let interruption {
             for step in report.includedSteps where !report.status(of: step).isFinished {
                 report.setFailed(step, issue(interruption))
             }
+            report = report.keepingMeasurements(from: previous)
         }
         report.finishedAt = .now
         return report
@@ -147,13 +148,12 @@ extension LiveNetworkQualityTester {
     }
 
     private static func apply(
-        _ raw: NetworkQualityReport, to initial: Report, selected: [NetworkQualityReport.Step], previousSpeed: SpeedMeasurement?
+        _ raw: NetworkQualityReport, to initial: Report, selected: [NetworkQualityReport.Step]
     ) -> Report {
         var report = initial
         let speedChecks = selected.filter { speedSteps.contains($0) }
         if !speedChecks.isEmpty {
-            let previous = speedChecks == speedSteps ? nil : previousSpeed
-            let measured = speed(raw, previous: previous)
+            let measured = speed(raw, previous: initial.partialSpeed)
             report.partialSpeed = measured
             if raw.completedStepCount >= speedChecks.count || raw.finishedAt != nil {
                 if let measured { report.speed = .measured(measured); report.partialSpeed = nil }
@@ -257,7 +257,9 @@ extension LiveNetworkQualityTester {
                 report.reputation = .failed(.init(.other, detail: "需要先测得公网地址"))
                 return report
             }
-            let past = previous?.reputation.value ?? []
+            let sameAddresses = report.ipv4.value?.address == previous?.ipv4.value?.address
+                && report.ipv6.value?.address == previous?.ipv6.value?.address
+            let past = sameAddresses ? previous?.reputation.value ?? [] : []
             let failures = Set(past.filter { $0.issue != nil }.map(\.id))
             let results = await QualityReputation.lookup(addresses: addresses, ids: failures.isEmpty ? nil : failures, send: send)
             let records = results.map(reputation)

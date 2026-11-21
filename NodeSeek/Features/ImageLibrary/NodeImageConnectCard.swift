@@ -22,6 +22,7 @@ struct NodeImageConnectCard: View {
                 ZStack {
                     HStack(spacing: 6) {
                         Image(.inkConnectLibrary)
+                            .foregroundStyle(isDisabled ? Color.seekButtonIcon : .seekButtonIconOnFill)
                             .accessibilityHidden(true)
                         Text("连接 NodeImage")
                             .lineLimit(1)

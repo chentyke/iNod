@@ -131,13 +131,14 @@ struct StardustRecordRow: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(.inkProfile)
+                            .foregroundStyle(Color.seekButtonIcon)
                             .font(.caption)
                             .accessibilityHidden(true)
                         Text("对方 UID \(String(peerID))")
                             .monospacedDigit()
                         Image(.inkNext)
                             .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Color.seekButtonIcon)
                             .accessibilityHidden(true)
                     }
                     .font(.caption.weight(.medium))

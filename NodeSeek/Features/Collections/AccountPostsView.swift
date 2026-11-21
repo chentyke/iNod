@@ -6,7 +6,7 @@ struct AccountPostsView: View {
     let kind: AccountContentKind
     let userID: Int
     @Environment(AccountSession.self) private var account
-    @State private var loader = AccountLoader<AccountPage<AccountPost>>()
+    @State private var loader = ResourceLoader<AccountPage<AccountPost>>()
     @State private var page = 1
     @State private var loadedRevision: String?
     @State private var removing: AccountPost?

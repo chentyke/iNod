@@ -53,7 +53,9 @@ struct DeviceBenchmarkView: View {
             if thermal >= .serious {
                 Text("设备现在较热，成绩可能偏低。可以等它凉下来再测。").font(.footnote).foregroundStyle(.secondary)
             }
-            Button("开始测试", image: .inkStartBench) { run.start() }
+            Button { run.start() } label: {
+                SeekPillLabel(title: "开始测试", symbol: .inkStartBench)
+            }
                 .buttonStyle(.seekPill).accessibilityIdentifier("benchmark.start")
         }
     }
@@ -70,7 +72,9 @@ struct DeviceBenchmarkView: View {
             .accessibilityValue("已完成 \(Int(overall(report) * 100))%")
             QualityProgressLine(fraction: overall(report))
             Text("测试时请保持 App 在前台。").font(.footnote).foregroundStyle(.secondary)
-            Button("取消", image: .inkStopTest) { run.cancel() }
+            Button { run.cancel() } label: {
+                SeekPillLabel(title: "取消", symbol: .inkStopTest, primary: false)
+            }
                 .buttonStyle(.seekPill(primary: false)).accessibilityIdentifier("benchmark.cancel")
         }
     }
@@ -97,7 +101,9 @@ struct DeviceBenchmarkView: View {
             if report.mayBeThrottled {
                 Text("测试时设备较热，系统可能已降低性能，成绩可能偏低。").font(.footnote).foregroundStyle(.secondary)
             }
-            Button(report.isComplete ? "再测一次" : "重新测试", image: .inkRepeatBench) { run.start() }
+            Button { run.start() } label: {
+                SeekPillLabel(title: report.isComplete ? "再测一次" : "重新测试", symbol: .inkRepeatBench, primary: false)
+            }
                 .buttonStyle(.seekPill(primary: false)).accessibilityIdentifier("benchmark.restart")
         }
     }

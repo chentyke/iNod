@@ -63,7 +63,7 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
         includedSteps.filter { step in
             if status(of: step).canRetry { return true }
             switch step {
-            case .speed: return speed.value.map { $0.downloadMbps == nil || $0.uploadMbps == nil || $0.latencyMs == nil || $0.jitterMs == nil } ?? false
+            case .speed: return speed.value?.needsRetry == true
             case .ipv4: return ipv4.value?.ownerIssue != nil
             case .ipv6: return ipv6.value?.ownerIssue != nil
             case .ipDetails: return ipDetails.value?.contains { $0.hasFailure } ?? false
@@ -93,6 +93,20 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
         copy.routes = routes.cancellingUnfinished; copy.nat = nat.cancellingUnfinished; copy.mailPort = mailPort.cancellingUnfinished
         copy.reputation = reputation.cancellingUnfinished; copy.services = services.cancellingUnfinished
         copy.finishedAt = copy.finishedAt ?? date
+        return copy
+    }
+
+    /// If a retry stops before producing replacement results, keep the successful parts of the earlier run.
+    public func keepingMeasurements(from previous: Self?) -> Self {
+        guard let previous else { return self }
+        var copy = self
+        copy.ipv4 = ipv4.keepingAddress(from: previous.ipv4)
+        copy.ipv6 = ipv6.keepingAddress(from: previous.ipv6)
+        copy.routes = routes.keepingRecords(from: previous.routes, issue: \.issue)
+        if copy.ipv4.value?.address == previous.ipv4.value?.address, copy.ipv6.value?.address == previous.ipv6.value?.address {
+            copy.reputation = reputation.keepingRecords(from: previous.reputation, issue: \.issue)
+        }
+        copy.services = services.keepingRecords(from: previous.services, issue: \.issue)
         return copy
     }
 
@@ -150,6 +164,34 @@ public struct NetworkQualityReport: Sendable, Equatable, Codable {
 
 }
 
+private extension QualityResult {
+    func keepingAddress(from previous: Self) -> Self where Value == IPEgress {
+        guard var address = previous.value, address.ownerIssue != nil else { return self }
+        switch self {
+        case .failed(let issue):
+            address.ownerIssue = issue
+            return .measured(address)
+        case .cancelled: return previous
+        default: return self
+        }
+    }
+
+    func keepingRecords<Record>(from previous: Self, issue: WritableKeyPath<Record, QualityIssue?>) -> Self where Value == [Record] {
+        guard let records = previous.value, records.contains(where: { $0[keyPath: issue] == nil }),
+              records.contains(where: { $0[keyPath: issue] != nil }) else { return self }
+        switch self {
+        case .failed(let failure):
+            var kept = records
+            for index in kept.indices where kept[index][keyPath: issue] != nil {
+                kept[index][keyPath: issue] = failure
+            }
+            return .measured(kept)
+        case .cancelled: return previous
+        default: return self
+        }
+    }
+}
+
 // MARK: - Speed
 
 public struct SpeedServer: Sendable, Equatable, Codable {
@@ -178,6 +220,10 @@ public struct SpeedMeasurement: Sendable, Equatable, Codable {
     public var latencySamples: Int
     public var bytesTransferred: Int64
     public var issues: [QualityIssue]
+
+    package var needsRetry: Bool {
+        downloadMbps == nil || uploadMbps == nil || latencyMs == nil || jitterMs == nil
+    }
 
     public init(server: SpeedServer, downloadMbps: Double?, uploadMbps: Double?, latencyMs: Double?, jitterMs: Double?,
                 latencySamples: Int, bytesTransferred: Int64, issues: [QualityIssue] = []) {

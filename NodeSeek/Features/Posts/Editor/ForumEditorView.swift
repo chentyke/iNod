@@ -57,7 +57,7 @@ struct ForumEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button { saveForLater(); dismiss() } label: {
-                        if replyTitle != nil { Image(.inkCollapseEditor) }
+                        if replyTitle != nil { Image(.inkCollapseEditor).foregroundStyle(Color.seekButtonIcon) }
                         else { Text("稍后再写") }
                     }
                     .accessibilityLabel("稍后再写")
@@ -67,12 +67,13 @@ struct ForumEditorView: View {
                     Button(action: submitOrConfirm) {
                         if replyTitle != nil {
                             if sending { ProgressView() }
-                            else { Image(.inkSendReply).fontWeight(.semibold) }
+                            else { Image(.inkSendReply).fontWeight(.semibold).foregroundStyle(Color.seekButtonIcon) }
                         } else {
                             Text(sending ? "提交中…" : (request.mode.rawValue.hasPrefix("edit") ? "保存" : "发布"))
                         }
                     }
                     .accessibilityLabel(replyTitle != nil ? "发送回复" : (request.mode.rawValue.hasPrefix("edit") ? "保存" : "发布"))
+                    .tint(replyTitle == nil ? Color.seekGreen : .seekButtonIcon)
                     .disabled(!canPublish)
                 }
             }
@@ -252,7 +253,7 @@ struct ForumEditorView: View {
                 }
                 .labelStyle(.iconOnly).buttonStyle(.plain)
                 .font(.body.weight(.medium))
-                .foregroundStyle(Color.seekInk)
+                .foregroundStyle(Color.seekButtonIcon)
             }
             .padding(.vertical, 8)
         }
@@ -386,7 +387,7 @@ struct ForumEditorView: View {
             if request.mode == .newPost, !categories.items.contains(where: { $0.id == draft.category && !$0.adminOnly }) {
                 throw SiteError.message("这个版块已不能发帖，请重新选择版块。")
             }
-            let result: ReactionResponse = try await account.website.perform(.publish(draft: storedDraft, mode: request.mode), userID: ownerID)
+            let result: ReactionResponse = try await account.website.perform(.publish(draft: storedDraft, mode: request.mode), userID: ownerID, affectedPostID: request.affectedPostID)
             guard result.success else { throw SiteError.message(result.message ?? "提交未成功，请重试。") }
             published = true
             EditorDraftStore.save(nil, ownerID: ownerID, mode: request.mode)

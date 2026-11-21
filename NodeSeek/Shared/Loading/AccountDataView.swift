@@ -26,11 +26,11 @@ struct AccountDataView<Value: Decodable, Content: View>: View {
         self.content = content
     }
 
-    init(loader: AccountLoader<Value>,
+    init(loader: ResourceLoader<Value>,
          margins: ReadableMargin = .replacesInset, in scroller: ReadableScroller = .list,
          retry: @escaping () async -> Void,
          @ViewBuilder content: @escaping (Value) -> Content) {
-        self.init(value: loader.value, error: loader.error, isBusy: loader.isLoading || loader.isUpdating,
+        self.init(value: loader.value, error: loader.error, isBusy: loader.loading || loader.updating,
                   margins: margins, in: scroller, retry: retry, content: content)
     }
 

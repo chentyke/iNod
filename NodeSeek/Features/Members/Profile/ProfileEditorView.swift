@@ -18,7 +18,7 @@ struct ProfileEditorView: View {
     let userID: Int
     @Environment(\.dismiss) private var dismiss
     @Environment(AccountSession.self) private var account
-    @State private var loader = AccountLoader<AccountProfile>()
+    @State private var loader = ResourceLoader<AccountProfile>()
     @State private var mode: ProfileEditorTab = .edit
     @State private var bio = ""
     @State private var signature = ""
@@ -57,17 +57,17 @@ struct ProfileEditorView: View {
             .seekGroupedList()
             .contentMargins(.top, 4, for: .scrollContent)
             .scrollDismissesKeyboard(.interactively)
-            .disabled(loader.isUpdating)
+            .disabled(loader.updating)
         }
         .navigationTitle("编辑资料")
-        .interactiveDismissDisabled(loader.isUpdating)
+        .interactiveDismissDisabled(loader.updating)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button(loader.isUpdating ? "保存中…" : "保存") {
+                Button(loader.updating ? "保存中…" : "保存") {
                     Task { await save() }
                 }
                 .fontWeight(.semibold)
-                .disabled(loader.value == nil || loader.isUpdating || !changed)
+                .disabled(loader.value == nil || loader.updating || !changed)
                 .accessibilityIdentifier("profile-editor-save-button")
             }
         }

@@ -72,7 +72,7 @@ struct LuckyView: View {
                         apply(imported, message: "已将开奖链接中的参数填入表单。")
                     } label: {
                         HStack(spacing: CommunityMetrics.rowSpacing) {
-                            SeekIconTile(symbol: .inkDrawPostLink, tint: .seekGreen)
+                            SeekIconTile(symbol: .inkDrawPostLink)
                             VStack(alignment: .leading, spacing: CommunityMetrics.rowLineSpacing) {
                                 Text("识别到完整开奖链接")
                                     .font(.subheadline.weight(.semibold))
@@ -211,7 +211,7 @@ struct LuckyView: View {
                     notice = nil
                 } label: {
                     Image(.inkClearInput)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color.seekButtonIcon)
                         .frame(width: 30, height: 30)
                         .contentShape(.rect)
                 }
@@ -328,7 +328,7 @@ struct LuckyView: View {
                     } label: {
                         Image(.inkShareDraw)
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.seekInk)
+                            .foregroundStyle(Color.seekButtonIcon)
                             .frame(width: 48, height: 48)
                             .background(Color.seekTray, in: .capsule)
                     }

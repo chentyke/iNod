@@ -61,7 +61,7 @@ struct AccountBalances: View {
             Button {
                 navigate(.ledger(.chicken))
             } label: {
-                SeekBalanceValue(title: "鸡腿", symbol: .inkDrumstick, value: user.coins, tint: .orange)
+                SeekBalanceValue(title: "鸡腿", symbol: .inkDrumstick, value: user.coins)
             }
             .buttonStyle(.seekCard)
             .accessibilityIdentifier("account-balance-chicken")
@@ -70,7 +70,7 @@ struct AccountBalances: View {
             Button {
                 navigate(.stardustHistory)
             } label: {
-                SeekBalanceValue(title: "星尘", symbol: .inkStardust, value: user.stardust, tint: .indigo)
+                SeekBalanceValue(title: "星尘", symbol: .inkStardust, value: user.stardust)
             }
             .buttonStyle(.seekCard)
             .accessibilityIdentifier("account-balance-stardust")

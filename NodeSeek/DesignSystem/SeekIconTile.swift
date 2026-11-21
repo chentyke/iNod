@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SeekIconTile: View {
     let symbol: ImageResource
-    var tint: Color = .seekInk
+    var tint: Color = .seekButtonIcon
 
     var body: some View {
         Image(symbol).font(.body.weight(.medium)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)

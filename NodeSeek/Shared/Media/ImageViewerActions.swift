@@ -37,7 +37,7 @@ struct ImageViewerActions: View {
             Group {
                 if action == selection { ProgressView().controlSize(.small) }
                 else {
-                    Image(icon)
+                    Image(icon).foregroundStyle(Color.seekButtonIcon)
                 }
             }
             .frame(width: 44, height: 44).contentShape(.rect)

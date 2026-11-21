@@ -6,7 +6,7 @@ import UIKit
 struct AccountSecurityView: View {
     @Environment(AccountSession.self) private var account
     let userID: Int
-    @State private var loader = AccountLoader<AccountSecurity>()
+    @State private var loader = ResourceLoader<AccountSecurity>()
 
     var body: some View {
         AccountDataView(loader: loader, retry: { await load(force: true) }) { data in
@@ -31,7 +31,6 @@ struct AccountSecurityView: View {
                             title: "双因素验证",
                             subtitle: "登录时校验动态验证码",
                             symbol: data.twoFactorEnabled ? .inkTwoFactorOn : .inkTwoFactor,
-                            tint: data.twoFactorEnabled ? .seekGreen : .seekInk,
                             badge: (data.twoFactorEnabled ? "已开启" : "未开启", data.twoFactorEnabled)
                         )
                     }
@@ -90,7 +89,7 @@ struct AccountSecurityView: View {
         .navigationTitle("登录与安全")
         .task { await load() }
         .onAppear {
-            guard loader.value != nil, !loader.isLoading else { return }
+            guard loader.value != nil, !loader.loading else { return }
             let key = account.website.key(for: .security, viewerID: userID)
             let cached: AccountSecurity? = account.website.cached(key: key, allowingStale: false)
             if cached == nil {

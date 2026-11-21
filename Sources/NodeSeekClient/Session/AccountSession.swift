@@ -49,7 +49,7 @@ public final class AccountSession {
     public static func fixtureForUITests(_ json: String) throws -> AccountSession {
         let fixture = try JSONDecoder().decode(UITestWebsite.self, from: Data(json.utf8))
         NodeImageKeyStore.configureForUITests(userID: fixture.authentication.user?.id, key: fixture.nodeImageKey)
-        let website = SiteDataStore(persistsResponses: false) { fixture.authentication }
+        let website = SiteDataStore(disk: nil) { fixture.authentication }
         website.responsesForUITests = fixture.responses
         if let reply = fixture.replyDraft, let owner = fixture.authentication.user {
             EditorDraftStore.save(EditorDraft(content: reply.content), ownerID: owner.id, mode: .reply(postID: reply.postID))
@@ -61,7 +61,7 @@ public final class AccountSession {
 
     public static func offlineForUITests() -> AccountSession {
         NodeImageKeyStore.configureForUITests(userID: nil, key: nil)
-        let website = SiteDataStore(persistsResponses: false) { throw URLError(.notConnectedToInternet) }
+        let website = SiteDataStore(disk: nil) { throw URLError(.notConnectedToInternet) }
         return AccountSession(website: website, loadAuthentication: { try await website.bootstrap(force: $0) })
     }
     #endif

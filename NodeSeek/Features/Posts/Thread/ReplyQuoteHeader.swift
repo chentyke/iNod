@@ -25,7 +25,7 @@ struct ReplyQuoteHeader: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: onRemove) {
                 Image(.inkRemoveQuote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.seekButtonIcon)
                     .frame(width: 44, height: 44)
                     .contentShape(.rect)
             }

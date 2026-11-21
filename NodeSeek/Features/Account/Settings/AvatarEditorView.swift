@@ -73,10 +73,12 @@ struct AvatarEditorView: View {
                         }
 
                         let hasAvatar = avatar != nil
+                        let iconOnFill = !hasAvatar && !isWorking
                         PhotosPicker(selection: $item, matching: .images) {
                             ZStack {
                                 HStack(spacing: 6) {
                                     Image(.inkChooseAvatar)
+                                        .foregroundStyle(iconOnFill ? Color.seekButtonIconOnFill : .seekButtonIcon)
                                         .accessibilityHidden(true)
                                     Text(hasAvatar ? "重新选择照片" : "选择照片")
                                         .lineLimit(1)

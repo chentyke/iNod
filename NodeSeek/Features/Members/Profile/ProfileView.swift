@@ -6,7 +6,7 @@ struct ProfileView: View {
     let userID: Int
     @Environment(AccountSession.self) private var account
     @Environment(\.openMemberDestination) private var openMember
-    @State private var loader = AccountLoader<AccountProfile>()
+    @State private var loader = ResourceLoader<AccountProfile>()
     @State private var showsSignIn = false
     @State private var isConfirmingFollow = false
 
@@ -22,16 +22,20 @@ struct ProfileView: View {
                     if !isOwnProfile {
                         HStack(spacing: 12) {
                             Button { openMember(.conversation(profile.recipient)) } label: {
-                                Label("私聊", image: .inkWriteMail)
+                                SeekPillLabel(title: "私聊", symbol: .inkWriteMail)
                                     .frame(maxWidth: .infinity, minHeight: 36)
                             }
                             .buttonStyle(.seekPill)
                             if let followed = profile.followed {
                                 Button { Task { await changeFollow(followed) } } label: {
-                                    Label(followed ? "已关注" : "关注", image: followed ? .inkFollowing : .inkFollowMember)
+                                    SeekPillLabel(
+                                        title: followed ? "已关注" : "关注",
+                                        symbol: followed ? .inkFollowing : .inkFollowMember,
+                                        primary: false
+                                    )
                                         .frame(maxWidth: .infinity, minHeight: 36)
                                 }
-                                .buttonStyle(.seekPill(primary: false)).disabled(loader.isUpdating || loader.isLoading || isConfirmingFollow)
+                                .buttonStyle(.seekPill(primary: false)).disabled(loader.updating || loader.loading || isConfirmingFollow)
                             }
                         }.padding(.bottom, 8).listRowInsets(EdgeInsets()).listRowBackground(Color.clear).listRowSeparator(.hidden)
                     }

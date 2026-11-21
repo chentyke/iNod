@@ -12,11 +12,8 @@ final class ThreadImageGalleryTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-showsBlockedContent", "NO"]
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture(port: port.rawValue)
+        app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "123"
         app.launch()
-
-        let post = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "周末照片")).firstMatch
-        XCTAssertTrue(post.waitForExistence(timeout: 8))
-        post.tap()
 
         let second = app.buttons["正文第二张"]
         XCTAssertTrue(second.waitForExistence(timeout: 8))
@@ -138,7 +135,7 @@ final class ThreadImageGalleryTests: XCTestCase {
         XCTAssertTrue(first.waitForExistence(timeout: 8))
         XCTAssertEqual(first.value as? String, "已收起")
         XCTAssertTrue(app.buttons["选项2"].exists)
-        XCTAssertTrue(app.staticTexts["猜猜哪个是对的"].exists)
+        XCTAssertTrue(ForumFixture.threadText("猜猜哪个是对的", in: app).exists)
         let marker = NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "[!note]", "127.0.0.1")
         XCTAssertFalse(app.staticTexts.matching(marker).firstMatch.exists, "The callout syntax should not show as text.")
         XCTAssertFalse(app.buttons["选项一截图"].exists, "A collapsed callout should hide its image.")

@@ -11,7 +11,7 @@ struct CategoryStoreTests {
         {"ready":true,"user":{"id":42,"name":"Test reader"}}
         """#.utf8))
         var authenticationReads = 0
-        let website = SiteDataStore(persistsResponses: false) {
+        let website = SiteDataStore(disk: nil) {
             authenticationReads += 1
             return snapshot
         }

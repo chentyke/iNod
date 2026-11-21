@@ -22,7 +22,7 @@ struct CollectionsServiceTests {
     }
 
     @Test func changingABookmarkOnlyRemovesItsPostAndTheOwnersCollectionPagesFromCache() {
-        let website = SiteDataStore(persistsResponses: false)
+        let website = SiteDataStore(disk: nil)
         let owner = 4
         let post = 10
         let affected = [

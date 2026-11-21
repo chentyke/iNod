@@ -150,7 +150,7 @@ struct AccountSettingsView: View {
                     confirmsSignOut = true
                 } label: {
                     HStack(spacing: AccountSettingsMetrics.rowSpacing) {
-                        SeekIconTile(symbol: .inkSignOut, tint: .red)
+                        SeekIconTile(symbol: .inkSignOut)
                         Text(account.isSigningOut ? "正在退出…" : "退出登录")
                             .foregroundStyle(.red)
                         Spacer(minLength: 8)
