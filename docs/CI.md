@@ -6,7 +6,7 @@
 
 PR 上的 CI 会测试 GitHub 试合并后的代码，合并时不会另外启动一轮。只改 PR 标题或描述时，也只会重跑[描述检查](../.github/workflows/pr-description.yml)。把一组有依赖的 PR 改为合入 `main` 后，如果 GitHub 提示分支落后，点 **Update branch** 就会重新检查；分支没有落后时，可以在 PR 的 **Checks** 页面点 **Re-run all jobs**。
 
-如果试合并只改了 `README.md`、`CONTRIBUTING.md` 或 `docs/` 下的 Markdown，CI 仍会报告原有检查，但只运行设计检查，不启动 Xcode 或模拟器。手动启动 CI 时会跑全部检查。
+如果 PR 只改了项目说明、许可证、GitHub 的 Issue 或 PR 模板、`docs/` 下的 Markdown 或 `docs/readme/` 下的 PNG，CI 只运行设计、图标和 PR 描述检查。如果还改了 Swift 包的单元测试或测试数据，CI 会加跑 Swift 和网页检查。涉及 App、界面测试、构建配置或 CI 脚本的改动，以及手动启动的 CI，都会运行完整检查。
 
 | 检查名称 | 运行内容 |
 | --- | --- |
@@ -16,6 +16,8 @@ PR 上的 CI 会测试 GitHub 试合并后的代码，合并时不会另外启�
 | iOS UI tests | 两台 GitHub Mac 各用一个 iPhone 17 模拟器，分组跑完所有适用的界面测试。两组都通过才算通过。失败时，可在运行页面的 **Artifacts** 下载对应组的 `.xcresult` 测试报告，用 Xcode 打开。 |
 | iPad UI tests | 在 iPad Pro 13 英寸 (M5) 模拟器检查首页双栏、侧边栏的深浅色对比、横屏排版、键盘快捷键、帖子分页，以及签到、等级进度和星尘明细的列宽。GitHub 的 iPad 模拟器很慢，偶尔在两个测试之间关不掉 App，所以失败的测试会重跑一次，两次都失败才算不通过。失败时同样可下载测试报告。 |
 | Mac UI tests | 构建 Mac Catalyst 版 App，检查启动后侧边栏列出全部标签页、深色模式下选中的标签页看得清，首页和帖子页卡片在侧边栏旁居中成一栏。帖子页由 App 在测试时自己打开（`NODESEEK_UI_TEST_OPEN_POST`，只在 Debug 构建生效），不用点击。GitHub 的 Mac 环境里，界面测试发出的点击和按键到不了 App 的内容，所以需要操作的测试只在 iPhone 和 iPad 上跑；Mac 上的点击、切换标签页和快捷键要手动检查。本机跑 Mac 界面测试时，指针悬停能送到 App，点击同样送不到。 |
+
+iPhone 或 iPad 已经启动，但 Xcode 找不到设备，或 XCTest 在第一个测试开始前崩溃时，CI 会在同一设备上再试一次。两次启动都失败时，运行页面会保留 Xcode 生成的两份测试报告。
 
 公开仓库的检查使用 GitHub 提供的 `xcode-27` 环境，选用 Xcode 27.2 和 iOS 27.2 模拟器。测试使用本地样本和模拟响应，无需 Apple 签名、NodeSeek 账号或 GitHub Secrets。[GitHub 提供的 Xcode 和模拟器版本](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
 
