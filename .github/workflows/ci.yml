@@ -189,6 +189,7 @@ jobs:
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testFeedKeepsAReadableCentredColumn \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testThreadCardsAndReplyBarShareOneColumn \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testConversationBubblesAndComposerShareOneColumn \
+            -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testMacNotificationsAndPrivateChatsHaveSeparatePages \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testSidebarSelectionIsReadableInDarkMode \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testSidebarTitlesAlignWithAnAccountAvatar \
             -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testMenuBarIncludesManualRefreshCommand \

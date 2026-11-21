@@ -64,7 +64,12 @@ final class AdaptiveLayoutTests: XCTestCase {
     /// Every tab stays on screen: in the tab bar on iPhone, in the adaptable bar/sidebar on iPad, in the sidebar on a Mac.
     func testAllTabsAreOnScreen() throws {
         let app = ForumFixture.launch()
-        for name in ["社区", "通知", "我的"] {
+        #if targetEnvironment(macCatalyst)
+        let names = ["社区", "通知", "私聊", "我的"]
+        #else
+        let names = ["社区", "通知", "我的"]
+        #endif
+        for name in names {
             XCTAssertTrue(ForumFixture.tab(name, in: app).waitForExistence(timeout: 10), "The \(name) tab should be on screen.")
         }
     }
@@ -262,6 +267,31 @@ final class AdaptiveLayoutTests: XCTestCase {
     }
 
     #if targetEnvironment(macCatalyst)
+    func testMacNotificationsAndPrivateChatsHaveSeparatePages() throws {
+        let notices = ForumFixture.launch(signedInAsAuthor: true, showsUnreadNotice: true,
+                                          extraArguments: ["-uiTestRootTab", "notifications"])
+        let notice = notices.cells.containing(.staticText, identifier: ForumFixture.threadTitle).firstMatch
+        XCTAssertTrue(notice.waitForExistence(timeout: 10))
+        attachScreenshot(of: notices, named: "Mac notifications")
+        let selected = NSPredicate(format: "isSelected == true")
+        let noticeTab = notices.cells.containing(.staticText, identifier: "通知").matching(selected).firstMatch
+        XCTAssertTrue(noticeTab.exists)
+        XCTAssertFalse(notices.buttons["互动"].exists)
+        XCTAssertFalse(notices.textFields["搜索私聊或找人"].exists)
+        notices.terminate()
+
+        let messages = ForumFixture.launch(dark: true, signedInAsAuthor: true, showsUnreadNotice: true,
+                                           showsUnreadMessage: true, extraArguments: ["-uiTestRootTab", "messages"])
+        let search = messages.textFields["搜索私聊或找人"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        let conversation = messages.cells.containing(.staticText, identifier: ForumFixture.peerName).firstMatch
+        XCTAssertTrue(conversation.waitForExistence(timeout: 5))
+        let messageTab = messages.cells.containing(.staticText, identifier: "私聊").matching(selected).firstMatch
+        XCTAssertTrue(messageTab.exists)
+        XCTAssertFalse(messages.cells.containing(.staticText, identifier: ForumFixture.threadTitle).firstMatch.exists)
+        attachScreenshot(of: messages, named: "Mac private chats")
+    }
+
     func testSidebarTitlesAlignWithAnAccountAvatar() throws {
         let size = CGSize(width: 28, height: 28)
         let avatar = UIGraphicsImageRenderer(size: size).pngData { context in
@@ -272,12 +302,12 @@ final class AdaptiveLayoutTests: XCTestCase {
             signedInAsAuthor: true,
             assetResponses: ["https://www.nodeseek.com/avatar/101.png": avatar]
         )
-        let names = ["社区", "通知", "我的"]
+        let names = ["社区", "通知", "私聊", "我的"]
         let rows = names.map { app.cells[$0] }
         for (name, row) in zip(names, rows) {
             XCTAssertTrue(row.staticTexts[name].waitForExistence(timeout: 10))
         }
-        let accountIcon = rows[2].images.firstMatch
+        let accountIcon = rows[names.count - 1].images.firstMatch
         XCTAssertTrue(accountIcon.waitForExistence(timeout: 5))
         // The placeholder has the SF Symbol's identifier. The downloaded avatar is an unnamed image.
         XCTAssertTrue(accountIcon.wait(for: \.identifier, toEqual: "", timeout: 10), "The test avatar should load.")

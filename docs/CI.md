@@ -70,6 +70,7 @@ xcodebuild -project NodeSeek.xcodeproj -scheme NodeSeek \
   -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testFeedKeepsAReadableCentredColumn \
   -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testThreadCardsAndReplyBarShareOneColumn \
   -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testConversationBubblesAndComposerShareOneColumn \
+  -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testMacNotificationsAndPrivateChatsHaveSeparatePages \
   -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testSidebarSelectionIsReadableInDarkMode \
   -only-testing:NodeSeekUITests/AdaptiveLayoutTests/testMenuBarIncludesManualRefreshCommand \
   -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- ENABLE_HARDENED_RUNTIME=NO test

@@ -3,6 +3,7 @@ import NodeSeekCore
 import SwiftUI
 
 struct NotificationsView: View {
+    var desktopTab: NotificationTab? = nil
     @Environment(AccountSession.self) private var account
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var indicator
@@ -11,21 +12,27 @@ struct NotificationsView: View {
     @State private var confirmsRead = false
     @State private var readError: String?
 
+    private var title: String { desktopTab == .messages ? "私聊" : "通知" }
+
     var body: some View {
         Group {
             if let user = account.user {
-                // Give the list's refresh control room below the fixed header.
-                VStack(spacing: 0) {
-                    header(userID: user.id)
-                    InboxPages(userID: user.id, hasUnreadNotices: hasUnread(.activity), selection: $selection)
+                if let desktopTab {
+                    desktopContent(tab: desktopTab, userID: user.id)
+                } else {
+                    // Give the list's refresh control room below the fixed header.
+                    VStack(spacing: 0) {
+                        header(userID: user.id)
+                        InboxPages(userID: user.id, hasUnreadNotices: hasUnread(.activity), selection: $selection)
+                    }
+                    .id(user.id)
                 }
-                .id(user.id)
             } else {
                 MemberSignInView()
             }
         }
         .background(Color.seekCanvas.ignoresSafeArea())
-        .navigationTitle("通知")
+        .navigationTitle(title)
         .toolbarVisibility(.hidden, for: .navigationBar)
         .alert("无法标为已读", isPresented: Binding(
             get: { readError != nil },
@@ -34,6 +41,35 @@ struct NotificationsView: View {
             Button("好", role: .cancel) { readError = nil }
         } message: {
             Text(readError ?? "")
+        }
+    }
+
+    private func desktopContent(tab: NotificationTab, userID: Int) -> some View {
+        VStack(spacing: 0) {
+            Text(title)
+                .font(.title2.bold())
+                .foregroundStyle(Color.seekInk)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.horizontal, SeekLayout.gutter)
+                .padding(.vertical, 12)
+                .frame(maxWidth: SeekLayout.columnWidth, alignment: .leading)
+                .frame(maxWidth: .infinity)
+                .overlay(alignment: .bottom) { Color.seekHairline.frame(height: 0.5) }
+
+            switch tab {
+            case .activity: NoticesListView(userID: userID, isSelected: true)
+            case .messages: MessageThreadsView(userID: userID, isSelected: true)
+            }
+        }
+        .id(userID)
+        .macToolbar(.trailing, items: hasUnread(tab) ? [
+            MacToolbarItem(id: "mark-inbox-read", label: "全部标为已读",
+                           image: tab == .messages ? .inkMarkMailRead : .inkReadAll, isEnabled: !isMarkingRead,
+                           action: { requestMarkAllRead(tab, userID: userID) })
+        ] : [])
+        .alert("将所有私聊标为已读？", isPresented: $confirmsRead) {
+            Button("取消", role: .cancel) { }
+            Button("全部标为已读") { Task { await markAllRead(.messages, userID: userID) } }
         }
     }
 
@@ -101,10 +137,14 @@ struct NotificationsView: View {
         .accessibilityValue(isUnread ? Text("有未读") : Text(""))
     }
 
+    private func requestMarkAllRead(_ tab: NotificationTab, userID: Int) {
+        if tab == .messages { confirmsRead = true }
+        else { Task { await markAllRead(tab, userID: userID) } }
+    }
+
     private func markAllReadButton(userID: Int) -> some View {
         Button {
-            if selection == .messages { confirmsRead = true }
-            else { Task { await markAllRead(.activity, userID: userID) } }
+            requestMarkAllRead(selection, userID: userID)
         } label: {
             Image(selection == .messages ? .inkMarkMailRead : .inkReadAll)
                 .font(.headline)
