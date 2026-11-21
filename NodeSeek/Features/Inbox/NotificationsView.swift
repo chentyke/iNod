@@ -16,10 +16,15 @@ struct NotificationsView: View {
                 // Give the list's refresh control room below the fixed header.
                 VStack(spacing: 0) {
                     header(userID: user.id)
-                    switch selection {
-                    case .activity: NoticesListView(userID: user.id)
-                    case .messages: MessageThreadsView(userID: user.id)
+                    Group {
+                        switch selection {
+                        case .activity: NoticesListView(userID: user.id)
+                        case .messages: MessageThreadsView(userID: user.id)
+                        }
                     }
+                    .gesture(PageSwipe(direction: selection == .activity ? .left : .right) {
+                        selection = selection == .activity ? .messages : .activity
+                    })
                 }
             } else {
                 MemberSignInView()
