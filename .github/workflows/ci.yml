@@ -36,7 +36,11 @@ jobs:
           git diff --no-renames --name-only -z HEAD^1 HEAD | node scripts/ci-scope.mjs >> "$GITHUB_OUTPUT"
       - name: Check SwiftUI code against docs/DESIGN.md
         run: node scripts/check-design.mjs
+      - name: Prepare the icon checker dependencies
+        run: pipx run scripts/icons/manage.py --help
       - name: Check hand-drawn symbol assets against their artwork
+        env:
+          PIP_NO_INDEX: "1"
         run: pipx run scripts/icons/manage.py check
 
   swift-and-website:
@@ -50,9 +54,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Swift unit tests
-        run: xcrun swift test
+        run: sandbox-exec -f scripts/ci-local-network.sb xcrun swift test --disable-sandbox
       - name: Check website scripts and WebKit parsing
-        run: sh scripts/verify-website.sh
+        run: sandbox-exec -f scripts/ci-local-network.sb sh scripts/verify-website.sh
 
   iphone-ui-test-groups:
     needs: design-checks

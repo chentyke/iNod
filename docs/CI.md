@@ -19,7 +19,7 @@ PR 上的 CI 会测试 GitHub 试合并后的代码，合并时不会另外启�
 
 iPhone 或 iPad 已经启动，但 Xcode 找不到设备，或 XCTest 在第一个测试开始前崩溃时，CI 会在同一设备上再试一次。两次启动都失败时，运行页面会保留 Xcode 生成的两份测试报告。
 
-公开仓库的检查使用 GitHub 提供的 `xcode-27` 环境，选用 Xcode 27.2 和 iOS 27.2 模拟器。测试使用本地样本和模拟响应，无需 Apple 签名、NodeSeek 账号或 GitHub Secrets。[GitHub 提供的 Xcode 和模拟器版本](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
+公开仓库的检查使用 GitHub 提供的 `xcode-27` 环境，选用 Xcode 27.2 和 iOS 27.2 模拟器。功能测试使用本地样本和模拟响应。Safari 跳转测试在本机启动一个网页，检查帖子或首页的完整目标网址。登录页、帖子图片、表情和测速都使用测试数据。Swift 单元测试和网页解析脚本还在只允许本机连接的环境里运行。GitHub 获取代码、准备图标工具和上传报告时仍需联网。[GitHub 提供的 Xcode 和模拟器版本](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
 
 `main` 的改动必须通过 PR 合并，合并前必须通过 Swift and website checks 和 iOS UI tests。来自 Fork 的首次 PR 可能需要维护者在 PR 页面点 **Approve workflows to run**。[GitHub 对外部贡献者工作流程的说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
 

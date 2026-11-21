@@ -18,6 +18,12 @@ public final class SignInSession {
     }
 
     public func monitor() async {
+        #if DEBUG
+        if UITestNetwork.isActive {
+            verification = "error"
+            return
+        }
+        #endif
         do {
             if !loaded {
                 loaded = true

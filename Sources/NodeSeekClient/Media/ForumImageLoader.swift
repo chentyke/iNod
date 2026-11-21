@@ -34,12 +34,6 @@ public actor ForumImageLoader {
     private var cachedBytes = 0
     private var pending: [Key: Download] = [:]
 
-    #if DEBUG
-    private static let fixtureResponses = ProcessInfo.processInfo.environment["NODESEEK_UI_TEST_WEBSITE"].flatMap {
-        try? JSONDecoder().decode(AccountSession.UITestWebsite.self, from: Data($0.utf8)).responses
-    }
-    #endif
-
     init(session: URLSession? = nil) {
         if let session { self.session = session }
         else {
@@ -135,7 +129,7 @@ public actor ForumImageLoader {
                                   cachePolicy: URLRequest.CachePolicy = .useProtocolCachePolicy) async throws -> Data {
         guard ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { throw SiteError.invalidResponse }
         #if DEBUG
-        if let data = Self.fixtureResponses?[url.absoluteString] { return data }
+        if let data = try UITestNetwork.media(for: url) { return data }
         #endif
         var request = ForumImageRequest.make(url: url)
         request.cachePolicy = cachePolicy

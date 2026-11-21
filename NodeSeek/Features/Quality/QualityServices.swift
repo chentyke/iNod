@@ -5,15 +5,23 @@ import NodeSeekCore
 import SwiftUI
 
 enum QualityServices {
+    static var usesSamples: Bool {
+        #if DEBUG
+        UITestNetwork.isActive
+        #else
+        ProcessInfo.processInfo.arguments.contains("--ui-test-offline")
+        #endif
+    }
+
     static var network: any NetworkQualityTesting {
-        guard ProcessInfo.processInfo.arguments.contains("--ui-test-offline") else { return LiveNetworkQualityTester() }
+        guard usesSamples else { return LiveNetworkQualityTester() }
         let defaults = UserDefaults.standard
         let scenario = defaults.string(forKey: "qualitySample").flatMap(QualitySampleScenario.init) ?? .complete
         return SampleNetworkQualityTester(scenario: scenario, pace: pace)
     }
 
     static var device: any DeviceBenchmarking {
-        if ProcessInfo.processInfo.arguments.contains("--ui-test-offline") { return SampleDeviceBenchmark(pace: pace) }
+        if usesSamples { return SampleDeviceBenchmark(pace: pace) }
         return LiveDeviceBenchmark()
     }
 
@@ -31,6 +39,10 @@ final class CurrentNetworkMonitor {
     @ObservationIgnored private let monitor = NWPathMonitor()
 
     init() {
+        if QualityServices.usesSamples {
+            context = .init(kind: .wifi)
+            return
+        }
         monitor.pathUpdateHandler = { [weak self] path in
             let context = Self.context(for: path)
             Task { @MainActor in self?.context = context }

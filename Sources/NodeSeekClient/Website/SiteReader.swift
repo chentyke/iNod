@@ -228,6 +228,9 @@ final class SiteReader {
     }
 
     private func load(_ url: URL, operation: UUID) async throws {
+        #if DEBUG
+        if UITestNetwork.isActive { throw URLError(.notConnectedToInternet) }
+        #endif
         needsWebsite = false
         loadedDocument = nil
         try Task.checkCancellation()

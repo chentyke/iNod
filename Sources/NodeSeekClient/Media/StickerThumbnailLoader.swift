@@ -18,6 +18,9 @@ public actor StickerThumbnailLoader {
     private static func download(_ sticker: ForumSticker) async -> CGImage? {
         do {
             return try await ImageWorkLimiter.load {
+                #if DEBUG
+                if let data = try UITestNetwork.media(for: sticker.url) { return data }
+                #endif
                 let (data, response) = try await URLSession.shared.data(for: ForumImageRequest.make(url: sticker.url))
                 guard (response as? HTTPURLResponse)?.statusCode == 200, data.count < 8_000_000 else {
                     throw URLError(.badServerResponse)

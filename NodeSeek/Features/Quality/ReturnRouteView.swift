@@ -193,7 +193,7 @@ struct ReturnRouteTraceView: View {
 
 extension QualityServices {
     static var returnRoute: any ReturnRouteTesting {
-        if ProcessInfo.processInfo.arguments.contains("--ui-test-offline") { return SampleReturnRouteTester(pace: pace) }
+        if QualityServices.usesSamples { return SampleReturnRouteTester(pace: pace) }
         return LiveReturnRouteTester()
     }
 }
