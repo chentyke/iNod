@@ -4,7 +4,9 @@ import Observation
 @MainActor
 @Observable
 public final class InboxService {
-    public private(set) var unreadCount = 0
+    private var unreadCounts = InboxUnreadCounts(all: 0)
+    public var unreadCount: Int { unreadCounts.all }
+    public var unreadMessageCount: Int { unreadCounts.messages }
     public private(set) var threads: AccountPage<MessageThread>?
     public private(set) var conversations: [Int: ConversationData] = [:]
     public private(set) var notices: [NoticeKind: AccountPage<ForumNotice>] = [:]
@@ -24,7 +26,7 @@ public final class InboxService {
         changes += 1
         session = changes
         self.userID = userID
-        self.unreadCount = unreadCount
+        unreadCounts = InboxUnreadCounts(all: unreadCount)
         threads = nil
         conversations.removeAll()
         notices.removeAll()
@@ -37,12 +39,14 @@ public final class InboxService {
         guard let userID else { return }
         let version = changes
         let currentSession = session
-        let previousCount = unreadCount
+        let previousNoticeCount = unreadCount - unreadMessageCount
+        let previousMessageCount = unreadMessageCount
         do {
-            let count = try await website.unreadCount(userID: userID)
+            let counts = try await website.unreadCounts(userID: userID)
             guard version == changes, !Task.isCancelled else { return }
-            unreadCount = count
-            if count > previousCount, currentSession == session {
+            unreadCounts = counts
+            if unreadCount - unreadMessageCount > previousNoticeCount || unreadMessageCount > previousMessageCount,
+               currentSession == session {
                 await refreshLoadedLists(userID: userID)
             }
         } catch { }

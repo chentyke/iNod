@@ -11,7 +11,7 @@ struct RootView: View {
     @Environment(MacToolbarModel.self) private var macToolbar: MacToolbarModel?
     #endif
     @State private var tabAvatar: (url: URL, image: UIImage)?
-    @State private var selectedTab = RootTab.community
+    @State private var selectedTab = RootTab.initial
     @State private var showsTopTabs = false
 
     private var usesSidebarAdaptableTabs: Bool {
@@ -68,12 +68,27 @@ struct RootView: View {
             }
             .accessibilityLabel("社区")
             Tab(value: RootTab.notifications) {
-                ForumNavigationStack { NotificationsView().id(account.revision) }
+                ForumNavigationStack {
+                    #if targetEnvironment(macCatalyst)
+                    NotificationsView(desktopTab: .activity).id(account.revision)
+                    #else
+                    NotificationsView().id(account.revision)
+                    #endif
+                }
             } label: {
                 tabLabel("通知", icon: Image(.inkNotices))
             }
             .accessibilityLabel("通知")
-            .badge(account.inbox.unreadCount)
+            .badge(notificationsBadge)
+            #if targetEnvironment(macCatalyst)
+            Tab(value: RootTab.messages) {
+                ForumNavigationStack { NotificationsView(desktopTab: .messages).id(account.revision) }
+            } label: {
+                tabLabel("私聊", icon: Image(.inkPreviewMail))
+            }
+            .accessibilityLabel("私聊")
+            .badge(account.inbox.unreadMessageCount)
+            #endif
             Tab(value: RootTab.account) {
                 ForumNavigationStack { AccountView() }.id(account.revision)
             } label: {
@@ -104,6 +119,14 @@ struct RootView: View {
         } else {
             tabs
         }
+    }
+
+    private var notificationsBadge: Int {
+        #if targetEnvironment(macCatalyst)
+        account.inbox.unreadCount - account.inbox.unreadMessageCount
+        #else
+        account.inbox.unreadCount
+        #endif
     }
 
     /// iPhone shows the tabs as icons; iPad and Mac name them so the adaptable sidebar reads clearly.
@@ -181,6 +204,19 @@ private struct UITestSidebarOpener: UIViewControllerRepresentable {
 }
 #endif
 
-private enum RootTab: Hashable {
+private enum RootTab: String {
     case community, notifications, account
+    #if targetEnvironment(macCatalyst)
+    case messages
+    #endif
+
+    static var initial: Self {
+        #if DEBUG && targetEnvironment(macCatalyst)
+        if let requested = UserDefaults.standard.string(forKey: "uiTestRootTab"),
+           let tab = Self(rawValue: requested) {
+            return tab
+        }
+        #endif
+        return .community
+    }
 }

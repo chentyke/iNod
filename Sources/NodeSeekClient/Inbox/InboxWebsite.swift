@@ -2,7 +2,7 @@ import NodeSeekCore
 
 @MainActor
 protocol InboxWebsite {
-    func unreadCount(userID: Int) async throws -> Int
+    func unreadCounts(userID: Int) async throws -> InboxUnreadCounts
     func messageThreads(userID: Int, force: Bool) async throws -> AccountPage<MessageThread>
     func conversation(peerID: Int, userID: Int, force: Bool) async throws -> ConversationData
     func notices(_ kind: NoticeKind, userID: Int, force: Bool) async throws -> AccountPage<ForumNotice>
@@ -14,9 +14,9 @@ protocol InboxWebsite {
 extension SiteDataStore: InboxWebsite {
     static let unreadCountPath = "/api/notification/unread-count"
 
-    func unreadCount(userID: Int) async throws -> Int {
+    func unreadCounts(userID: Int) async throws -> InboxUnreadCounts {
         let response: UnreadResponse = try await json(path: Self.unreadCountPath, requiresLogin: true, force: true, lifetime: 5, expectedUserID: userID)
-        return response.unreadCount.all
+        return response.unreadCount
     }
 
     func messageThreads(userID: Int, force: Bool) async throws -> AccountPage<MessageThread> {
@@ -48,7 +48,28 @@ extension SiteDataStore: InboxWebsite {
     }
 }
 
+struct InboxUnreadCounts: Decodable {
+    let all: Int
+    private let message: Int?
+
+    var messages: Int { min(max(0, message ?? 0), max(0, all)) }
+
+    init(all: Int, message: Int? = nil) {
+        self.all = all
+        self.message = message
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case all, message
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(all: try container.decode(Int.self, forKey: .all),
+                  message: try? container.decode(Int.self, forKey: .message))
+    }
+}
+
 private struct UnreadResponse: Decodable {
-    let unreadCount: Counts
-    struct Counts: Decodable { let all: Int }
+    let unreadCount: InboxUnreadCounts
 }

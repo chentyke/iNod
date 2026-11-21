@@ -5,6 +5,27 @@ import Testing
 
 @MainActor
 struct InboxServiceTests {
+    @Test func separatesUnreadMessagesAndClearsThemOnAccountChange() async throws {
+        let site = try TestInboxWebsite()
+        let inbox = InboxService(website: site)
+        inbox.reset(userID: 1, unreadCount: 4)
+        site.currentUnreadCount = 4
+        site.currentUnreadMessageCount = 2
+        await inbox.refreshUnread()
+        #expect(inbox.unreadCount == 4)
+        #expect(inbox.unreadMessageCount == 2)
+
+        inbox.reset(userID: 2, unreadCount: 1)
+        #expect(inbox.unreadCount == 1)
+        #expect(inbox.unreadMessageCount == 0)
+    }
+
+    @Test func keepsTheTotalWhenTheServerOmitsTheMessageCount() throws {
+        let counts = try JSONDecoder().decode(InboxUnreadCounts.self, from: Data(#"{"all":4}"#.utf8))
+        #expect(counts.all == 4)
+        #expect(counts.messages == 0)
+    }
+
     @Test func confirmedReadUpdatesConversationAndListEvenIfUnreadRefreshFails() async throws {
         let site = try TestInboxWebsite()
         let inbox = InboxService(website: site)
@@ -181,6 +202,7 @@ private final class TestInboxWebsite: InboxWebsite {
     private(set) var lastNoticeForce: Bool?
     private(set) var noticeWrites: [NoticeKind] = []
     var currentUnreadCount = 3
+    var currentUnreadMessageCount: Int?
     var onUnreadRead: (() -> Void)?
     var failingNoticeKind: NoticeKind?
     var failUnreadRefresh = false
@@ -222,11 +244,11 @@ private final class TestInboxWebsite: InboxWebsite {
         finishConversationRead = nil
     }
 
-    func unreadCount(userID: Int) async throws -> Int {
+    func unreadCounts(userID: Int) async throws -> InboxUnreadCounts {
         unreadReads += 1
         onUnreadRead?()
         if failUnreadRefresh { throw Failure.network }
-        return currentUnreadCount
+        return InboxUnreadCounts(all: currentUnreadCount, message: currentUnreadMessageCount)
     }
 
     func messageThreads(userID: Int, force: Bool) async throws -> AccountPage<MessageThread> {

@@ -62,6 +62,7 @@ struct ThreadView: View {
     @State private var commentImagePages: [Task<ImageGallery.CommentImages, Never>] = []
     @State private var openingGallery: Task<Void, Never>?
 
+    private var authorID: Int? { detail?.op.uid ?? post.authorID }
     private var accessError: PostAccessError? { error as? PostAccessError }
     private var isCollected: Bool { account.collections.status(post.id) == true }
     private var threadKind: String { showsBlocked ? "thread-including-blocked" : "thread" }
@@ -164,6 +165,9 @@ struct ThreadView: View {
             .padding(.horizontal, SeekLayout.gutter).padding(.vertical, 12)
             .background(TopOverscrollLock())
         }
+        .gesture(PageSwipe(direction: .left, isEnabled: authorID != nil && !isWritingReply) { completed in
+            if completed, let authorID { openMember(.profile(authorID)) }
+        })
         .scrollDismissesKeyboard(.interactively)
         .scrollPosition($scrollPosition)
         // An open reaction dock folds away once the reader scrolls or taps anywhere outside it.

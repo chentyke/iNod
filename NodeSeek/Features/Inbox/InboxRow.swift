@@ -16,7 +16,7 @@ struct InboxRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(title)
-                        .font(.headline)
+                        .font(.headline.weight(isUnread ? .semibold : .regular))
                         .foregroundStyle(Color.seekInk)
                         .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -32,6 +32,7 @@ struct InboxRow: View {
         }
         .contentShape(.rect)
         .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] + 52 }
+        .alignmentGuide(.listRowSeparatorTrailing) { $0[.trailing] }
         .accessibilityElement(children: .combine)
     }
 

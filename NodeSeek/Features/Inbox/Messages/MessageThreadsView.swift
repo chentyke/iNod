@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MessageThreadsView: View {
     let userID: Int
+    let isSelected: Bool
     @Environment(AccountSession.self) private var account
     @Environment(\.scenePhase) private var scenePhase
     @State private var isLoading = false
@@ -25,7 +26,7 @@ struct MessageThreadsView: View {
                   error: memberResults?.error ?? error,
                   isBusy: isLoading || (!search.isEmpty && memberResults == nil),
                   reload: { await refresh(search) },
-                  leadingContent: searchSection) { match in
+                  isSelected: isSelected, leadingContent: searchSection) { match in
             NavigationLink(value: MemberDestination.conversation(match.recipient)) {
                 switch match {
                 case .thread(let thread):
@@ -41,11 +42,17 @@ struct MessageThreadsView: View {
             .navigationLinkIndicatorVisibility(.hidden)
         }
         .scrollDismissesKeyboard(.interactively)
+        .onChange(of: isSelected) { _, selected in
+            if !selected { searchFocused = false }
+        }
         .onAppear { isVisible = true }
         .onDisappear { isVisible = false }
         .task {
             await load()
-            hasLoadedOnce = true
+            hasLoadedOnce = !Task.isCancelled
+        }
+        .task(id: isSelected) {
+            guard isSelected else { return }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
                 guard !Task.isCancelled, scenePhase.isPollingActive else { continue }
@@ -53,7 +60,7 @@ struct MessageThreadsView: View {
             }
         }
         .onChange(of: scenePhase) { previous, phase in
-            if previous != .active, phase == .active, isVisible, hasLoadedOnce {
+            if previous != .active, phase == .active, isSelected, isVisible, hasLoadedOnce {
                 Task { await load(force: true) }
             }
         }
@@ -71,7 +78,7 @@ struct MessageThreadsView: View {
     private var searchSection: some View {
         Section {
             searchField
-                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
@@ -79,11 +86,22 @@ struct MessageThreadsView: View {
     }
 
     private var searchField: some View {
-        HStack(spacing: 8) {
+        let searchTitle = "搜索私聊或找人"
+        return HStack(spacing: 8) {
             Image(.inkSearchMail)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-            TextField("搜索私聊或找人", text: $query)
+            TextField("", text: $query)
+                .accessibilityLabel(searchTitle)
+                .overlay(alignment: .leading) {
+                    if query.isEmpty {
+                        Text(searchTitle)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
                 .focused($searchFocused)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -107,7 +125,7 @@ struct MessageThreadsView: View {
         .font(.subheadline)
         .padding(.leading, 14)
         .padding(.trailing, query.isEmpty ? 14 : 0)
-        .background(.fill.tertiary, in: .capsule)
+        .background(Color.seekTray, in: .capsule)
     }
 
     private func matches(for search: String, recipients: [MessageRecipient]) -> [ConversationMatch]? {
