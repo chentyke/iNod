@@ -12,6 +12,7 @@ struct RootView: View {
     #endif
     @State private var tabAvatar: (url: URL, image: UIImage)?
     @State private var selectedTab = RootTab.initial
+    @State private var feedScrollToTopRequest = UUID()
     @State private var showsTopTabs = false
 
     private var usesSidebarAdaptableTabs: Bool {
@@ -20,6 +21,15 @@ struct RootView: View {
         #else
         UIDevice.current.userInterfaceIdiom == .pad
         #endif
+    }
+
+    private var tabSelection: Binding<RootTab> {
+        Binding(get: { selectedTab }, set: { tab in
+            if tab == selectedTab, tab == .community {
+                feedScrollToTopRequest = UUID()
+            }
+            selectedTab = tab
+        })
     }
 
     var body: some View {
@@ -43,9 +53,13 @@ struct RootView: View {
 
     @ViewBuilder private func tabs(sharedTabRow: ReaderTabRow?, tabInset: CGFloat = 0) -> some View {
         let avatarURL = account.user.map { account.versionedAvatarURL($0.avatarURL) }
-        let tabs = TabView(selection: $selectedTab) {
+        let tabs = TabView(selection: tabSelection) {
             Tab(value: RootTab.community) {
-                CommunityRootView(sharedTabRow: sharedTabRow, showsTopTabs: $showsTopTabs)
+                CommunityRootView(
+                    sharedTabRow: sharedTabRow,
+                    scrollToTopRequest: feedScrollToTopRequest,
+                    showsTopTabs: $showsTopTabs
+                )
                     #if !targetEnvironment(macCatalyst)
                     .ignoresSafeArea(.container, edges: sharedTabRow == nil ? [] : .leading)
                     .background {
