@@ -16,12 +16,13 @@ enum ForumFixture {
                                   opensConversation: Bool = false, signedInAsAuthor: Bool = false,
                                   authorID: Int = 101, openingMarkdown: String = "周六下午两点开始读书。",
                                   firstReplyMarkdown: String? = nil, assetResponses: [String: Data] = [:],
+                                  signatures: [Int: String] = [:],
                                   replyDraft: String? = nil, showsUnreadNotice: Bool = false,
                                   showsUnreadMessage: Bool = false, extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try? json(signedInAsAuthor: signedInAsAuthor, authorID: authorID,
                                                                     openingMarkdown: openingMarkdown, firstReplyMarkdown: firstReplyMarkdown,
-                                                                    assetResponses: assetResponses, replyDraft: replyDraft,
+                                                                    assetResponses: assetResponses, signatures: signatures, replyDraft: replyDraft,
                                                                     showsUnreadNotice: showsUnreadNotice,
                                                                     showsUnreadMessage: showsUnreadMessage)
         if opensThread { app.launchEnvironment["NODESEEK_UI_TEST_OPEN_POST"] = "\(threadID)" }
@@ -157,7 +158,7 @@ enum ForumFixture {
     }
 
     private static func json(signedInAsAuthor: Bool, authorID: Int, openingMarkdown: String, firstReplyMarkdown: String?,
-                             assetResponses: [String: Data], replyDraft: String?,
+                             assetResponses: [String: Data], signatures: [Int: String], replyDraft: String?,
                              showsUnreadNotice: Bool, showsUnreadMessage: Bool) throws -> String {
         let author: [String: Any] = ["uid": authorID, "name": "楼主"]
         let reader: [String: Any] = ["uid": 102, "name": "读者"]
@@ -171,9 +172,13 @@ enum ForumFixture {
             case 1: firstReplyMarkdown ?? "第 1 楼：一起读。"
             default: "第 \(floor) 楼：一起读。"
             }
-            return ["commentId": 500 + floor, "floorIndex": floor, "poster": floor == 0 ? author : reader,
-             "time": ["createdDate": timestamp], "markdown": markdown,
-             "likeCount": 0, "upvoteCount": 0, "blocked": false]
+            var comment: [String: Any] = [
+                "commentId": 500 + floor, "floorIndex": floor, "poster": floor == 0 ? author : reader,
+                "time": ["createdDate": timestamp], "markdown": markdown,
+                "likeCount": 0, "upvoteCount": 0, "blocked": false
+            ]
+            comment["signature"] = signatures[floor]
+            return comment
         }
         let posts = [post(threadID, threadTitle)] + (1...8).map { post(200 + $0, $0 == 1 ? announcementTitle : "读书笔记第 \($0) 篇") }
         let messages: [[String: Any]] = [

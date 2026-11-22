@@ -38,6 +38,9 @@ struct CommentView: View {
             ForumMarkdown(markdown: comment.markdown, loadsBlocksOnScroll: showsHeader, onOpenImages: onOpenImages)
                 .environment(\.defersForumImagesUntilVisible, !showsHeader)
                 .environment(\.selectsMarkdownText, true)
+            if let html = comment.signature {
+                CommentSignatureView(html: html, floor: comment.floorIndex)
+            }
             CommentActionBar(comment: comment, date: showsHeader ? comment.time.date : nil,
                              isBusy: isBusy, actionsDisabled: actionsDisabled,
                              canEdit: canEdit, canPin: canPin, isExpanded: $actionsExpanded,
