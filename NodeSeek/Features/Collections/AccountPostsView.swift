@@ -26,7 +26,6 @@ struct AccountPostsView: View {
                 }
                 ForEach(items) { item in
                     NavigationLink(value:item) { AccountPostRow(item: item) }
-                        .listRowSeparator(.visible, edges: .bottom)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if kind == .collections {
                                 Button("取消收藏", image: .inkUnsavePost, role: .destructive) { removing = item; confirmsRemoval = true }
