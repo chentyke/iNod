@@ -18,7 +18,7 @@ enum DockMetrics {
     static var openDrop: CGFloat { (cardInset + foldedHeight / 2) - (openMargin + openHeight / 2) }
 }
 
-/// One reaction in the folded dock: a dot, with its count once there is one.
+/// One reaction in the folded dock: a colored dot, with its count once there is one.
 struct CommentReactionDot: View {
     let tint: Color
     let count: Int?
@@ -27,9 +27,9 @@ struct CommentReactionDot: View {
     var body: some View {
         HStack(spacing: 3) {
             Circle()
-                .fill(Color.seekButtonIcon.opacity(isSelected ? 0.85 : 0.38))
+                .fill(tint.opacity(isSelected ? 0.85 : 0.38))
                 .frame(width: 8, height: 8)
-                .overlay { if isSelected { Circle().stroke(Color.seekButtonIcon.opacity(0.2), lineWidth: 3).padding(-2) } }
+                .overlay { if isSelected { Circle().stroke(tint.opacity(0.2), lineWidth: 3).padding(-2) } }
             if let count, count > 0 {
                 Text(count.formatted())
                     .font(.caption2.weight(.semibold))
@@ -40,7 +40,7 @@ struct CommentReactionDot: View {
     }
 }
 
-/// A reaction in the opened dock, with a tinted background once chosen.
+/// A reaction in the opened dock: tinted icon, count only when there is one, and a soft tint once chosen.
 struct CommentReactionPill: View {
     let symbol: ImageResource
     let count: Int?
@@ -49,7 +49,7 @@ struct CommentReactionPill: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(symbol).foregroundStyle(Color.seekButtonIcon)
+            Image(symbol).foregroundStyle(tint.opacity(isSelected ? 1 : 0.75))
             if let count, count > 0 {
                 Text(count.formatted()).foregroundStyle(isSelected ? tint : Color.secondary)
             }
