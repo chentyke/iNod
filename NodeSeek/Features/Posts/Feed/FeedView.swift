@@ -7,6 +7,7 @@ struct FeedView: View {
     var recommended = false
     var isLinkedPage = false
     var selectedPostID: Int? = nil
+    let scrollToTopRequest: UUID?
     @Environment(\.openPost) private var openPost
     @Environment(\.openMemberDestination) private var openMember
     @Environment(AccountSession.self) private var account
@@ -54,12 +55,14 @@ struct FeedView: View {
         initialSort: FeedSort = .replyTime,
         initialQuery: String = "",
         isLinkedPage: Bool = false,
-        selectedPostID: Int? = nil
+        selectedPostID: Int? = nil,
+        scrollToTopRequest: UUID? = nil
     ) {
         self.isSearch = isSearch
         self.recommended = recommended
         self.isLinkedPage = isLinkedPage
         self.selectedPostID = selectedPostID
+        self.scrollToTopRequest = scrollToTopRequest
         _category = State(initialValue:initialCategory); _sort = State(initialValue:initialSort)
         _query = State(initialValue:initialQuery); _submittedQuery = State(initialValue:initialQuery)
     }
@@ -191,11 +194,29 @@ struct FeedView: View {
         return c?.url
     }
 
+    private enum FeedScrollTarget: Hashable {
+        case top
+    }
+
     private var postList: some View {
+        ScrollViewReader { proxy in
+            feedList
+                .onChange(of: scrollToTopRequest) {
+                    guard scrollToTopRequest != nil else { return }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+                        proxy.scrollTo(FeedScrollTarget.top, anchor: .top)
+                    }
+                }
+        }
+    }
+
+    private var feedList: some View {
         let matchesVisibility = loadedKey?.kind == feedKind
         let isSwitchingVisibility = !matchesVisibility && (!isSearch || !submittedQuery.isEmpty)
+        let verticalMargin: CGFloat = recommended ? 8 : 6
         return List {
             if let error, hasContent {
+                topMargin(visualHeight: verticalMargin)
                 // A failed refresh keeps the posts already on screen and notes the problem above them.
                 LoadFailureBanner(failure: error, isRetrying: isLoading) { refreshID = UUID() }
                     .listRowInsets(EdgeInsets(top: 4, leading: SeekLayout.gutter, bottom: 6, trailing: SeekLayout.gutter))
@@ -203,6 +224,9 @@ struct FeedView: View {
                     .listRowSeparator(.hidden)
             }
             Section {
+                if error == nil || !hasContent {
+                    topMargin(visualHeight: verticalMargin)
+                }
                 if matchesVisibility {
                     if pinnedPosts.count > 1 {
                         PinnedPostCarousel(posts: pinnedPosts, card: postButton)
@@ -252,7 +276,11 @@ struct FeedView: View {
             }
         }
         .seekCanvas(margins: .keepsGutter)
-        .contentMargins(.vertical, recommended ? 8 : 6, for: .scrollContent)
+        .contentMargins(.top, scrollToTopRequest == nil ? verticalMargin : 0, for: .scrollContent)
+        .contentMargins(.bottom, verticalMargin, for: .scrollContent)
+        .transformEnvironment(\.defaultMinListRowHeight) { height in
+            if scrollToTopRequest != nil { height = 0 }
+        }
         // On a Mac the filter row's controls live in the window toolbar and sidebar, so the list starts right under the toolbar.
         .modifier(OptionalFeedFilterBar(isEnabled: !recommended && !usesMacToolbar) { filterBar })
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { listWidth = $0 }
@@ -272,6 +300,18 @@ struct FeedView: View {
         #if DEBUG
         .modifier(UITestPostOpener(posts: posts, isEnabled: !isSearch && !recommended && !isLinkedPage))
         #endif
+    }
+
+    @ViewBuilder private func topMargin(visualHeight: CGFloat) -> some View {
+        if scrollToTopRequest != nil {
+            // A row at the top lets the list scroll back to the margin above the first post.
+            Color.clear.frame(height: visualHeight)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .accessibilityHidden(true)
+                .id(FeedScrollTarget.top)
+        }
     }
 
     private var hasContent: Bool { !posts.isEmpty || !pinnedPosts.isEmpty }

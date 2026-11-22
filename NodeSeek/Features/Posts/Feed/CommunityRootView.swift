@@ -9,6 +9,7 @@ struct CommunityRootView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.tabBarPlacement) private var tabPlacement
     let sharedTabRow: ReaderTabRow?
+    let scrollToTopRequest: UUID
     @Binding var showsTopTabs: Bool
     @State private var selectedPost: PostSummary?
     @State private var detailPath = NavigationPath()
@@ -111,7 +112,7 @@ struct CommunityRootView: View {
     }
 
     private var splitFeed: some View {
-        FeedView(selectedPostID: selectedPost?.id)
+        FeedView(selectedPostID: selectedPost?.id, scrollToTopRequest: scrollToTopRequest)
             .tint(Color.seekGreen)
             .environment(\.openPost, PostNavigationAction { select($0) })
             .environment(\.openMemberDestination, MemberNavigationAction { push($0) })
@@ -150,7 +151,7 @@ struct CommunityRootView: View {
             restoresTabBarDuringZoom: true,
             onOpenRootPost: { selectedPost = $0 }
         ) {
-            FeedView()
+            FeedView(scrollToTopRequest: scrollToTopRequest)
         }
     }
 
