@@ -48,6 +48,10 @@ struct PinnedPostCarousel<Card: View>: View {
     @State private var restart = 0
     @State private var deadline: ContinuousClock.Instant?
     @State private var outgoingFill: (postID: Int, fraction: CGFloat)?
+    #if targetEnvironment(macCatalyst)
+    @State private var scrollPhase: ScrollPhase = .idle
+    @State private var pendingScrollGeometry: ScrollGeometry?
+    #endif
 
     private var pages: [Page] {
         let originals = posts.map { Page(id: .post($0.id), post: $0) }
@@ -87,22 +91,58 @@ struct PinnedPostCarousel<Card: View>: View {
             .contentMargins(.horizontal, 0, for: .scrollContent)
             .safeAreaPadding(.horizontal, 16)
             .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByOne, anchor: .center))
+            #if targetEnvironment(macCatalyst)
+            // Start one card past the leading copy, even while the window is being laid out.
+            .defaultScrollAnchor(UnitPoint(x: 1 / CGFloat(max(1, pages.count - 1)), y: 0.5), for: .initialOffset)
+            #endif
             .scrollPosition($position, anchor: .center)
             .scrollIndicators(.hidden)
+            #if !targetEnvironment(macCatalyst)
             .onScrollGeometryChange(for: Bool.self) { $0.contentSize.width > 0 } action: { _, hasContent in
                 if hasContent, !hasPositionedFirstPage, let firstID = posts.first?.id {
-                    hasPositionedFirstPage = true
-                    settledID = firstID
-                    moveWithoutAnimation(to: .post(firstID))
+                    positionFirstPage(firstID)
                 }
             }
+            #endif
             .onScrollPhaseChange { _, phase, context in
+                #if targetEnvironment(macCatalyst)
+                scrollPhase = phase
+                pendingScrollGeometry = nil
+                if !hasPositionedFirstPage {
+                    if phase == .idle { pendingScrollGeometry = context.geometry }
+                    return
+                }
+                #endif
                 if phase == .idle {
                     finishScroll(at: context.geometry)
                 } else if scrollStartedAt == nil {
                     scrollStartedAt = .now
                 }
             }
+            #if targetEnvironment(macCatalyst)
+            .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
+                guard scrollPhase == .idle else { return }
+                if !hasPositionedFirstPage {
+                    pendingScrollGeometry = new
+                } else if old.contentOffset.x != new.contentOffset.x {
+                    // Trackpad scrolling can move the carousel without changing its SwiftUI scroll phase.
+                    if scrollStartedAt == nil { scrollStartedAt = .now }
+                    pendingScrollGeometry = new
+                }
+            }
+            .task(id: pendingScrollGeometry) { [pendingScrollGeometry] in
+                guard let geometry = pendingScrollGeometry, geometry.contentSize.width > 0 else { return }
+                do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
+                guard !Task.isCancelled, geometry == self.pendingScrollGeometry else { return }
+                self.pendingScrollGeometry = nil
+                if !hasPositionedFirstPage, let firstID = posts.first?.id {
+                    // The split view can resize the carousel several times during its initial layout.
+                    positionFirstPage(firstID)
+                } else {
+                    finishScroll(at: geometry)
+                }
+            }
+            #endif
 
             HStack(spacing: 0) {
                 ForEach(posts) { post in
@@ -167,6 +207,12 @@ struct PinnedPostCarousel<Card: View>: View {
         return .post(postID)
     }
 
+    private func positionFirstPage(_ firstID: Int) {
+        hasPositionedFirstPage = true
+        settledID = firstID
+        moveWithoutAnimation(to: .post(firstID))
+    }
+
     private func finishScroll(at geometry: ScrollGeometry) {
         let pages = self.pages
         guard !pages.isEmpty, geometry.contentSize.width > 0 else {
@@ -180,14 +226,25 @@ struct PinnedPostCarousel<Card: View>: View {
             : geometry.visibleRect.midX
         let index = min(max(Int((center + Self.cardSpacing / 2) / step), 0), pages.count - 1)
         let page = pages[index].id
+        let needsCentering: Bool
+        #if targetEnvironment(macCatalyst)
+        let pageCenter = (CGFloat(index) + 0.5) * step - Self.cardSpacing / 2
+        needsCentering = abs(center - pageCenter) > 1
+        #else
+        needsCentering = false
+        #endif
+        if needsCentering, !reduceMotion {
+            show(page)
+            return
+        }
         if let currentID, currentID != page.postID {
             outgoingFill = (currentID, fillFraction)
         }
         settledID = page.postID
         deadline = nil
         scrollStartedAt = nil
-        if page.isCopy {
-            // The two cards look identical, so moving to the original stays invisible.
+        if page.isCopy || needsCentering {
+            // A centered copy can jump to its identical original without a visible change.
             moveWithoutAnimation(to: .post(page.postID))
         }
     }
