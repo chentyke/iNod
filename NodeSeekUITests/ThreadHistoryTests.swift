@@ -8,6 +8,35 @@ final class ThreadHistoryTests: XCTestCase {
     private let openingText = "周六下午两点开始读书。"
     private let timestamp = "2025-01-04T12:00:00.000Z"
 
+    #if targetEnvironment(macCatalyst)
+    func testHorizontalScrollSettlesOnAPinnedCard() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["NODESEEK_UI_TEST_WEBSITE"] = try websiteFixture(showsCarousel: true)
+        app.launchArguments += ["--ui-test-no-carousel-autoplay", "-appearance", "dark"]
+        app.launch()
+
+        let carousel = app.scrollViews.containing(NSPredicate(format: "label BEGINSWITH %@", "置顶，")).firstMatch
+        XCTAssertTrue(carousel.waitForExistence(timeout: 10))
+        let frame = carousel.frame
+        let firstCard = carousel.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "置顶，\(title)")).firstMatch
+        let lastCard = carousel.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "置顶，本月读书会公告")).firstMatch
+        XCTAssertTrue(firstCard.wait(for: \.isHittable, toEqual: true, timeout: 5))
+        let initialFrame = firstCard.frame
+        XCTAssertEqual(initialFrame.midX, frame.midX, accuracy: 2)
+
+        let center = firstCard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        center.hover()
+        center.scroll(byDeltaX: -initialFrame.width * 1.2, deltaY: 0)
+        let centered = lastCard.wait(for: \.frame, toEqual: initialFrame, timeout: 4)
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "Pinned carousel after horizontal scroll"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        XCTAssertTrue(centered, "Scrolling back from the first card should center the last card. Actual frame: \(lastCard.frame)")
+    }
+    #endif
+
     func testOpeningLongPinnedPostShowsTheWholeBeginning() throws {
         continueAfterFailure = false
         let server = try startImageServer()
